@@ -235,11 +235,11 @@ export default defineContentScript({
     });
 
     // Temporarily show contentAutofill permanent UI for testing
-    // const manager = ensurePreviewManager(ctx);
-    // manager.showLoading({
-    //   state: "detecting",
-    //   message: "Detecting forms on the page...",
-    // });
+    const manager = ensurePreviewManager(ctx);
+    manager.showLoading({
+      state: "detecting",
+      message: "Detecting forms on the page...",
+    });
     // await manager.show({
     //   payload: {
     //     mappings: [
