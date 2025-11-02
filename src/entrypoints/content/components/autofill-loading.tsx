@@ -1,4 +1,3 @@
-import { HeartCrackIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,6 +8,8 @@ import {
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import type { AutofillProgress } from "@/types/autofill";
+import { HeartCrackIcon, XIcon } from "lucide-react";
+import { MemoryLoader } from "./memory-loader";
 
 type AutofillLoadingProps = {
   progress: AutofillProgress;
@@ -50,15 +51,15 @@ export const AutofillLoading = ({
         <CardHeader className="border-b bg-background/95 px-5 py-4 flex items-start justify-between gap-3">
           <div className="space-y-1 flex-1">
             <CardTitle className="text-base flex items-center gap-2">
-              {progress.state !== "failed" ? (
-                <Spinner className="size-4" />
-              ) : (
+              {progress.state === "failed" ? (
                 <HeartCrackIcon className="size-4" />
+              ) : (
+                <Spinner className="size-4" />
               )}
               {getProgressTitle(progress.state)}
             </CardTitle>
             <CardDescription className="text-xs">
-              {getProgressDescription(progress)}
+              Please do not navigate away from this page.
             </CardDescription>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -66,13 +67,11 @@ export const AutofillLoading = ({
           </Button>
         </CardHeader>
 
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center space-y-4">
-            <Spinner className="size-12 mx-auto" />
-            <p className="text-sm text-muted-foreground max-w-xs">
-              {progress.message}
-            </p>
-          </div>
+        <div className="flex-1 flex flex-col gap-4 items-center justify-center p-8">
+          <MemoryLoader />
+          <p className="text-sm text-muted-foreground max-w-xs text-center">
+            {getProgressDescription(progress)}
+          </p>
         </div>
 
         <CardFooter className="border-t bg-background px-5 py-4">

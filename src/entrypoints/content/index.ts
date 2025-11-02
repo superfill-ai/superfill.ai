@@ -1,6 +1,5 @@
 import "./content.css";
 
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
 import { createLogger } from "@/lib/logger";
 import type {
@@ -12,6 +11,7 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { FieldAnalyzer } from "./field-analyzer";
 import { FormDetector } from "./form-detector";
 import { PreviewSidebarManager } from "./preview-manager";
@@ -236,6 +236,10 @@ export default defineContentScript({
 
     // Temporarily show contentAutofill permanent UI for testing
     // const manager = ensurePreviewManager(ctx);
+    // manager.showLoading({
+    //   state: "detecting",
+    //   message: "Detecting forms on the page...",
+    // });
     // await manager.show({
     //   payload: {
     //     mappings: [

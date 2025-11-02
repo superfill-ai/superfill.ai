@@ -128,6 +128,7 @@ export interface FieldMapping {
     value: string;
     confidence: number;
   }>;
+  autoFill?: boolean;
 }
 
 export interface AutofillResult {

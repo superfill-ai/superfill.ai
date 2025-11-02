@@ -1,9 +1,3 @@
-import { createRoot, type Root } from "react-dom/client";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import {
-  createShadowRootUi,
-  type ShadowRootContentScriptUi,
-} from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
@@ -11,6 +5,12 @@ import { useSettingsStore } from "@/stores/settings";
 import type { AutofillProgress } from "@/types/autofill";
 import type { FormField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
+import { createRoot, type Root } from "react-dom/client";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import {
+  createShadowRootUi,
+  type ShadowRootContentScriptUi,
+} from "wxt/utils/content-script-ui/shadow-root";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -153,6 +153,7 @@ export class PreviewSidebarManager {
     ui.mount();
 
     const root = ui.mounted ?? this.reactRoot;
+
     if (!root) {
       return;
     }
@@ -175,6 +176,7 @@ export class PreviewSidebarManager {
     ui.mount();
 
     const root = ui.mounted ?? this.reactRoot;
+
     if (!root) {
       return;
     }
