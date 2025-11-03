@@ -101,14 +101,14 @@ export const App = () => {
     try {
       const userSettings = await store.userSettings.getValue();
       const apiKey = await keyVault.getKey(userSettings.selectedProvider);
-      toast.info("Starting autofill...");
+      toast.info("Starting autofill... This window will close shortly.");
 
       const autofillService = getAutofillService();
       autofillService.startAutofillOnActiveTab(apiKey || undefined);
 
       setTimeout(() => {
         window.close();
-      }, 600);
+      }, 500);
     } catch (error) {
       logger.error("Autofill error:", error);
       toast.error(
