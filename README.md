@@ -128,42 +128,9 @@ bun dev
    - **Anthropic**: Get key at [console.anthropic.com](https://console.anthropic.com/)
    - **Groq**: Get key at [console.groq.com](https://console.groq.com/)
    - **DeepSeek**: Get key at [platform.deepseek.com](https://platform.deepseek.com/)
+   - **Gemini (Google)**: Get key at [cloud.google.com/ai-generate](https://aistudio.google.com/)
 4. Select your preferred provider
 5. Click "Save API Keys"
-
----
-
-## 📁 Project Structure
-
-```
-superfill.ai/
-├── src/
-│   ├── entrypoints/           # Extension entry points
-│   │   ├── background/        # Service worker
-│   │   ├── popup/            # Extension popup (400x600)
-│   │   ├── options/          # Full-page settings
-│   │   └── content.ts        # Content script (Phase 2)
-│   ├── components/
-│   │   ├── ui/               # shadcn/ui components
-│   │   ├── features/         # Feature-specific components
-│   │   │   └── memory/       # Memory management UI
-│   │   └── layout/           # Layout components
-│   ├── lib/
-│   │   ├── ai/               # AI integration
-│   │   ├── storage/          # Storage layer (modular)
-│   │   ├── security/         # Encryption & key management
-│   │   ├── providers/        # AI provider configs
-│   │   └── utils/            # Utilities
-│   ├── stores/               # Zustand stores
-│   │   ├── memory.ts         # Memory CRUD
-│   │   ├── settings.ts       # UI/UX settings
-│   │   ├── form.ts           # Form mappings (Phase 2)
-│   │   └── sync.ts           # Cloud sync (Phase 2)
-│   ├── types/                # TypeScript definitions
-│   └── hooks/                # React hooks
-├── AGENTS.md                 # AI development guide
-└── wxt.config.ts             # WXT configuration
-```
 
 ---
 
@@ -184,6 +151,7 @@ superfill.ai/
 3. Search, filter, or sort memories
 4. Click any memory card to edit/delete/duplicate
 5. Use Import/Export for bulk operations
+6. Download CSV template for correct format
 
 ### Configuring Settings
 
@@ -194,6 +162,7 @@ superfill.ai/
    - **Autofill**: Enable/disable + confidence threshold
    - **API Keys**: Set provider credentials
    - **Trigger Mode**: Popup (default, others coming soon)
+   - **Copilot Mode**: Enable/disable (coming soon)
 
 ---
 
@@ -216,19 +185,6 @@ bun run typecheck
 
 # Lint code
 bun run lint
-```
-
-### Testing
-
-```bash
-# Run tests (coming soon)
-bun test
-
-# Run tests in watch mode
-bun test --watch
-
-# Coverage report
-bun test --coverage
 ```
 
 ### Browser Support
@@ -255,26 +211,46 @@ bun test --coverage
 - [x] Theme support (light/dark)
 - [x] Virtual scrolling performance
 - [x] Settings management
-- [ ] Form detection algorithm
-- [ ] Field-to-memory matching
-- [ ] Auto-fill functionality
-- [ ] Auto-fill engine
+- [x] Form detection algorithm
+- [x] Field-to-memory matching
+- [x] Auto-fill functionality
+- [x] Auto-fill engine
+- [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
+- [ ] Autofill directly without preview mode (copilot mode, like Google or Bitwarden autofill)
+- [ ] Parse pdf to extract content for memory creation
+- [ ] Auto adding memories from filled forms based on user confirmation
+- [ ] Let AI rephrase questions/answers on memory creation
+- [ ] Let AI rephrase answers on auto-fill based on form context
+- [ ] Firefox support
 
-### 📋 In Progress (Phase 2)
+### 📋 In Progress (Phase 2, Nov 15th)
 
-- [ ] Cloud AI model integration
-- [ ] Cloud sync backend
-- [ ] Multi-device support
-- [ ] Reinforcement learning for AI model memory prediction improvement
+#### Free features
+
 - [ ] Upvote/downvote memory suggestions
-
-### 📋 Planned (Future)
-
-- [ ] RAG for large datasets
-- [ ] Team features
-- [ ] Browser history integration
+- [ ] Mark memories as favorites
+- [ ] Multi page form support
+- [ ] Keyboard navigation enhancements
+- [ ] Customizable autofill shortcuts
+- [ ] Customizable autofill templates (Industry-specific templates)
 - [ ] Custom AI prompts
+- [ ] Semantic search across stored data
+
+#### Premium features
+
+- [x] Cloud AI model integration
+- [x] Sign in & cloud sync
+- [ ] Multi-device support
+- [ ] Reinforcement learning for user corrections
+- [ ] AI model memory prediction improvement
+- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
+- [ ] Team features
 - [ ] Analytics dashboard
+- [ ] SOC 2 Type II certification
+- [ ] GDPR compliance
+- [ ] Data residency options
+- [ ] Audit logs
+- [ ] SSO integration
 
 ---
 
