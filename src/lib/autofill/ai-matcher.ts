@@ -10,7 +10,7 @@ import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { langfuseSpanProcessor } from "../instrumentation";
+import { langfuseSpanProcessor } from "../observability/langfuse";
 import { MIN_MATCH_CONFIDENCE } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";

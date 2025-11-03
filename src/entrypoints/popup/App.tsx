@@ -106,9 +106,9 @@ export const App = () => {
       const autofillService = getAutofillService();
       autofillService.startAutofillOnActiveTab(apiKey || undefined);
 
-      // setTimeout(() => {
-      //   window.close();
-      // }, 500);
+      setTimeout(() => {
+        window.close();
+      }, 600);
     } catch (error) {
       logger.error("Autofill error:", error);
       toast.error(

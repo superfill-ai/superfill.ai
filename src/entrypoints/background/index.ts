@@ -5,8 +5,8 @@ import {
   getSessionService,
   registerSessionService,
 } from "@/lib/autofill/session-service";
-import { tracerProvider } from "@/lib/instrumentation";
 import { createLogger } from "@/lib/logger";
+import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
 
 const logger = createLogger("background");

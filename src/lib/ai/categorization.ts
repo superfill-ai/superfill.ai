@@ -5,7 +5,7 @@ import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { langfuseSpanProcessor } from "../instrumentation";
+import { langfuseSpanProcessor } from "../observability/langfuse";
 
 const logger = createLogger("ai:categorization");
 
