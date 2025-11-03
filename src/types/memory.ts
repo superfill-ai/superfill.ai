@@ -8,7 +8,7 @@ export const memoryEntrySchema = z.object({
     .uuid({
       version: "v7",
     })
-    .optional(), // Phase 2: Syncing across devices
+    .optional(),
   question: z.string().optional(),
   answer: z.string(),
   category: z.string(),
@@ -30,7 +30,7 @@ export const memoryEntrySchema = z.object({
       })
       .optional(),
   }),
-  embedding: z.array(z.number()).optional(), // Phase 2: Vector embedding
+  embedding: z.array(z.number()).optional(),
 });
 
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
@@ -52,8 +52,8 @@ export const formMappingSchema = z.object({
   url: z.url(),
   formId: z.string().optional(),
   fields: z.array(formFieldSchema),
-  matches: z.map(z.string(), memoryEntrySchema), // Map form field name to MemoryEntry (field.name -> potential matches)
-  confidence: z.number().min(0).max(1), // Overall confidence score for the mapping
+  matches: z.map(z.string(), memoryEntrySchema),
+  confidence: z.number().min(0).max(1),
   timestamp: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
   }),
@@ -89,8 +89,8 @@ export const fillSessionSchema = z.object({
 export type FillSession = z.infer<typeof fillSessionSchema>;
 
 export const syncStateSchema = z.object({
-  syncUrl: z.string(), // Phase 2: Unique sync URL
-  syncToken: z.string(), // Phase 2: Auth token
+  syncUrl: z.string(),
+  syncToken: z.string(),
   lastSync: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
   }),
