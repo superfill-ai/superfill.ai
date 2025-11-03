@@ -1,6 +1,6 @@
-import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
+import { defineProxyService } from "@webext-core/proxy-service";
 import {
   type AnalysisResult,
   categorizationAgent,
@@ -22,13 +22,15 @@ class CategorizationService {
       }
 
       const userSettings = await store.userSettings.getValue();
-      const { selectedProvider } = userSettings;
+      const { selectedProvider, selectedModels } = userSettings;
+      const selectedModel = selectedModels?.[selectedProvider];
 
       const result = await categorizationAgent(
         answer,
         question,
         selectedProvider,
         apiKey,
+        selectedModel,
       );
 
       return result;

@@ -9,6 +9,7 @@ export interface EncryptedKey {
 
 export interface UserSettings {
   selectedProvider: AIProvider;
+  selectedModels?: Partial<Record<AIProvider, string>>;
   autoFillEnabled: boolean;
   confidenceThreshold: number;
 }

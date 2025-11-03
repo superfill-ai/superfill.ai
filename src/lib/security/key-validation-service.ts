@@ -1,5 +1,5 @@
-import { defineProxyService } from "@webext-core/proxy-service";
 import type { AIProvider } from "@/lib/providers/registry";
+import { defineProxyService } from "@webext-core/proxy-service";
 
 class KeyValidationService {
   async validateKey(provider: AIProvider, key: string): Promise<boolean> {
@@ -13,8 +13,10 @@ class KeyValidationService {
           return await this.testGroqKey(key);
         case "deepseek":
           return await this.testDeepSeekKey(key);
-        case "ollama":
-          return true; // Local, no validation needed
+        case "gemini":
+          return await this.testGeminiKey(key);
+        // case "ollama":
+        //   return true; // Local, no validation needed
         default:
           return false;
       }
@@ -72,6 +74,17 @@ class KeyValidationService {
       const response = await fetch("https://api.deepseek.com/v1/models", {
         headers: { Authorization: `Bearer ${key}` },
       });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  private async testGeminiKey(key: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models?key=${key}`,
+      );
       return response.ok;
     } catch {
       return false;

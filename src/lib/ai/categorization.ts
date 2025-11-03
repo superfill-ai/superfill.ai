@@ -102,9 +102,10 @@ export const categorizationAgent = async (
   question: string | undefined,
   provider: AIProvider,
   apiKey: string,
+  modelName?: string,
 ): Promise<AnalysisResult> => {
   try {
-    const model = getAIModel(provider, apiKey);
+    const model = getAIModel(provider, apiKey, modelName);
 
     const systemPrompt = `You are a data categorization expert. Your task is to analyze user input and determine:
 1. The most appropriate category from: contact, location, personal, work, education, or general

@@ -59,6 +59,7 @@ export class AIMatcher {
     memories: CompressedMemoryData[],
     provider: AIProvider,
     apiKey: string,
+    modelName?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       logger.info("No fields to match");
@@ -83,6 +84,7 @@ export class AIMatcher {
         memories,
         provider,
         apiKey,
+        modelName,
       );
       const mappings = this.convertAIResultsToMappings(
         aiResults,
@@ -107,9 +109,10 @@ export class AIMatcher {
     memories: CompressedMemoryData[],
     provider: AIProvider,
     apiKey: string,
+    modelName?: string,
   ): Promise<AIBatchMatchResult> {
     try {
-      const model = getAIModel(provider, apiKey);
+      const model = getAIModel(provider, apiKey, modelName);
 
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(fields, memories);

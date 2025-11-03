@@ -1,4 +1,3 @@
-import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +24,8 @@ import {
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
 import { useSettingsStore } from "@/stores/settings";
+import { useEffect, useId, useState } from "react";
+import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 
 export const AiProviderSettings = () => {
@@ -76,16 +77,22 @@ export const AiProviderSettings = () => {
       <CardContent>
         <FieldGroup>
           {allConfigs.map((config) => (
-            <ProviderKeyInput
-              key={config.id}
-              providerId={config.id}
-              config={config}
-              value={providerKeys[config.id] || ""}
-              onChange={(value) => handleKeyChange(config.id, value)}
-              showKey={!!showKeys[config.id]}
-              onToggleShow={() => handleToggleShowKey(config.id)}
-              hasExistingKey={!!keyStatuses?.[config.id]}
-            />
+            <div key={config.id} className="flex gap-2">
+              <ProviderKeyInput
+                providerId={config.id}
+                config={config}
+                value={providerKeys[config.id] || ""}
+                onChange={(value) => handleKeyChange(config.id, value)}
+                showKey={!!showKeys[config.id]}
+                onToggleShow={() => handleToggleShowKey(config.id)}
+                hasExistingKey={!!keyStatuses?.[config.id]}
+              />
+              <ModelSelector
+                provider={config.id as AIProvider}
+                providerName={config.name}
+                hasApiKey={!!keyStatuses?.[config.id]}
+              />
+            </div>
           ))}
 
           <Button

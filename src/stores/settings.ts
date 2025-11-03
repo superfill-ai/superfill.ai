@@ -1,5 +1,3 @@
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
@@ -7,6 +5,8 @@ import { store } from "@/lib/storage";
 import type { UserSettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
 import { Trigger } from "@/types/trigger";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:settings");
 
@@ -14,6 +14,7 @@ type SettingsState = {
   theme: Theme;
   trigger: Trigger;
   selectedProvider: AIProvider;
+  selectedModels: Partial<Record<AIProvider, string>>;
   autoFillEnabled: boolean;
   confidenceThreshold: number;
   loading: boolean;
@@ -25,6 +26,7 @@ type SettingsActions = {
   toggleTheme: () => Promise<void>;
   setTrigger: (trigger: Trigger) => Promise<void>;
   setSelectedProvider: (provider: AIProvider) => Promise<void>;
+  setSelectedModel: (provider: AIProvider, model: string) => Promise<void>;
   setAutoFillEnabled: (enabled: boolean) => Promise<void>;
   setConfidenceThreshold: (threshold: number) => Promise<void>;
   setApiKey: (provider: AIProvider, key: string) => Promise<void>;
@@ -37,6 +39,7 @@ const defaultSettings: SettingsState = {
   theme: Theme.DEFAULT,
   trigger: Trigger.POPUP,
   selectedProvider: "openai",
+  selectedModels: {},
   autoFillEnabled: true,
   confidenceThreshold: 0.6,
   loading: false,
@@ -112,6 +115,28 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set provider";
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
+      },
+
+      setSelectedModel: async (provider: AIProvider, model: string) => {
+        try {
+          set({ loading: true, error: null });
+          const currentModels = get().selectedModels;
+          const updatedModels = { ...currentModels, [provider]: model };
+          set({ selectedModels: updatedModels });
+
+          const currentSettings = await store.userSettings.getValue();
+          await store.userSettings.setValue({
+            ...currentSettings,
+            selectedModels: updatedModels,
+          });
+
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to set model";
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -222,6 +247,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
             store.trigger.setValue(defaultSettings.trigger),
             store.userSettings.setValue({
               selectedProvider: defaultSettings.selectedProvider,
+              selectedModels: defaultSettings.selectedModels,
               autoFillEnabled: defaultSettings.autoFillEnabled,
               confidenceThreshold: defaultSettings.confidenceThreshold,
             }),
@@ -252,6 +278,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
                 theme,
                 trigger,
                 selectedProvider: userSettings.selectedProvider,
+                selectedModels: userSettings.selectedModels || {},
                 autoFillEnabled: userSettings.autoFillEnabled,
                 confidenceThreshold: userSettings.confidenceThreshold,
                 loading: false,
@@ -283,6 +310,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
               store.trigger.setValue(state.trigger),
               store.userSettings.setValue({
                 selectedProvider: state.selectedProvider,
+                selectedModels: state.selectedModels,
                 autoFillEnabled: state.autoFillEnabled,
                 confidenceThreshold: state.confidenceThreshold,
               }),
@@ -298,6 +326,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
             store.trigger.setValue(Trigger.POPUP),
             store.userSettings.setValue({
               selectedProvider: "openai",
+              selectedModels: {},
               autoFillEnabled: true,
               confidenceThreshold: 0.6,
             }),

@@ -1,0 +1,250 @@
+import { defineProxyService } from "@webext-core/proxy-service";
+import type { AIProvider } from "./registry";
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  contextWindow?: number;
+  description?: string;
+}
+
+interface OpenAIModel {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+}
+
+interface GeminiModel {
+  name: string;
+  supportedGenerationMethods?: string[];
+  displayName?: string;
+}
+
+const DEFAULT_MODELS: Record<AIProvider, ModelInfo[]> = {
+  openai: [
+    { id: "gpt-5-nano", name: "GPT-5 Nano", contextWindow: 128000 },
+    { id: "gpt-5-mini", name: "GPT-5 Mini", contextWindow: 128000 },
+    { id: "gpt-4o", name: "GPT-4o", contextWindow: 128000 },
+    { id: "gpt-4o-mini", name: "GPT-4o Mini", contextWindow: 128000 },
+  ],
+  anthropic: [
+    {
+      id: "claude-haiku-4-5-latest",
+      name: "Claude Haiku 4.5",
+      contextWindow: 200000,
+    },
+    {
+      id: "claude-3-5-sonnet-latest",
+      name: "Claude 3.5 Sonnet",
+      contextWindow: 200000,
+    },
+    {
+      id: "claude-3-opus-latest",
+      name: "Claude 3 Opus",
+      contextWindow: 200000,
+    },
+  ],
+  groq: [
+    {
+      id: "llama-4-maverick",
+      name: "Llama 4 Maverick 400B",
+      contextWindow: 128000,
+    },
+    {
+      id: "llama-3.3-70b-versatile",
+      name: "Llama 3.3 70B Versatile",
+      contextWindow: 128000,
+    },
+    {
+      id: "llama-3.1-70b-versatile",
+      name: "Llama 3.1 70B Versatile",
+      contextWindow: 128000,
+    },
+  ],
+  deepseek: [
+    { id: "deepseek-v3", name: "DeepSeek V3", contextWindow: 64000 },
+    { id: "deepseek-r1", name: "DeepSeek R1", contextWindow: 64000 },
+    { id: "deepseek-chat", name: "DeepSeek Chat", contextWindow: 64000 },
+  ],
+  gemini: [
+    {
+      id: "gemini-2.5-flash",
+      name: "Gemini 2.5 Flash",
+      contextWindow: 1048576,
+    },
+    {
+      id: "gemini-2.5-pro",
+      name: "Gemini 2.5 Pro",
+      contextWindow: 1048576,
+    },
+    {
+      id: "gemini-2.0-flash",
+      name: "Gemini 2.0 Flash",
+      contextWindow: 1048576,
+    },
+  ],
+};
+
+class ModelService {
+  async getModels(provider: AIProvider, apiKey?: string): Promise<ModelInfo[]> {
+    try {
+      if (!apiKey) {
+        return DEFAULT_MODELS[provider] || [];
+      }
+
+      switch (provider) {
+        case "openai":
+          return await this.fetchOpenAIModels(apiKey);
+        case "anthropic":
+          // Anthropic doesn't have a public models endpoint, use defaults
+          return DEFAULT_MODELS.anthropic;
+        case "groq":
+          return await this.fetchGroqModels(apiKey);
+        case "deepseek":
+          return await this.fetchDeepSeekModels(apiKey);
+        case "gemini":
+          return await this.fetchGeminiModels(apiKey);
+        default:
+          return DEFAULT_MODELS[provider] || [];
+      }
+    } catch (error) {
+      console.error(`Failed to fetch models for ${provider}:`, error);
+      return DEFAULT_MODELS[provider] || [];
+    }
+  }
+
+  private async fetchOpenAIModels(apiKey: string): Promise<ModelInfo[]> {
+    try {
+      const response = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      if (!response.ok) {
+        return DEFAULT_MODELS.openai;
+      }
+
+      const data = (await response.json()) as { data: OpenAIModel[] };
+      const models = data.data
+        .filter((m: OpenAIModel) => m.id.startsWith("gpt-"))
+        .map((m: OpenAIModel) => ({
+          id: m.id,
+          name: m.id
+            .split("-")
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" "),
+        }));
+
+      return models.length > 0 ? models : DEFAULT_MODELS.openai;
+    } catch {
+      return DEFAULT_MODELS.openai;
+    }
+  }
+
+  private async fetchGroqModels(apiKey: string): Promise<ModelInfo[]> {
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      if (!response.ok) {
+        return DEFAULT_MODELS.groq;
+      }
+
+      const data = (await response.json()) as { data: OpenAIModel[] };
+      const models = data.data
+        .filter(
+          (m: OpenAIModel) =>
+            !m.id.includes("whisper") &&
+            !m.id.includes("distil") &&
+            !m.id.includes("guard"),
+        )
+        .map((m: OpenAIModel) => ({
+          id: m.id,
+          name: m.id
+            .split("-")
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" "),
+        }));
+
+      return models.length > 0 ? models : DEFAULT_MODELS.groq;
+    } catch {
+      return DEFAULT_MODELS.groq;
+    }
+  }
+
+  private async fetchDeepSeekModels(apiKey: string): Promise<ModelInfo[]> {
+    try {
+      const response = await fetch("https://api.deepseek.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      if (!response.ok) {
+        return DEFAULT_MODELS.deepseek;
+      }
+
+      const data = (await response.json()) as { data: OpenAIModel[] };
+      const models = data.data.map((m: OpenAIModel) => ({
+        id: m.id,
+        name: m.id
+          .split("-")
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" "),
+      }));
+
+      return models.length > 0 ? models : DEFAULT_MODELS.deepseek;
+    } catch {
+      return DEFAULT_MODELS.deepseek;
+    }
+  }
+
+  private async fetchGeminiModels(apiKey: string): Promise<ModelInfo[]> {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`,
+      );
+
+      if (!response.ok) {
+        return DEFAULT_MODELS.gemini;
+      }
+
+      const data = (await response.json()) as { models: GeminiModel[] };
+      const models = data.models
+        .filter(
+          (m: GeminiModel) =>
+            m.name.includes("gemini") &&
+            m.supportedGenerationMethods?.includes("generateContent"),
+        )
+        .map((m: GeminiModel) => {
+          const id = m.name.replace("models/", "");
+          return {
+            id,
+            name: id
+              .split("-")
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" "),
+          };
+        });
+
+      return models.length > 0 ? models : DEFAULT_MODELS.gemini;
+    } catch {
+      return DEFAULT_MODELS.gemini;
+    }
+  }
+
+  getDefaultModel(provider: AIProvider): string {
+    const defaults: Record<AIProvider, string> = {
+      openai: "gpt-5-nano",
+      anthropic: "claude-haiku-4-5-latest",
+      groq: "llama-4-maverick",
+      deepseek: "deepseek-v3",
+      gemini: "gemini-2.5-flash",
+    };
+    return defaults[provider];
+  }
+}
+
+export const [registerModelService, getModelService] = defineProxyService(
+  "ModelService",
+  () => new ModelService(),
+);

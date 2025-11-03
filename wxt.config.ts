@@ -13,6 +13,9 @@ export default defineConfig({
     host_permissions: [
       "https://api.openai.com/*",
       "https://api.anthropic.com/*",
+      "https://api.groq.com/*",
+      "https://api.deepseek.com/*",
+      "https://generativelanguage.googleapis.com/*",
     ],
     manifest: {
       icons: {

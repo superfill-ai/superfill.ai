@@ -441,6 +441,7 @@ class AutofillService {
     try {
       const userSettings = await store.userSettings.getValue();
       const provider = userSettings.selectedProvider as AIProvider;
+      const selectedModel = userSettings.selectedModels?.[provider];
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");
@@ -455,6 +456,7 @@ class AutofillService {
         compressedMemories,
         provider,
         apiKey,
+        selectedModel,
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);

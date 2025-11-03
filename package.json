@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.34",
+    "@ai-sdk/google": "^2.0.26",
     "@ai-sdk/openai": "^2.0.53",
     "@langfuse/otel": "^4.3.0",
     "@langfuse/tracing": "^4.3.0",
