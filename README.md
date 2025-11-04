@@ -276,6 +276,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
+- **Ankit Dabas** - Helping me with design and UX ideas. Check him out: [Behance](https://www.behance.net/yelloworld), [LinkedIn](https://www.linkedin.com/in/yelloworld/)
 - **WXT Framework** - Modern extension development
 - **shadcn/ui** - Beautiful component library
 - **Vercel AI SDK** - Unified LLM interface
