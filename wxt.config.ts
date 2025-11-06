@@ -9,7 +9,7 @@ export default defineConfig({
     name: APP_NAME,
     version: "0.0.2",
     description: "AI-powered form filling browser extension",
-    permissions: ["activeTab", "storage"],
+    permissions: ["activeTab", "storage", "identity"],
     host_permissions: [
       "https://api.openai.com/*",
       "https://api.anthropic.com/*",
@@ -17,6 +17,12 @@ export default defineConfig({
       "https://api.deepseek.com/*",
       "https://generativelanguage.googleapis.com/*",
     ],
+    externally_connectable: {
+      matches: [
+        "http://localhost:3002/*",
+        "https://superfill.ai/*",
+      ],
+    },
     manifest: {
       icons: {
         16: "/icon-16.png",

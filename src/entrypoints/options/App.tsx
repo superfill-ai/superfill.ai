@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
 import { TriggerSettings } from "@/components/features/setting/trigger-settings";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -23,14 +22,39 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
 import { useInitializeMemory } from "@/hooks/use-memory";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getAuthService } from "@/lib/auth/auth-service";
+import { useAuthStore } from "@/stores/auth";
 import { useMemoryStore } from "@/stores/memory";
+import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 
 export const App = () => {
   useInitializeMemory();
   const isMobile = useIsMobile();
   const entries = useMemoryStore((state) => state.entries);
+  const { isAuthenticated, checkAuthStatus, setAuthToken } = useAuthStore();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+
+  console.log("isAuthenticated", isAuthenticated);
+
+  useState(() => {
+    checkAuthStatus();
+  });
+
+  const handleSignIn = async () => {
+    try {
+      const authService = getAuthService();
+      const result = await authService.initiateAuth();
+
+      if (result) {
+        await setAuthToken(result.token);
+        console.log("Auth successful, token encrypted and stored");
+      }
+    } catch (error) {
+      console.error("Sign-in failed", error);
+    }
+  };
 
   useHotkeys("c", () => {
     setActiveTab("memory");
@@ -83,7 +107,14 @@ export const App = () => {
           <img src="/favicon.svg" alt="" className="size-6" />
           <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          {!isAuthenticated && (
+            <Button onClick={handleSignIn} variant="outline" size="sm">
+              Sign in to sync
+            </Button>
+          )}
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="flex-1 overflow-hidden">

@@ -1,4 +1,5 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
+import { registerAuthService } from "@/lib/auth/auth-service";
 import { registerAutofillService } from "@/lib/autofill/autofill-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
 import {
@@ -19,6 +20,7 @@ export default defineBackground(() => {
   registerModelService();
   registerAutofillService();
   registerSessionService();
+  registerAuthService();
 
   const sessionService = getSessionService();
 

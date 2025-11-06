@@ -108,7 +108,7 @@ export const App = () => {
 
       setTimeout(() => {
         window.close();
-      }, 500);
+      }, 600);
     } catch (error) {
       logger.error("Autofill error:", error);
       toast.error(

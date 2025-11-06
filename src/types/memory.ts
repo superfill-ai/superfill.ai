@@ -89,8 +89,6 @@ export const fillSessionSchema = z.object({
 export type FillSession = z.infer<typeof fillSessionSchema>;
 
 export const syncStateSchema = z.object({
-  syncUrl: z.string(),
-  syncToken: z.string(),
   lastSync: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
   }),

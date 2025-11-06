@@ -27,8 +27,6 @@ const userSettings = storage.defineItem<UserSettings>(
 
 const syncState = storage.defineItem<SyncState>("local:settings:sync-state", {
   fallback: {
-    syncUrl: "",
-    syncToken: "",
     lastSync: new Date().toISOString(),
     conflictResolution: "newest",
     status: "pending",
