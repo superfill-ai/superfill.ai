@@ -1,0 +1,46 @@
+name: Release Extension
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Create Release Pull Request or Publish to GitHub Releases
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: bun run version
+          publish: bun run release
+          commit: "chore: release extension"
+          title: "chore: release extension"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Extension Artifacts
+        if: steps.changesets.outputs.published == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-builds
+          path: |
+            .output/*.zip
+          retention-days: 30

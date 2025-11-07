@@ -101,6 +101,19 @@ export const App = () => {
     try {
       const userSettings = await store.userSettings.getValue();
       const apiKey = await keyVault.getKey(userSettings.selectedProvider);
+
+      if (!apiKey || apiKey.trim() === "") {
+        toast.error("AI provider not configured", {
+          description: "Please configure an AI provider in settings to use autofill",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        return;
+      }
+
       toast.info("Starting autofill... This window will close shortly.");
 
       const autofillService = getAutofillService();

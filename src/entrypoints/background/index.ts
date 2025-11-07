@@ -22,6 +22,13 @@ export default defineBackground(() => {
 
   const sessionService = getSessionService();
 
+  browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "install") {
+      logger.info("Extension installed for the first time, opening settings");
+      browser.runtime.openOptionsPage();
+    }
+  });
+
   contentAutofillMessaging.onMessage("startSession", async () => {
     return sessionService.startSession();
   });
