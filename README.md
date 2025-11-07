@@ -216,18 +216,20 @@ bun run lint
 - [x] Auto-fill functionality
 - [x] Auto-fill engine
 - [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
-- [-] Autofill directly without preview mode (autopilot mode, like Google or Bitwarden autofill) [WIP, Google type autofill pending]
+- [x] Autofill directly without preview mode (autopilot mode)
 - [ ] Auto adding memories from filled forms based on user confirmation
 - [ ] Let AI rephrase questions/answers on memory creation
 - [ ] Let AI rephrase answers on auto-fill based on form context
 - [ ] Firefox support
 - [ ] Semantic search across stored data
 - [ ] Mark memories as favorites
+- [ ] Browser native autofill integration (bypass extension popup)
 
 ### 📋 In Progress (Phase 2, Nov 15th)
 
 #### Free features
 
+- [ ] MCP support (Multi-Context Profiles)
 - [ ] Upvote/downvote memory suggestions
 - [ ] Multi page form support
 - [ ] Customizable autofill shortcuts
