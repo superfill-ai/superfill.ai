@@ -1,7 +1,7 @@
 import { useForm, useStore } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2Icon } from "lucide-react";
-import { useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Loader2Icon, SparklesIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 import { z } from "zod";
@@ -107,6 +107,31 @@ export function EntryForm({
   const [debouncedAnswer] = useDebounce(answer, 500);
   const [debouncedQuestion] = useDebounce(question, 500);
 
+  const rephraseMutation = useMutation({
+    mutationFn: async ({
+      currentQuestion,
+      currentAnswer,
+    }: {
+      currentQuestion: string;
+      currentAnswer: string;
+    }) => {
+      const userSettings = await store.userSettings.getValue();
+      const apiKey = await keyVault.getKey(userSettings.selectedProvider);
+
+      return categorizationService.rephrase(
+        currentAnswer,
+        currentQuestion,
+        apiKey || undefined,
+      );
+    },
+    onSuccess: (data) => {
+      if (data.rephrasedQuestion) {
+        form.setFieldValue("question", data.rephrasedQuestion);
+      }
+      form.setFieldValue("answer", data.rephrasedAnswer);
+    },
+  });
+
   const analysisQuery = useQuery({
     queryKey: ["analyze", debouncedAnswer, debouncedQuestion],
     queryFn: async () => {
@@ -124,7 +149,8 @@ export function EntryForm({
     retry: 1,
   });
 
-  const isAiProcessing = analysisQuery.isLoading;
+  const isAiCategorizing = analysisQuery.isLoading;
+  const isAiRephrasing = rephraseMutation.isPending;
 
   useEffect(() => {
     if (mode === "create" && debouncedAnswer && analysisQuery.data) {
@@ -163,6 +189,23 @@ export function EntryForm({
   const handleCancel = () => {
     form.reset();
     onCancel?.();
+  };
+
+  const handleRephrase = () => {
+    const currentQuestion = form.getFieldValue("question");
+    const currentAnswer = form.getFieldValue("answer");
+
+    if (!currentAnswer) {
+      toast.error("Please provide an answer before rephrasing.");
+      return;
+    }
+
+    toast.promise(rephraseMutation.mutateAsync({ currentQuestion, currentAnswer }), {
+      loading: "Rephrasing with AI...",
+      success: "Content rephrased successfully!",
+      error: (err) =>
+        err instanceof Error ? err.message : "Failed to rephrase content.",
+    });
   };
 
   return (
@@ -221,7 +264,7 @@ export function EntryForm({
           }}
         </form.Field>
 
-        {isAiProcessing && (
+        {isAiCategorizing && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner className="size-4" />
             <span>AI is analyzing your answer...</span>
@@ -285,12 +328,30 @@ export function EntryForm({
         </form.Field>
       </FieldGroup>
 
+      {answer && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={handleRephrase}
+          disabled={isAiRephrasing || isAiCategorizing}
+        >
+          {isAiRephrasing ? (
+            <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <SparklesIcon className="mr-2 h-4 w-4" />
+          )}
+          Rephrase with AI
+        </Button>
+      )}
+
       <Field orientation="horizontal">
         <form.Subscribe selector={(state) => [state.isSubmitting]}>
           {([isSubmitting]) => (
             <Button
               type="submit"
-              disabled={isSubmitting || isAiProcessing}
+              disabled={isSubmitting || isAiCategorizing || isAiRephrasing}
               className="flex-1"
             >
               {isSubmitting && (
