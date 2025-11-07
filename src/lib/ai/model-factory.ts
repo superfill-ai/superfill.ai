@@ -28,7 +28,12 @@ export const getAIModel = (
   model?: string,
 ) => {
   if (provider === "anthropic") {
-    const anthropic = createAnthropic({ apiKey });
+    const anthropic = createAnthropic({
+      apiKey,
+      headers: {
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+    });
     return anthropic(model || "claude-haiku-4-5-latest");
   }
 

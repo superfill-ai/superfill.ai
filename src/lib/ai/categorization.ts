@@ -28,6 +28,12 @@ export const AnalysisResultSchema = z.object({
 });
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
+
+export const RephraseResultSchema = z.object({
+  rephrasedQuestion: z.string().describe("A clear, well-formulated question based on the answer."),
+  rephrasedAnswer: z.string().describe("A refined and clear version of the original answer."),
+});
+export type RephraseResult = z.infer<typeof RephraseResultSchema>;
 export type Category = z.infer<typeof CategoryEnum>;
 
 export const fallbackCategorization = async (
@@ -176,6 +182,71 @@ Be precise and consider context. For example:
   } finally {
     (async () => await langfuseSpanProcessor.forceFlush())();
   }
+};
+
+export const rephraseAgent = async (
+  answer: string,
+  question: string | undefined,
+  provider: AIProvider,
+  apiKey: string,
+  modelName?: string,
+): Promise<RephraseResult> => {
+  // try {
+    const model = getAIModel(provider, apiKey, modelName);
+
+    const systemPrompt = `You are an expert in clarity and conciseness. Your task is to rephrase a user's question and answer to be more clear, professional, and easily searchable.
+- For the question, create a clear, interrogative sentence that accurately represents the data in the answer. If no question is provided, infer one.
+- For the answer, refine it for clarity and consistency without losing the original meaning. Correct any typos or grammatical errors.
+- Return the rephrased content.`;
+
+    const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
+
+    updateActiveObservation({
+      input: { answer, question },
+    });
+    updateActiveTrace({
+      name: "superfill:memory-rephrase",
+      input: { answer, question },
+    });
+
+    console.log("Rephrase userPrompt:", userPrompt);
+
+
+    const { object } = await generateObject({
+      model,
+      system: systemPrompt,
+      prompt: userPrompt,
+      schema: RephraseResultSchema,
+      schemaName: "RephraseResult",
+      schemaDescription: "Rephrased question and answer for user data",
+      temperature: 0.5,
+    });
+
+    updateActiveObservation({
+      output: object,
+    });
+    updateActiveTrace({
+      output: object,
+    });
+    trace.getActiveSpan()?.end();
+
+    return object;
+  // } catch (error) {
+  //   logger.error("AI rephrasing failed:", error);
+
+  //   updateActiveObservation({
+  //     output: error,
+  //     level: "ERROR",
+  //   });
+  //   updateActiveTrace({
+  //     output: error,
+  //   });
+  //   trace.getActiveSpan()?.end();
+
+    // throw new Error("Failed to rephrase content with AI.");
+  // } finally {
+  //   (async () => await langfuseSpanProcessor.forceFlush())();
+  // }
 };
 
 export const batchCategorization = async (
