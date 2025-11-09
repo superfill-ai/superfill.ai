@@ -13,7 +13,7 @@ export class FormDetector {
   private fieldOpidCounter = 0;
   private shadowRootFields: DetectedField[] = [];
 
-  constructor(private analyzer: FieldAnalyzer) {}
+  constructor(private analyzer: FieldAnalyzer) { }
 
   private ignoredTypes = new Set([
     "hidden",

@@ -216,25 +216,27 @@ bun run lint
 - [x] Auto-fill functionality
 - [x] Auto-fill engine
 - [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
-- [ ] Autofill directly without preview mode (copilot mode, like Google or Bitwarden autofill)
-- [ ] Parse pdf to extract content for memory creation
+- [x] Autofill directly without preview mode (autopilot mode)
 - [ ] Auto adding memories from filled forms based on user confirmation
 - [ ] Let AI rephrase questions/answers on memory creation
 - [ ] Let AI rephrase answers on auto-fill based on form context
 - [ ] Firefox support
+- [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
+- [ ] Semantic search across stored data
+- [ ] Mark memories as favorites
+- [ ] Browser native autofill integration (bypass extension popup)
 
 ### 📋 In Progress (Phase 2, Nov 15th)
 
 #### Free features
 
+- [ ] MCP support (Multi-Context Profiles)
 - [ ] Upvote/downvote memory suggestions
-- [ ] Mark memories as favorites
 - [ ] Multi page form support
-- [ ] Keyboard navigation enhancements
 - [ ] Customizable autofill shortcuts
 - [ ] Customizable autofill templates (Industry-specific templates)
 - [ ] Custom AI prompts
-- [ ] Semantic search across stored data
+- [ ] Parse pdf to extract content for memory creation
 
 #### Premium features
 
@@ -276,6 +278,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
+- **Ankit Dabas** - Helping me with design and UX ideas. Check him out: [Behance](https://www.behance.net/yelloworld), [LinkedIn](https://www.linkedin.com/in/yelloworld/)
 - **WXT Framework** - Modern extension development
 - **shadcn/ui** - Beautiful component library
 - **Vercel AI SDK** - Unified LLM interface

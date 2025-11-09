@@ -9,12 +9,21 @@
   bottom: 0 !important;
   display: block !important;
   width: clamp(320px, 28vw, 420px) !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
   z-index: 2147483646 !important;
   pointer-events: none !important;
   overflow: visible !important;
   font-family: var(--font-sans, "Outfit", sans-serif);
+}
+
+:host([data-ui-type="preview"]) {
+  height: 100vh !important;
+  max-height: 100vh !important;
+}
+
+:host([data-ui-type="autopilot"]) {
+  height: fit-content !important;
+  max-height: fit-content !important;
+  bottom: auto !important;
 }
 
 html,

@@ -3,6 +3,7 @@ import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { store } from "@/lib/storage";
+import { useSettingsStore } from "@/stores/settings";
 import type {
   AutofillResult,
   CompressedFieldData,
@@ -144,8 +145,6 @@ class AutofillService {
         tabId,
       );
 
-      const userSettings = await store.userSettings.getValue();
-
       try {
         await contentAutofillMessaging.sendMessage(
           "showPreview",
@@ -153,7 +152,6 @@ class AutofillService {
             forms,
             processingResult,
             sessionId,
-            userSettings.confidenceThreshold,
           ),
           tabId,
         );
@@ -439,9 +437,9 @@ class AutofillService {
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
     try {
-      const userSettings = await store.userSettings.getValue();
-      const provider = userSettings.selectedProvider as AIProvider;
-      const selectedModel = userSettings.selectedModels?.[provider];
+      const settingStore = useSettingsStore.getState();
+      const provider = settingStore.selectedProvider as AIProvider;
+      const selectedModel = settingStore.selectedModels?.[provider];
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");
@@ -531,8 +529,10 @@ class AutofillService {
     forms: DetectedFormSnapshot[],
     processingResult: AutofillResult,
     sessionId: string,
-    confidenceThreshold: number,
   ): PreviewSidebarPayload {
+    const userSettings = useSettingsStore.getState();
+    const confidenceThreshold = userSettings.confidenceThreshold;
+
     logger.info(
       `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,
     );

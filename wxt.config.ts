@@ -7,7 +7,7 @@ export default defineConfig({
   srcDir: "./src",
   manifest: {
     name: APP_NAME,
-    version: "0.0.2",
+    version: "0.0.4",
     description: "AI-powered form filling browser extension",
     permissions: ["activeTab", "storage", "identity"],
     host_permissions: [
@@ -23,13 +23,22 @@ export default defineConfig({
         "https://superfill.ai/*",
       ],
     },
-    manifest: {
-      icons: {
-        16: "/icon-16.png",
-        24: "/icon-24.png",
-        48: "/icon-48.png",
-        96: "/icon-96.png",
-        128: "/icon-128.png",
+    icons: {
+      16: "/icon-16.png",
+      32: "/icon-32.png",
+      48: "/icon-48.png",
+      128: "/icon-128.png",
+      256: "/icon-256.png",
+      512: "/icon-512.png",
+    },
+    browser_specific_settings: {
+      gecko: {
+        // @ts-expect-error - Missing type definitions
+        data_collection_permissions: {
+          required: [
+            "none",
+          ],
+        },
       },
     },
   },

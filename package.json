@@ -2,7 +2,7 @@
   "name": "superfill.ai",
   "description": "AI-powered form filling browser extension",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.4",
   "type": "module",
   "author": {
     "email": "mihirpandey.13@gmail.com",
@@ -18,7 +18,13 @@
     "type-check": "tsc --noEmit",
     "postinstall": "wxt prepare",
     "format": "biome check --write",
-    "lint": "bun run format"
+    "lint": "bun run format",
+    "changeset": "changeset",
+    "changeset:add": "changeset add",
+    "changeset:status": "changeset status",
+    "version": "changeset version && bun run sync-version",
+    "sync-version": "node scripts/sync-version.js",
+    "release": "bun run build && bun run zip && changeset publish"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.34",
@@ -89,6 +95,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.6",
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.29.7",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@wxt-dev/module-react": "^1.1.3",

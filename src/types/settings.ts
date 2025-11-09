@@ -11,6 +11,7 @@ export interface UserSettings {
   selectedProvider: AIProvider;
   selectedModels?: Partial<Record<AIProvider, string>>;
   autoFillEnabled: boolean;
+  autopilotMode: boolean;
   confidenceThreshold: number;
 }
 

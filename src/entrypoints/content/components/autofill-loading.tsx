@@ -9,36 +9,12 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import type { AutofillProgress } from "@/types/autofill";
 import { HeartCrackIcon, XIcon } from "lucide-react";
+import { getProgressDescription, getProgressTitle } from "../lib/progress-utils";
 import { MemoryLoader } from "./memory-loader";
 
 type AutofillLoadingProps = {
   progress: AutofillProgress;
   onClose: () => void;
-};
-
-const getProgressTitle = (state: AutofillProgress["state"]): string => {
-  switch (state) {
-    case "detecting":
-      return "Detecting forms";
-    case "analyzing":
-      return "Analyzing fields";
-    case "matching":
-      return "Matching memories";
-    case "showing-preview":
-      return "Preparing suggestions";
-    default:
-      return "Processing";
-  }
-};
-
-const getProgressDescription = (progress: AutofillProgress): string => {
-  if (progress.fieldsDetected) {
-    if (progress.fieldsMatched !== undefined) {
-      return `Found ${progress.fieldsMatched} matches for ${progress.fieldsDetected} fields`;
-    }
-    return `Analyzing ${progress.fieldsDetected} fields`;
-  }
-  return progress.message;
 };
 
 export const AutofillLoading = ({
@@ -70,7 +46,7 @@ export const AutofillLoading = ({
         <div className="flex-1 flex flex-col gap-4 items-center justify-center p-8">
           <MemoryLoader />
           <p className="text-sm text-muted-foreground max-w-xs text-center">
-            {getProgressDescription(progress)}
+            {getProgressDescription(progress, "preview")}
           </p>
         </div>
 

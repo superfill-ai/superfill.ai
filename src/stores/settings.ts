@@ -16,6 +16,7 @@ type SettingsState = {
   selectedProvider: AIProvider;
   selectedModels: Partial<Record<AIProvider, string>>;
   autoFillEnabled: boolean;
+  autopilotMode: boolean;
   confidenceThreshold: number;
   loading: boolean;
   error: string | null;
@@ -28,6 +29,7 @@ type SettingsActions = {
   setSelectedProvider: (provider: AIProvider) => Promise<void>;
   setSelectedModel: (provider: AIProvider, model: string) => Promise<void>;
   setAutoFillEnabled: (enabled: boolean) => Promise<void>;
+  setAutopilotMode: (enabled: boolean) => Promise<void>;
   setConfidenceThreshold: (threshold: number) => Promise<void>;
   setApiKey: (provider: AIProvider, key: string) => Promise<void>;
   getApiKey: (provider: AIProvider) => Promise<string | null>;
@@ -41,6 +43,7 @@ const defaultSettings: SettingsState = {
   selectedProvider: "openai",
   selectedModels: {},
   autoFillEnabled: true,
+  autopilotMode: false,
   confidenceThreshold: 0.6,
   loading: false,
   error: null,
@@ -162,6 +165,26 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         }
       },
 
+      setAutopilotMode: async (enabled: boolean) => {
+        try {
+          set({ loading: true, error: null });
+          set({ autopilotMode: enabled });
+
+          const currentSettings = await store.userSettings.getValue();
+          await store.userSettings.setValue({
+            ...currentSettings,
+            autopilotMode: enabled,
+          });
+
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to set autopilot mode";
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
+      },
+
       setConfidenceThreshold: async (threshold: number) => {
         try {
           set({ loading: true, error: null });
@@ -249,11 +272,10 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
               selectedProvider: defaultSettings.selectedProvider,
               selectedModels: defaultSettings.selectedModels,
               autoFillEnabled: defaultSettings.autoFillEnabled,
+              autopilotMode: defaultSettings.autopilotMode,
               confidenceThreshold: defaultSettings.confidenceThreshold,
             }),
-          ]);
-
-          set({ loading: false });
+          ]); set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to reset settings";
@@ -280,6 +302,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
                 selectedProvider: userSettings.selectedProvider,
                 selectedModels: userSettings.selectedModels || {},
                 autoFillEnabled: userSettings.autoFillEnabled,
+                autopilotMode: userSettings.autopilotMode,
                 confidenceThreshold: userSettings.confidenceThreshold,
                 loading: false,
                 error: null,
@@ -312,6 +335,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
                 selectedProvider: state.selectedProvider,
                 selectedModels: state.selectedModels,
                 autoFillEnabled: state.autoFillEnabled,
+                autopilotMode: state.autopilotMode,
                 confidenceThreshold: state.confidenceThreshold,
               }),
             ]);
@@ -328,6 +352,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
               selectedProvider: "openai",
               selectedModels: {},
               autoFillEnabled: true,
+              autopilotMode: false,
               confidenceThreshold: 0.6,
             }),
           ]);

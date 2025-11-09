@@ -3,7 +3,7 @@ import type { UserSettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
 import { Trigger } from "@/types/trigger";
 
-const theme = storage.defineItem<Theme>("local:settings:vite-ui-theme", {
+const theme = storage.defineItem<Theme>("local:settings:ui-theme", {
   fallback: Theme.DEFAULT,
   version: 1,
 });
@@ -19,6 +19,7 @@ const userSettings = storage.defineItem<UserSettings>(
     fallback: {
       selectedProvider: "openai",
       autoFillEnabled: true,
+      autopilotMode: false,
       confidenceThreshold: 0.6,
     },
     version: 1,

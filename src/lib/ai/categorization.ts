@@ -45,8 +45,8 @@ export const fallbackCategorization = async (
   let category: Category = "general";
   const tags: string[] = [];
 
-  if (lower.includes("email") || lower.includes("@")) category = "contact";
-  if (lower.includes("phone") || lower.includes("mobile")) category = "contact";
+  if (z.email().safeParse(answer).success) category = "contact";
+  if (z.e164().safeParse(answer).success) category = "contact";
   if (
     lower.includes("address") ||
     lower.includes("street") ||

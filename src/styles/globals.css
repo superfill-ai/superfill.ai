@@ -25,7 +25,7 @@
   --destructive-foreground: oklch(0.9934 0.0032 17.2118);
 
   --border: oklch(0.9037 0 0);
-  --input: oklch(0.9731 0 0);
+  --input: oklch(0.9131 0 0);
   --ring: oklch(0.59 0.17 252.92);
 
   --shadow-x: 0px;
@@ -230,4 +230,8 @@
 .outfit-900 {
   font-family: "Outfit", sans-serif;
   font-weight: 900;
+}
+
+.toaster.group [data-description] {
+  color: var(--color-popover-foreground) !important;
 }

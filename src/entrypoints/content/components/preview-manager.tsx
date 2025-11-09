@@ -21,9 +21,9 @@ import type {
   FormOpId,
   PreviewFieldData,
   PreviewSidebarPayload,
-} from "../../types/autofill";
-import { AutofillLoading } from "./components/autofill-loading";
-import { AutofillPreview } from "./components/autofill-preview";
+} from "../../../types/autofill";
+import { AutofillLoading } from "./autofill-loading";
+import { AutofillPreview } from "./autofill-preview";
 
 const logger = createLogger("preview-manager");
 
@@ -126,11 +126,9 @@ export type PreviewRenderData = {
   };
 };
 
-type MountedRoot = Root;
-
 export class PreviewSidebarManager {
   private readonly options: PreviewSidebarManagerOptions;
-  private ui: ShadowRootContentScriptUi<MountedRoot> | null = null;
+  private ui: ShadowRootContentScriptUi<Root> | null = null;
   private reactRoot: Root | null = null;
   private highlightedElement: HTMLElement | null = null;
   private mappingLookup: Map<string, FieldMapping> = new Map();
@@ -171,7 +169,7 @@ export class PreviewSidebarManager {
     );
   }
 
-  async showLoading(progress: AutofillProgress) {
+  async showProgress(progress: AutofillProgress) {
     const ui = await this.ensureUi();
     ui.mount();
 
@@ -203,11 +201,13 @@ export class PreviewSidebarManager {
 
     for (const fieldOpid of selectedFieldOpids) {
       const detected = this.options.getFieldMetadata(fieldOpid);
+
       if (!detected) {
         continue;
       }
 
       const mapping = this.mappingLookup.get(fieldOpid);
+
       if (!mapping || !mapping.value) {
         continue;
       }
@@ -249,6 +249,17 @@ export class PreviewSidebarManager {
 
         await contentAutofillMessaging.sendMessage("completeSession", {
           sessionId: this.sessionId,
+        });
+
+        await this.showProgress({
+          state: "completed",
+          message: "Auto-fill completed successfully",
+          fieldsDetected: selectedFieldOpids.length,
+          fieldsMatched: memoryIds.length,
+        });
+        await contentAutofillMessaging.sendMessage("updateSessionStatus", {
+          sessionId: this.sessionId,
+          status: "completed",
         });
 
         logger.info("Session completed:", this.sessionId);
@@ -429,17 +440,18 @@ export class PreviewSidebarManager {
     this.highlightedElement = null;
   }
 
-  private async ensureUi(): Promise<ShadowRootContentScriptUi<MountedRoot>> {
+  private async ensureUi(): Promise<ShadowRootContentScriptUi<Root>> {
     if (this.ui) {
       return this.ui;
     }
 
-    this.ui = await createShadowRootUi<MountedRoot>(this.options.ctx, {
-      name: "superfill-preview-ui",
+    this.ui = await createShadowRootUi<Root>(this.options.ctx, {
+      name: HOST_ID,
       position: "overlay",
       anchor: "body",
       onMount: (uiContainer, _shadow, host) => {
         host.id = HOST_ID;
+        host.setAttribute("data-ui-type", "preview");
         uiContainer.innerHTML = "";
 
         const mountPoint = document.createElement("div");
