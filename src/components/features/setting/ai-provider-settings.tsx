@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/field";
 import {
   useProviderKeyStatuses,
+  useDeleteApiKey,
   useSaveMultipleApiKeys,
 } from "@/hooks/use-provider-keys";
 import { getProviderOptions } from "@/lib/providers";
@@ -44,6 +45,7 @@ export const AiProviderSettings = () => {
 
   const { data: keyStatuses } = useProviderKeyStatuses();
   const saveKeysMutation = useSaveMultipleApiKeys();
+  const deleteKeyMutation = useDeleteApiKey();
 
   useEffect(() => {
     const loadProviders = async () => {
@@ -66,6 +68,10 @@ export const AiProviderSettings = () => {
     setProviderKeys((prev) => ({ ...prev, [provider]: value }));
   };
 
+  const handleDeleteKey = async (provider: string) => {
+    await deleteKeyMutation.mutateAsync(provider as AIProvider);
+  };
+
   const allConfigs = getAllProviderConfigs();
 
   return (
@@ -86,6 +92,7 @@ export const AiProviderSettings = () => {
                 showKey={!!showKeys[config.id]}
                 onToggleShow={() => handleToggleShowKey(config.id)}
                 hasExistingKey={!!keyStatuses?.[config.id]}
+                onDelete={() => handleDeleteKey(config.id)}
               />
               <ModelSelector
                 provider={config.id as AIProvider}
