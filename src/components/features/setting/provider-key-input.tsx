@@ -15,6 +15,7 @@ interface ProviderKeyInputProps {
   onToggleShow: () => void;
   hasExistingKey: boolean;
   onDelete: () => void;
+  isSelected: boolean;
 }
 
 export const ProviderKeyInput = ({
@@ -25,6 +26,7 @@ export const ProviderKeyInput = ({
   onToggleShow,
   hasExistingKey,
   onDelete,
+  isSelected,
 }: ProviderKeyInputProps) => {
   const inputId = useId();
 
@@ -34,7 +36,15 @@ export const ProviderKeyInput = ({
 
   return (
     <Field data-invalid={false}>
-      <FieldLabel htmlFor={inputId}>{config.name} API Key</FieldLabel>
+      <div className="flex items-center gap-2">
+        <FieldLabel htmlFor={inputId}>{config.name} API Key</FieldLabel>
+        {isSelected && (
+          <Badge variant="default" className="gap-1">
+            <CheckCircle2 className="size-3" />
+            Active
+          </Badge>
+        )}
+      </div>
       <div className="relative">
         <Input
           id={inputId}
