@@ -33,6 +33,7 @@ type SettingsActions = {
   setConfidenceThreshold: (threshold: number) => Promise<void>;
   setApiKey: (provider: AIProvider, key: string) => Promise<void>;
   getApiKey: (provider: AIProvider) => Promise<string | null>;
+  deleteApiKey: (provider: AIProvider) => Promise<void>;
   updateUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
   resetSettings: () => Promise<void>;
 };
@@ -260,6 +261,21 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
 
       getApiKey: async (provider) => {
         return keyVault.getKey(provider);
+      },
+
+      deleteApiKey: async (provider) => {
+        try {
+          set({ loading: true, error: null });
+          await keyVault.deleteKey(provider);
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Failed to delete API key";
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
       },
 
       resetSettings: async () => {

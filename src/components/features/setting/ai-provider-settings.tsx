@@ -1,3 +1,4 @@
+import { CheckCircle2 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/field";
 import {
   useProviderKeyStatuses,
+  useDeleteApiKey,
   useSaveMultipleApiKeys,
 } from "@/hooks/use-provider-keys";
 import { getProviderOptions } from "@/lib/providers";
@@ -44,6 +46,7 @@ export const AiProviderSettings = () => {
 
   const { data: keyStatuses } = useProviderKeyStatuses();
   const saveKeysMutation = useSaveMultipleApiKeys();
+  const deleteKeyMutation = useDeleteApiKey();
 
   useEffect(() => {
     const loadProviders = async () => {
@@ -51,7 +54,7 @@ export const AiProviderSettings = () => {
       setProviderOptions(options);
     };
     loadProviders();
-  }, []);
+  }, [keyStatuses]);
 
   const handleSaveApiKeys = async () => {
     await saveKeysMutation.mutateAsync(providerKeys);
@@ -64,6 +67,10 @@ export const AiProviderSettings = () => {
 
   const handleKeyChange = (provider: string, value: string) => {
     setProviderKeys((prev) => ({ ...prev, [provider]: value }));
+  };
+
+  const handleDeleteKey = async (provider: string) => {
+    await deleteKeyMutation.mutateAsync(provider as AIProvider);
   };
 
   const allConfigs = getAllProviderConfigs();
@@ -86,6 +93,8 @@ export const AiProviderSettings = () => {
                 showKey={!!showKeys[config.id]}
                 onToggleShow={() => handleToggleShowKey(config.id)}
                 hasExistingKey={!!keyStatuses?.[config.id]}
+                onDelete={() => handleDeleteKey(config.id)}
+                isSelected={selectedProvider === config.id}
               />
               <ModelSelector
                 provider={config.id as AIProvider}
@@ -113,16 +122,24 @@ export const AiProviderSettings = () => {
               onValueChange={async (value) => {
                 await setSelectedProvider(value as AIProvider);
               }}
-              options={providerOptions.map((p) => ({
-                value: p.value,
-                label: p.label,
-                disabled: !p.available,
-                badge: !p.available ? (
-                  <Badge variant="secondary" className="ml-auto">
+              options={providerOptions.map((p) => {
+                const isSelected = p.value === selectedProvider;
+                return {
+                  value: p.value,
+                  label: p.label,
+                  disabled: !p.available,
+                  badge: isSelected ? (
+                    <Badge variant="default" className="ml-auto gap-1">
+                      <CheckCircle2 className="size-3" />
+                      Active
+                    </Badge>
+                  ) : !p.available ? (
+                    <Badge variant="secondary" className="ml-auto">
                     No API Key
                   </Badge>
                 ) : undefined,
-              }))}
+                };
+              })}
               placeholder="Select provider..."
               searchPlaceholder="Search provider..."
               emptyText="No provider found."

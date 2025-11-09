@@ -84,6 +84,34 @@ export function useSaveApiKey() {
 }
 
 /**
+ * Hook to delete an API key
+ */
+export function useDeleteApiKey() {
+  const queryClient = useQueryClient();
+  const deleteApiKey = useSettingsStore((state) => state.deleteApiKey);
+
+  return useMutation({
+    mutationFn: async (provider: AIProvider) => {
+      await deleteApiKey(provider);
+      return provider;
+    },
+    onSuccess: async (provider) => {
+      const config = getProviderConfig(provider);
+
+      // Invalidate the query to refresh the UI
+      await queryClient.invalidateQueries({
+        queryKey: PROVIDER_KEYS_QUERY_KEY,
+      });
+
+      toast.success(`${config.name} API key deleted successfully`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete API key");
+    },
+  });
+}
+
+/**
  * Hook to save multiple API keys at once
  */
 export function useSaveMultipleApiKeys() {

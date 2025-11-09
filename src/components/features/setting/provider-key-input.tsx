@@ -1,4 +1,4 @@
-import { CheckCircle2, EyeIcon, EyeOffIcon } from "lucide-react";
+import { CheckCircle2, EyeIcon, EyeOffIcon, Trash2 } from "lucide-react";
 import { useId } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ interface ProviderKeyInputProps {
   showKey: boolean;
   onToggleShow: () => void;
   hasExistingKey: boolean;
+  onDelete: () => void;
+  isSelected: boolean;
 }
 
 export const ProviderKeyInput = ({
@@ -23,6 +25,8 @@ export const ProviderKeyInput = ({
   showKey,
   onToggleShow,
   hasExistingKey,
+  onDelete,
+  isSelected,
 }: ProviderKeyInputProps) => {
   const inputId = useId();
 
@@ -32,7 +36,15 @@ export const ProviderKeyInput = ({
 
   return (
     <Field data-invalid={false}>
-      <FieldLabel htmlFor={inputId}>{config.name} API Key</FieldLabel>
+      <div className="flex items-center gap-2">
+        <FieldLabel htmlFor={inputId}>{config.name} API Key</FieldLabel>
+        {isSelected && (
+          <Badge variant="default" className="gap-1">
+            <CheckCircle2 className="size-3" />
+            Active
+          </Badge>
+        )}
+      </div>
       <div className="relative">
         <Input
           id={inputId}
@@ -49,6 +61,17 @@ export const ProviderKeyInput = ({
               <CheckCircle2 className="size-3" />
               Set
             </Badge>
+          )}
+          {hasExistingKey && !value && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-full text-destructive hover:text-destructive"
+              onClick={onDelete}
+              aria-label="Delete API key"
+            >
+              <Trash2 className="size-4" />
+            </Button>
           )}
           <Button
             variant="ghost"
