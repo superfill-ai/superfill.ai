@@ -270,9 +270,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           set({ loading: false });
         } catch (error) {
           const errorMessage =
-            error instanceof Error
-              ? error.message
-              : "Failed to delete API key";
+            error instanceof Error ? error.message : "Failed to delete API key";
           set({ loading: false, error: errorMessage });
           throw error;
         }

@@ -217,7 +217,6 @@ bun run lint
 - [x] Auto-fill engine
 - [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
 - [x] Autofill directly without preview mode (autopilot mode)
-- [ ] Auto adding memories from filled forms based on user confirmation
 - [x] Let AI rephrase questions/answers on memory creation (Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! 🙏)
 - [x] Top used tags & click-to-add functionality
 - [ ] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
@@ -231,6 +230,7 @@ bun run lint
 
 #### Free features
 
+- [ ] Auto adding memories from filled forms based on user confirmation
 - [ ] MCP support (Multi-Context Profiles)
 - [ ] Upvote/downvote memory suggestions
 - [ ] Multi page form support

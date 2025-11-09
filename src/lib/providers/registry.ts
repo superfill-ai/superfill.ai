@@ -1,11 +1,3 @@
-/**
- * Provider Registry - Single source of truth for AI provider configurations
- *
- * To add a new provider:
- * 1. Add entry to PROVIDER_REGISTRY with configuration
- * 2. That's it! The UI and types will automatically update
- */
-
 export interface ProviderConfig {
   id: string;
   name: string;

@@ -1,5 +1,6 @@
 import type { AIProvider } from "@/lib/providers/registry";
 import { store } from "@/lib/storage";
+import { createLogger } from "../logger";
 import { decrypt, encrypt, generateSalt } from "./encryption";
 import { getBrowserFingerprint } from "./fingerprint";
 import { getKeyValidationService } from "./key-validation-service";
@@ -8,6 +9,8 @@ interface ValidationCache {
   timestamp: number;
   isValid: boolean;
 }
+
+const logger = createLogger("key-vault");
 
 /**
  * KeyVault - Secure API key storage with device-bound encryption
@@ -39,9 +42,8 @@ export class KeyVault {
   async getKey(provider: AIProvider): Promise<string | null> {
     const keys = await store.apiKeys.getValue();
     const encryptedData = keys[provider];
-    if (!encryptedData) return null;
-
     const fingerprint = await getBrowserFingerprint();
+
     try {
       return await decrypt(
         encryptedData.encrypted,
@@ -49,6 +51,9 @@ export class KeyVault {
         encryptedData.salt,
       );
     } catch {
+      logger.info(
+        `Failed to decrypt ${provider} API key. It may be invalid due to device changes.`,
+      );
       return null;
     }
   }

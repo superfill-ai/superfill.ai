@@ -8,7 +8,11 @@ export async function getBrowserFingerprint(): Promise<string> {
   const components = [
     navigator.userAgent,
     navigator.language,
-    `${window.screen.width}x${window.screen.height}`,
+    navigator.hardwareConcurrency || "unknown",
+    navigator.maxTouchPoints || 0,
+    navigator.platform || "unknown",
+    (navigator as Navigator & { deviceMemory: number }).deviceMemory ||
+      "unknown",
     await getCanvasFingerprint(),
     await getWebGLFingerprint(),
   ];

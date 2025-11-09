@@ -17,8 +17,8 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import {
-  useProviderKeyStatuses,
   useDeleteApiKey,
+  useProviderKeyStatuses,
   useSaveMultipleApiKeys,
 } from "@/hooks/use-provider-keys";
 import { getProviderOptions } from "@/lib/providers";
@@ -36,14 +36,11 @@ export const AiProviderSettings = () => {
   const [providerOptions, setProviderOptions] = useState<
     ReturnType<typeof getProviderOptions> extends Promise<infer T> ? T : never
   >([]);
-
   const providerComboboxId = useId();
-
   const selectedProvider = useSettingsStore((state) => state.selectedProvider);
   const setSelectedProvider = useSettingsStore(
     (state) => state.setSelectedProvider,
   );
-
   const { data: keyStatuses } = useProviderKeyStatuses();
   const saveKeysMutation = useSaveMultipleApiKeys();
   const deleteKeyMutation = useDeleteApiKey();
@@ -122,24 +119,22 @@ export const AiProviderSettings = () => {
               onValueChange={async (value) => {
                 await setSelectedProvider(value as AIProvider);
               }}
-              options={providerOptions.map((p) => {
-                const isSelected = p.value === selectedProvider;
-                return {
-                  value: p.value,
-                  label: p.label,
-                  disabled: !p.available,
-                  badge: isSelected ? (
+              options={providerOptions.map((p) => ({
+                value: p.value,
+                label: p.label,
+                disabled: !p.available,
+                badge:
+                  p.value === selectedProvider ? (
                     <Badge variant="default" className="ml-auto gap-1">
                       <CheckCircle2 className="size-3" />
                       Active
                     </Badge>
                   ) : !p.available ? (
                     <Badge variant="secondary" className="ml-auto">
-                    No API Key
-                  </Badge>
-                ) : undefined,
-                };
-              })}
+                      No API Key
+                    </Badge>
+                  ) : undefined,
+              }))}
               placeholder="Select provider..."
               searchPlaceholder="Search provider..."
               emptyText="No provider found."
