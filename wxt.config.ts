@@ -7,7 +7,7 @@ export default defineConfig({
   srcDir: "./src",
   manifest: {
     name: APP_NAME,
-    version: "0.0.4",
+    version: "0.0.5",
     description: "AI-powered form filling browser extension",
     permissions: ["activeTab", "storage"],
     host_permissions: [

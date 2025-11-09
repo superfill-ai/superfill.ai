@@ -218,7 +218,8 @@ bun run lint
 - [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
 - [x] Autofill directly without preview mode (autopilot mode)
 - [ ] Auto adding memories from filled forms based on user confirmation
-- [ ] Let AI rephrase questions/answers on memory creation
+- [x] Let AI rephrase questions/answers on memory creation
+  - [ ] Better UI for rephrasing suggestions (inline buttons, etc. Ideas welcome!)
 - [ ] Let AI rephrase answers on auto-fill based on form context
 - [ ] Firefox support
 - [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
