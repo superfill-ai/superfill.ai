@@ -1,3 +1,5 @@
+import { defineProxyService } from "@webext-core/proxy-service";
+import { z } from "zod";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
@@ -14,8 +16,6 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
-import { defineProxyService } from "@webext-core/proxy-service";
-import { z } from "zod";
 import { AIMatcher } from "./ai-matcher";
 import {
   MAX_FIELDS_PER_PAGE,
@@ -148,11 +148,7 @@ class AutofillService {
       try {
         await contentAutofillMessaging.sendMessage(
           "showPreview",
-          this.buildPreviewPayload(
-            forms,
-            processingResult,
-            sessionId,
-          ),
+          this.buildPreviewPayload(forms, processingResult, sessionId),
           tabId,
         );
       } catch (previewError) {

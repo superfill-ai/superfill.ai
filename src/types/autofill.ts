@@ -5,10 +5,10 @@ export type FieldOpId = `__${number}` & { readonly __brand: unique symbol };
 
 export type DetectFormsResult =
   | {
-    success: true;
-    forms: DetectedFormSnapshot[];
-    totalFields: number;
-  }
+      success: true;
+      forms: DetectedFormSnapshot[];
+      totalFields: number;
+    }
   | { success: false; forms: never[]; totalFields: 0; error: string };
 
 export interface DetectedForm {

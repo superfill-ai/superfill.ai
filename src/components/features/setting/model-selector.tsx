@@ -1,15 +1,11 @@
+import { useId } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDefaultModel, useProviderModels } from "@/hooks/use-models";
 import type { AIProvider } from "@/lib/providers/registry";
 import { useSettingsStore } from "@/stores/settings";
-import { useId } from "react";
 
 interface ModelSelectorProps {
   provider: AIProvider;
@@ -38,9 +34,7 @@ export const ModelSelector = ({
   if (isLoading) {
     return (
       <Field data-invalid={false}>
-        <FieldLabel htmlFor={comboboxId}>
-          {providerName} Model
-        </FieldLabel>
+        <FieldLabel htmlFor={comboboxId}>{providerName} Model</FieldLabel>
         <Skeleton className="h-10 w-full" />
         <FieldDescription>Loading available models...</FieldDescription>
       </Field>
@@ -59,9 +53,7 @@ export const ModelSelector = ({
 
   return (
     <Field data-invalid={false}>
-      <FieldLabel htmlFor={comboboxId}>
-        {providerName} Model
-      </FieldLabel>
+      <FieldLabel htmlFor={comboboxId}>{providerName} Model</FieldLabel>
       <Combobox
         id={comboboxId}
         value={selectedModel}

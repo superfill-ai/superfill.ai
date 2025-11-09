@@ -1,26 +1,27 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
-import { defineProxyService } from "@webext-core/proxy-service";
+import { ERROR_MESSAGE_API_KEY_NOT_CONFIGURED } from "../errors";
 import {
   type AnalysisResult,
-  type RephraseResult,
   categorizationAgent,
   fallbackCategorization,
+  type RephraseResult,
   rephraseAgent,
 } from "./categorization";
 
 const logger = createLogger("categorization-service");
 
 class CategorizationService {
-  async analyze(
+  async categorize(
     answer: string,
     question?: string,
     apiKey?: string,
   ): Promise<AnalysisResult> {
     try {
       if (!apiKey) {
-        logger.warn("No API key provided, using fallback categorization");
-        return await fallbackCategorization(answer, question);
+        logger.warn(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
       const userSettings = await store.userSettings.getValue();
@@ -38,7 +39,6 @@ class CategorizationService {
       return result;
     } catch (error) {
       logger.error("AI categorization error:", error);
-      // Fallback to rule-based categorization
       return await fallbackCategorization(answer, question);
     }
   }
@@ -49,8 +49,8 @@ class CategorizationService {
     apiKey?: string,
   ): Promise<RephraseResult> {
     if (!apiKey) {
-      logger.error("No API key provided for rephrasing.");
-      throw new Error("API key is required for rephrasing.");
+      logger.warn(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+      throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
     }
 
     try {

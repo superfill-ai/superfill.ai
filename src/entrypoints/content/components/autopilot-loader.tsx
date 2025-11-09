@@ -1,22 +1,22 @@
+import { HeartCrackIcon, SparklesIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardAction,
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle
+  CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { logger } from "@/lib/logger";
 import type { AutofillProgress } from "@/types/autofill";
-import { HeartCrackIcon, SparklesIcon } from "lucide-react";
-import { useEffect, useState } from "react";
 import {
   getProgressDescription,
   getProgressIcon,
   getProgressTitle,
-  getProgressValue
+  getProgressValue,
 } from "../lib/progress-utils";
 import { MemoryLoader } from "./memory-loader";
 
@@ -25,7 +25,10 @@ type AutopilotLoaderProps = {
   onClose: () => void;
 };
 
-export const AutopilotLoader = ({ progress, onClose }: AutopilotLoaderProps) => {
+export const AutopilotLoader = ({
+  progress,
+  onClose,
+}: AutopilotLoaderProps) => {
   const [isVisible, setIsVisible] = useState(true);
 
   logger.info("Rendering AutopilotLoader with progress:", progress);
@@ -48,10 +51,11 @@ export const AutopilotLoader = ({ progress, onClose }: AutopilotLoaderProps) => 
 
   return (
     <div
-      className={`fixed top-4 right-4 z-9999 transition-all duration-300 ease-out ${isVisible
-        ? "opacity-100 translate-x-0 scale-100"
-        : "opacity-0 translate-x-4 scale-95 pointer-events-none"
-        }`}
+      className={`fixed top-4 right-4 z-9999 transition-all duration-300 ease-out ${
+        isVisible
+          ? "opacity-100 translate-x-0 scale-100"
+          : "opacity-0 translate-x-4 scale-95 pointer-events-none"
+      }`}
       style={{ width: "500px", maxWidth: "calc(100vw - 32px)" }}
     >
       <Card className="w-full shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95">
@@ -61,7 +65,8 @@ export const AutopilotLoader = ({ progress, onClose }: AutopilotLoaderProps) => 
               <div className="flex flex-col gap-5 w-full">
                 <div>
                   <CardTitle className="text-base font-semibold truncate flex items-center gap-2">
-                    {getProgressTitle(progress.state, "autopilot")} {isError ? (
+                    {getProgressTitle(progress.state, "autopilot")}{" "}
+                    {isError ? (
                       <HeartCrackIcon className="size-4 text-destructive shrink-0" />
                     ) : isComplete ? (
                       <SparklesIcon className="size-4 text-green-500 shrink-0" />
@@ -74,12 +79,13 @@ export const AutopilotLoader = ({ progress, onClose }: AutopilotLoaderProps) => 
                 <div className="space-y-2">
                   <Progress
                     value={progressValue}
-                    className={`h-2 transition-colors ${isError
-                      ? "[&>div]:bg-destructive"
-                      : isComplete
-                        ? "[&>div]:bg-green-500"
-                        : "[&>div]:bg-primary"
-                      }`}
+                    className={`h-2 transition-colors ${
+                      isError
+                        ? "[&>div]:bg-destructive"
+                        : isComplete
+                          ? "[&>div]:bg-green-500"
+                          : "[&>div]:bg-primary"
+                    }`}
                   />
 
                   <p className="text-sm text-muted-foreground leading-relaxed">
@@ -94,9 +100,8 @@ export const AutopilotLoader = ({ progress, onClose }: AutopilotLoaderProps) => 
           </div>
         </CardHeader>
         <CardFooter>
-
-
-          {(progress.fieldsDetected || progress.fieldsMatched !== undefined) && (
+          {(progress.fieldsDetected ||
+            progress.fieldsMatched !== undefined) && (
             <div className="w-full flex flex-col gap-2">
               <Separator />
               <div className="flex items-center justify-between text-xs">

@@ -1,5 +1,6 @@
 import "./content.css";
 
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
 import { createLogger } from "@/lib/logger";
 import { settingsStorage } from "@/lib/storage";
@@ -13,7 +14,6 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
@@ -195,7 +195,10 @@ export default defineContentScript({
           logger.info(settingsStorage);
 
           if (settingStore.autopilotMode) {
-            if (progress.state === "showing-preview" || progress.state === "completed") {
+            if (
+              progress.state === "showing-preview" ||
+              progress.state === "completed"
+            ) {
               return true;
             }
             const manager = ensureAutopilotManager(ctx);
@@ -236,10 +239,17 @@ export default defineContentScript({
         }
 
         try {
-          if (settingStore.autopilotMode && manager instanceof AutopilotManager) {
+          if (
+            settingStore.autopilotMode &&
+            manager instanceof AutopilotManager
+          ) {
             logger.info("Autopilot manager created, attempting to show...");
 
-            await manager.processAutofillData(data.mappings, settingStore.confidenceThreshold, data.sessionId);
+            await manager.processAutofillData(
+              data.mappings,
+              settingStore.confidenceThreshold,
+              data.sessionId,
+            );
 
             logger.info("Autopilot manager processed data successfully");
           } else if (manager instanceof PreviewSidebarManager) {
@@ -265,7 +275,8 @@ export default defineContentScript({
           });
           throw error;
         }
-      });
+      },
+    );
 
     contentAutofillMessaging.onMessage("closePreview", async () => {
       if (previewManager) {

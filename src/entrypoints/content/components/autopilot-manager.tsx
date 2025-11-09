@@ -1,15 +1,22 @@
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
-import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
-import type { AutofillProgress, DetectedField, DetectedFieldSnapshot, FieldMapping, FieldOpId, FormOpId } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
-import { Theme } from "@/types/theme";
 import { createRoot, type Root } from "react-dom/client";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import { createLogger } from "@/lib/logger";
+import { store } from "@/lib/storage";
+import type {
+  AutofillProgress,
+  DetectedField,
+  DetectedFieldSnapshot,
+  FieldMapping,
+  FieldOpId,
+  FormOpId,
+} from "@/types/autofill";
+import type { FormField, FormMapping } from "@/types/memory";
+import { Theme } from "@/types/theme";
 import { AutopilotLoader } from "./autopilot-loader";
 
 const logger = createLogger("autopilot-manager");
@@ -22,7 +29,6 @@ export interface AutopilotFillData {
   confidence: number;
   memoryId: string;
 }
-
 
 const getPrimaryLabel = (
   metadata: DetectedFieldSnapshot["metadata"],
@@ -47,7 +53,6 @@ const getPrimaryLabel = (
 
   return metadata.type;
 };
-
 
 type AutopilotManagerOptions = {
   ctx: ContentScriptContext;
@@ -76,7 +81,7 @@ export class AutopilotManager {
         name: HOST_ID,
         position: "inline",
         onMount: (container, shadow, host) => {
-          host.id = HOST_ID
+          host.id = HOST_ID;
           host.setAttribute("data-ui-type", "autopilot");
           this.applyTheme(shadow);
 
@@ -111,16 +116,11 @@ export class AutopilotManager {
       } else if (theme === Theme.DARK) {
         host.classList.add("dark");
       } else {
-        const isDarkMode = document.documentElement.classList.contains("dark") ||
+        const isDarkMode =
+          document.documentElement.classList.contains("dark") ||
           window.matchMedia("(prefers-color-scheme: dark)").matches;
         host.classList.add(isDarkMode ? "dark" : "light");
       }
-
-      const styleLink = document.createElement("link");
-      styleLink.rel = "stylesheet";
-      styleLink.href = browser.runtime.getURL("/content-scripts/content.css" as any);
-      shadow.appendChild(styleLink);
-
     } catch (error) {
       logger.warn("Failed to apply theme to autopilot UI:", error);
     }
@@ -160,7 +160,7 @@ export class AutopilotManager {
   async processAutofillData(
     mappings: Array<FieldMapping>,
     confidenceThreshold: number,
-    sessionId: string
+    sessionId: string,
   ) {
     try {
       if (mappings.length === 0) {
@@ -169,10 +169,7 @@ export class AutopilotManager {
       }
 
       this.mappingLookup = new Map(
-        mappings.map((mapping: FieldMapping) => [
-          mapping.fieldOpid,
-          mapping,
-        ]),
+        mappings.map((mapping: FieldMapping) => [mapping.fieldOpid, mapping]),
       );
       this.showProgress({
         state: "detecting",
@@ -181,23 +178,27 @@ export class AutopilotManager {
       this.sessionId = sessionId;
 
       this.fieldsToFill = mappings
-        .filter(mapping =>
-          mapping.value !== null &&
-          mapping.memoryId !== null &&
-          mapping.confidence >= confidenceThreshold &&
-          mapping.autoFill !== false
+        .filter(
+          (mapping) =>
+            mapping.value !== null &&
+            mapping.memoryId !== null &&
+            mapping.confidence >= confidenceThreshold &&
+            mapping.autoFill !== false,
         )
-        .map(mapping => ({
+        .map((mapping) => ({
           fieldOpid: mapping.fieldOpid,
           value: mapping.value!,
           confidence: mapping.confidence,
           memoryId: mapping.memoryId!,
         }));
 
-      logger.info(`Prepared ${this.fieldsToFill.length} fields for autopilot fill`);
+      logger.info(
+        `Prepared ${this.fieldsToFill.length} fields for autopilot fill`,
+      );
 
-
-      const formMappings = await this.buildFormMappings(this.fieldsToFill.map(f => f.fieldOpid) as FieldOpId[]);
+      const formMappings = await this.buildFormMappings(
+        this.fieldsToFill.map((f) => f.fieldOpid) as FieldOpId[],
+      );
 
       if (formMappings.length > 0) {
         await contentAutofillMessaging.sendMessage("saveFormMappings", {
@@ -234,13 +235,19 @@ export class AutopilotManager {
 
       for (const field of this.fieldsToFill) {
         try {
-          let element = document.querySelector(`[data-wxt-field-opid="${field.fieldOpid}"]`) as
-            HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+          let element = document.querySelector(
+            `[data-wxt-field-opid="${field.fieldOpid}"]`,
+          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
           if (!element && field.fieldOpid.startsWith("__")) {
             const index = field.fieldOpid.substring(2);
-            const allInputs = document.querySelectorAll('input, textarea, select');
-            element = allInputs[parseInt(index)] as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+            const allInputs = document.querySelectorAll(
+              "input, textarea, select",
+            );
+            element = allInputs[parseInt(index)] as
+              | HTMLInputElement
+              | HTMLTextAreaElement
+              | HTMLSelectElement;
           }
 
           if (element && element.type !== "password") {
@@ -252,9 +259,13 @@ export class AutopilotManager {
             element.dispatchEvent(new Event("blur", { bubbles: true }));
 
             filledCount++;
-            logger.debug(`Filled field ${field.fieldOpid} with value: ${field.value}`);
+            logger.debug(
+              `Filled field ${field.fieldOpid} with value: ${field.value}`,
+            );
           } else {
-            logger.warn(`Field element not found or is password field for opid: ${field.fieldOpid}`);
+            logger.warn(
+              `Field element not found or is password field for opid: ${field.fieldOpid}`,
+            );
           }
         } catch (fieldError) {
           logger.error(`Failed to fill field ${field.fieldOpid}:`, fieldError);
@@ -272,14 +283,15 @@ export class AutopilotManager {
         status: "completed",
       });
 
-      logger.info(`Autopilot completed: filled ${filledCount}/${this.fieldsToFill.length} fields`);
+      logger.info(
+        `Autopilot completed: filled ${filledCount}/${this.fieldsToFill.length} fields`,
+      );
 
       if (this.sessionId) {
         await this.completeSession();
       }
 
       return filledCount > 0;
-
     } catch (error) {
       logger.error("Failed to execute autopilot autofill:", error);
 
@@ -301,16 +313,20 @@ export class AutopilotManager {
 
     try {
       const usedMemoryIds = Array.from(
-        new Set(this.fieldsToFill.map(field => field.memoryId))
+        new Set(this.fieldsToFill.map((field) => field.memoryId)),
       );
 
-      logger.info(`Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`);
+      logger.info(
+        `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,
+      );
 
       if (usedMemoryIds.length > 0) {
         await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
           memoryIds: usedMemoryIds,
         });
-        logger.info(`Incremented usage count for ${usedMemoryIds.length} memories`);
+        logger.info(
+          `Incremented usage count for ${usedMemoryIds.length} memories`,
+        );
       }
 
       await contentAutofillMessaging.sendMessage("completeSession", {
@@ -345,7 +361,6 @@ export class AutopilotManager {
   getCurrentProgress(): AutofillProgress | null {
     return this.currentProgress;
   }
-
 
   private async buildFormMappings(
     selectedFieldOpids: FieldOpId[],
@@ -417,7 +432,6 @@ export class AutopilotManager {
       return [];
     }
   }
-
 
   private calculateAverageConfidence(fields: DetectedField[]): number {
     let totalConfidence = 0;

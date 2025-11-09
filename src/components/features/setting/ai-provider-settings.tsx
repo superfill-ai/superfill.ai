@@ -1,3 +1,4 @@
+import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +25,6 @@ import {
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
 import { useSettingsStore } from "@/stores/settings";
-import { useEffect, useId, useState } from "react";
 import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 

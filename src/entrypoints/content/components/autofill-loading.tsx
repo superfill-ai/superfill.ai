@@ -1,3 +1,4 @@
+import { HeartCrackIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,8 +9,10 @@ import {
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import type { AutofillProgress } from "@/types/autofill";
-import { HeartCrackIcon, XIcon } from "lucide-react";
-import { getProgressDescription, getProgressTitle } from "../lib/progress-utils";
+import {
+  getProgressDescription,
+  getProgressTitle,
+} from "../lib/progress-utils";
 import { MemoryLoader } from "./memory-loader";
 
 type AutofillLoadingProps = {

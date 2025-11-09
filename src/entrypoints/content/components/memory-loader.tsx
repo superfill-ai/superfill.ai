@@ -18,5 +18,5 @@ export const MemoryLoader = () => {
       </svg>
       <div className="box"></div>
     </div>
-  )
-}
+  );
+};

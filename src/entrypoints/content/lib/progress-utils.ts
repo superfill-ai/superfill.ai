@@ -2,7 +2,7 @@ import type { AutofillProgress } from "@/types/autofill";
 
 export const getProgressTitle = (
   state: AutofillProgress["state"],
-  mode: "preview" | "autopilot" = "preview"
+  mode: "preview" | "autopilot" = "preview",
 ): string => {
   switch (state) {
     case "detecting":
@@ -10,7 +10,9 @@ export const getProgressTitle = (
     case "analyzing":
       return mode === "autopilot" ? "Analyzing fields..." : "Analyzing fields";
     case "matching":
-      return mode === "autopilot" ? "Matching memories..." : "Matching memories";
+      return mode === "autopilot"
+        ? "Matching memories..."
+        : "Matching memories";
     case "filling":
       return "Auto-filling fields...";
     case "showing-preview":
@@ -26,7 +28,7 @@ export const getProgressTitle = (
 
 export const getProgressDescription = (
   progress: AutofillProgress,
-  mode: "preview" | "autopilot" = "preview"
+  mode: "preview" | "autopilot" = "preview",
 ): string => {
   if (progress.state === "completed") {
     return `Successfully filled ${progress.fieldsMatched || 0} fields`;
@@ -45,7 +47,10 @@ export const getProgressDescription = (
       : `Analyzing ${progress.fieldsDetected} fields`;
   }
 
-  return progress.message || (mode === "autopilot" ? "Initializing autopilot mode..." : "Processing...");
+  return (
+    progress.message ||
+    (mode === "autopilot" ? "Initializing autopilot mode..." : "Processing...")
+  );
 };
 
 export const getProgressValue = (state: AutofillProgress["state"]): number => {
@@ -70,7 +75,7 @@ export const getProgressValue = (state: AutofillProgress["state"]): number => {
 };
 
 export const getProgressIcon = (
-  state: AutofillProgress["state"]
+  state: AutofillProgress["state"],
 ): "error" | "success" | "loading" => {
   switch (state) {
     case "failed":

@@ -1,5 +1,5 @@
-import type { AIProvider } from "@/lib/providers/registry";
 import { defineProxyService } from "@webext-core/proxy-service";
+import type { AIProvider } from "@/lib/providers/registry";
 
 class KeyValidationService {
   async validateKey(provider: AIProvider, key: string): Promise<boolean> {

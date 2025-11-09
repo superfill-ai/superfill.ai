@@ -168,6 +168,7 @@
     from {
       background-position: 0 0;
     }
+
     to {
       background-position: -300% 0;
     }
@@ -179,6 +180,7 @@
     /* biome-ignore lint/suspicious/noUnknownAtRules: it's fine here */
     @apply border-border outline-ring/50;
   }
+
   body {
     /* biome-ignore lint/suspicious/noUnknownAtRules: it's fine here */
     @apply bg-background text-foreground;
@@ -233,5 +235,6 @@
 }
 
 .toaster.group [data-description] {
+  /* biome-ignore lint/complexity/noImportantStyles: it's fine here */
   color: var(--color-popover-foreground) !important;
 }

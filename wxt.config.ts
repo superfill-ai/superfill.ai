@@ -29,9 +29,7 @@ export default defineConfig({
       gecko: {
         // @ts-expect-error - Missing type definitions
         data_collection_permissions: {
-          required: [
-            "none",
-          ],
+          required: ["none"],
         },
       },
     },

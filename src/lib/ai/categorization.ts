@@ -1,10 +1,10 @@
-import { getAIModel } from "@/lib/ai/model-factory";
-import { createLogger } from "@/lib/logger";
-import type { AIProvider } from "@/lib/providers/registry";
 import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getAIModel } from "@/lib/ai/model-factory";
+import { createLogger } from "@/lib/logger";
+import type { AIProvider } from "@/lib/providers/registry";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 
 const logger = createLogger("ai:categorization");
@@ -30,8 +30,12 @@ export const AnalysisResultSchema = z.object({
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 export const RephraseResultSchema = z.object({
-  rephrasedQuestion: z.string().describe("A clear, well-formulated question based on the answer."),
-  rephrasedAnswer: z.string().describe("A refined and clear version of the original answer."),
+  rephrasedQuestion: z
+    .string()
+    .describe("A clear, well-formulated question based on the answer."),
+  rephrasedAnswer: z
+    .string()
+    .describe("A refined and clear version of the original answer."),
 });
 export type RephraseResult = z.infer<typeof RephraseResultSchema>;
 export type Category = z.infer<typeof CategoryEnum>;
@@ -191,7 +195,7 @@ export const rephraseAgent = async (
   apiKey: string,
   modelName?: string,
 ): Promise<RephraseResult> => {
-  // try {
+  try {
     const model = getAIModel(provider, apiKey, modelName);
 
     const systemPrompt = `You are an expert in clarity and conciseness. Your task is to rephrase a user's question and answer to be more clear, professional, and easily searchable.
@@ -208,9 +212,6 @@ export const rephraseAgent = async (
       name: "superfill:memory-rephrase",
       input: { answer, question },
     });
-
-    console.log("Rephrase userPrompt:", userPrompt);
-
 
     const { object } = await generateObject({
       model,
@@ -231,22 +232,22 @@ export const rephraseAgent = async (
     trace.getActiveSpan()?.end();
 
     return object;
-  // } catch (error) {
-  //   logger.error("AI rephrasing failed:", error);
+  } catch (error) {
+    logger.error("AI rephrasing failed:", error);
 
-  //   updateActiveObservation({
-  //     output: error,
-  //     level: "ERROR",
-  //   });
-  //   updateActiveTrace({
-  //     output: error,
-  //   });
-  //   trace.getActiveSpan()?.end();
+    updateActiveObservation({
+      output: error,
+      level: "ERROR",
+    });
+    updateActiveTrace({
+      output: error,
+    });
+    trace.getActiveSpan()?.end();
 
-    // throw new Error("Failed to rephrase content with AI.");
-  // } finally {
-  //   (async () => await langfuseSpanProcessor.forceFlush())();
-  // }
+    throw new Error("Failed to rephrase content with AI.");
+  } finally {
+    (async () => await langfuseSpanProcessor.forceFlush())();
+  }
 };
 
 export const batchCategorization = async (

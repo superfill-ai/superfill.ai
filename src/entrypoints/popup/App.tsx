@@ -1,3 +1,12 @@
+import {
+  SettingsIcon,
+  SparklesIcon,
+  TargetIcon,
+  TrophyIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { Badge } from "@/components/ui/badge";
@@ -37,19 +46,11 @@ import {
   useTopMemories,
 } from "@/hooks/use-memory";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
+import { ERROR_MESSAGE_API_KEY_NOT_CONFIGURED } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
 import { useMemoryStore } from "@/stores/memory";
-import {
-  SettingsIcon,
-  SparklesIcon,
-  TargetIcon,
-  TrophyIcon,
-} from "lucide-react";
-import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
-import { toast } from "sonner";
 
 const logger = createLogger("popup");
 
@@ -103,8 +104,9 @@ export const App = () => {
       const apiKey = await keyVault.getKey(userSettings.selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {
-        toast.error("AI provider not configured", {
-          description: "Please configure an AI provider in settings to use autofill",
+        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use autofill",
           action: {
             label: "Open Settings",
             onClick: () => browser.runtime.openOptionsPage(),

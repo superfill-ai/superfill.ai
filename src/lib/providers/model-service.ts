@@ -34,9 +34,7 @@ interface DeepSeekModel {
 }
 
 const DEFAULT_MODELS: Record<AIProvider, ModelInfo[]> = {
-  openai: [
-    { id: "gpt-5-nano", name: "GPT-5 Nano" },
-  ],
+  openai: [{ id: "gpt-5-nano", name: "GPT-5 Nano" }],
   anthropic: [
     {
       id: "claude-haiku-4-5-20251001",
@@ -49,9 +47,7 @@ const DEFAULT_MODELS: Record<AIProvider, ModelInfo[]> = {
       name: "Llama 4 Maverick 400B",
     },
   ],
-  deepseek: [
-    { id: "deepseek-chat", name: "DeepSeek Chat", },
-  ],
+  deepseek: [{ id: "deepseek-chat", name: "DeepSeek Chat" }],
   gemini: [
     {
       id: "models/gemini-2.5-flash",
@@ -128,10 +124,12 @@ class ModelService {
       }
 
       const data = (await response.json()) as { data: AnthropicModel[] };
-      const models = data.data.filter((m) => m.type === "model").map((m) => ({
-        id: m.id,
-        name: m.display_name,
-      }));
+      const models = data.data
+        .filter((m) => m.type === "model")
+        .map((m) => ({
+          id: m.id,
+          name: m.display_name,
+        }));
 
       return models.length > 0 ? models : DEFAULT_MODELS.anthropic;
     } catch {

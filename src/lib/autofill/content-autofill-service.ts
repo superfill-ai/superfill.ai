@@ -1,10 +1,10 @@
+import { defineExtensionMessaging } from "@webext-core/messaging";
 import type {
   AutofillProgress,
   DetectFormsResult,
-  PreviewSidebarPayload
+  PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { FillSession, FormMapping } from "@/types/memory";
-import { defineExtensionMessaging } from "@webext-core/messaging";
 
 interface ContentAutofillProtocolMap {
   detectForms: () => DetectFormsResult;

@@ -1,7 +1,7 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2Icon, SparklesIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
 import { allowedCategories } from "@/lib/copies";
+import { ERROR_MESSAGE_API_KEY_NOT_CONFIGURED } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
@@ -118,6 +119,19 @@ export function EntryForm({
       const userSettings = await store.userSettings.getValue();
       const apiKey = await keyVault.getKey(userSettings.selectedProvider);
 
+      if (!apiKey) {
+        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use rephrasing.",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+      }
+
       return categorizationService.rephrase(
         currentAnswer,
         currentQuestion,
@@ -125,20 +139,20 @@ export function EntryForm({
       );
     },
     onSuccess: (data) => {
-      if (data.rephrasedQuestion) {
+      if (data?.rephrasedQuestion) {
         form.setFieldValue("question", data.rephrasedQuestion);
       }
       form.setFieldValue("answer", data.rephrasedAnswer);
     },
   });
 
-  const analysisQuery = useQuery({
-    queryKey: ["analyze", debouncedAnswer, debouncedQuestion],
+  const categorizeQuery = useQuery({
+    queryKey: ["categorize", debouncedAnswer, debouncedQuestion],
     queryFn: async () => {
       const userSettings = await store.userSettings.getValue();
       const apiKey = await keyVault.getKey(userSettings.selectedProvider);
 
-      return categorizationService.analyze(
+      return categorizationService.categorize(
         debouncedAnswer,
         debouncedQuestion,
         apiKey || undefined,
@@ -149,27 +163,27 @@ export function EntryForm({
     retry: 1,
   });
 
-  const isAiCategorizing = analysisQuery.isLoading;
+  const isAiCategorizing = categorizeQuery.isLoading;
   const isAiRephrasing = rephraseMutation.isPending;
 
   useEffect(() => {
-    if (mode === "create" && debouncedAnswer && analysisQuery.data) {
+    if (mode === "create" && debouncedAnswer && categorizeQuery.data) {
       const currentCategory = form.getFieldValue("category");
       const currentTags = form.getFieldValue("tags");
 
-      if (!currentCategory && analysisQuery.data.category) {
-        form.setFieldValue("category", analysisQuery.data.category);
+      if (!currentCategory && categorizeQuery.data.category) {
+        form.setFieldValue("category", categorizeQuery.data.category);
       }
 
       if (
         currentTags.length === 0 &&
-        analysisQuery.data.tags &&
-        analysisQuery.data.tags.length > 0
+        categorizeQuery.data.tags &&
+        categorizeQuery.data.tags.length > 0
       ) {
-        form.setFieldValue("tags", analysisQuery.data.tags);
+        form.setFieldValue("tags", categorizeQuery.data.tags);
       }
     }
-  }, [analysisQuery.data, debouncedAnswer, mode, form]);
+  }, [categorizeQuery.data, debouncedAnswer, mode, form]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -200,12 +214,13 @@ export function EntryForm({
       return;
     }
 
-    toast.promise(rephraseMutation.mutateAsync({ currentQuestion, currentAnswer }), {
-      loading: "Rephrasing with AI...",
-      success: "Content rephrased successfully!",
-      error: (err) =>
-        err instanceof Error ? err.message : "Failed to rephrase content.",
-    });
+    toast.promise(
+      rephraseMutation.mutateAsync({ currentQuestion, currentAnswer }),
+      {
+        loading: "Rephrasing with AI...",
+        success: "Content rephrased successfully!",
+      },
+    );
   };
 
   return (

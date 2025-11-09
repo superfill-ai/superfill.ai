@@ -1,3 +1,5 @@
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
@@ -5,8 +7,6 @@ import { store } from "@/lib/storage";
 import type { UserSettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
 import { Trigger } from "@/types/trigger";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:settings");
 
@@ -179,7 +179,9 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           set({ loading: false });
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : "Failed to set autopilot mode";
+            error instanceof Error
+              ? error.message
+              : "Failed to set autopilot mode";
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -275,7 +277,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
               autopilotMode: defaultSettings.autopilotMode,
               confidenceThreshold: defaultSettings.confidenceThreshold,
             }),
-          ]); set({ loading: false });
+          ]);
+          set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to reset settings";
