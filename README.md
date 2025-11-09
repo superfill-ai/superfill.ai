@@ -219,7 +219,7 @@ bun run lint
 - [x] Autofill directly without preview mode (autopilot mode)
 - [ ] Auto adding memories from filled forms based on user confirmation
 - [x] Let AI rephrase questions/answers on memory creation (Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! 🙏)
-  - [ ] Better UI for rephrasing suggestions (inline buttons, etc. Ideas welcome!)
+- [x] Top used tags & click-to-add functionality
 - [ ] Let AI rephrase answers on auto-fill based on form context
 - [ ] Firefox support
 - [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition

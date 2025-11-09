@@ -25,6 +25,7 @@ type MemoryActions = {
   getEntriesByCategory: (category: string) => MemoryEntry[];
   getEntriesByTags: (tags: string[]) => MemoryEntry[];
   incrementUsageCount: (id: string) => Promise<void>;
+  getTopUsedTags: (topN: number) => Array<{ tag: string; count: number }>;
   exportToCSV: () => void;
   importFromCSV: (csvContent: string) => Promise<number>;
   downloadCSVTemplate: () => void;
@@ -190,6 +191,23 @@ export const useMemoryStore = create<MemoryState & MemoryActions>()(
         set({ error: errorMessage });
         throw error;
       }
+    },
+
+    getTopUsedTags: (topN: number): Array<{ tag: string; count: number }> => {
+      const tagCountMap: Record<string, number> = {};
+
+      get().entries.forEach((entry) => {
+        entry.tags.forEach((tag) => {
+          tagCountMap[tag] = (tagCountMap[tag] || 0) + 1;
+        });
+      });
+
+      const sortedTags = Object.entries(tagCountMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topN)
+        .map(([tag, count]) => ({ tag, count }));
+
+      return sortedTags;
     },
 
     exportToCSV: () => {

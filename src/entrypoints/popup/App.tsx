@@ -312,7 +312,7 @@ export const App = () => {
                 <ItemTitle>
                   {editingEntryId ? "Edit Memory" : "Add New Memory"}
                 </ItemTitle>
-                <ItemDescription>
+                <ItemDescription className="text-nowrap">
                   {editingEntryId
                     ? "Update your memory entry below"
                     : "Store information that you want to use for auto-filling forms"}
@@ -322,6 +322,7 @@ export const App = () => {
             <Item className="p-0">
               <ItemContent>
                 <EntryForm
+                  layout="compact"
                   mode={editingEntryId ? "edit" : "create"}
                   initialData={
                     editingEntryId

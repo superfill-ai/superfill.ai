@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 import { z } from "zod";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import {
@@ -15,7 +16,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
-import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
 import { allowedCategories } from "@/lib/copies";
@@ -37,6 +37,7 @@ const entryFormSchema = z.object({
 
 interface EntryFormProps {
   mode: "create" | "edit";
+  layout?: "compact" | "normal";
   initialData?: MemoryEntry;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -45,11 +46,12 @@ interface EntryFormProps {
 export function EntryForm({
   mode,
   initialData,
+  layout = "normal",
   onSuccess,
   onCancel,
 }: EntryFormProps) {
-  const { addEntry, updateEntry, entries } = useMemoryStore();
-  const existingTags = [...new Set(entries.flatMap((e) => e.tags))];
+  const { addEntry, updateEntry } = useMemoryStore();
+  const top10Tags = useMemoryStore().getTopUsedTags(10);
 
   const categorizationService = getCategorizationService();
 
@@ -223,6 +225,13 @@ export function EntryForm({
     );
   };
 
+  const handleTagClick = (tag: string) => {
+    const currentTags = form.getFieldValue("tags");
+    if (!currentTags.includes(tag)) {
+      form.setFieldValue("tags", [...currentTags, tag]);
+    }
+  };
+
   return (
     <form
       onSubmit={(e) => {
@@ -237,7 +246,10 @@ export function EntryForm({
             const isInvalid =
               field.state.meta.isTouched && !field.state.meta.isValid;
             return (
-              <Field data-invalid={isInvalid}>
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
                 <FieldLabel htmlFor={field.name}>
                   Question (Optional)
                 </FieldLabel>
@@ -262,7 +274,10 @@ export function EntryForm({
               field.state.meta.isTouched && !field.state.meta.isValid;
 
             return (
-              <Field data-invalid={isInvalid}>
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
                 <FieldLabel htmlFor={field.name}>Answer *</FieldLabel>
                 <Textarea
                   id={field.name}
@@ -279,36 +294,21 @@ export function EntryForm({
           }}
         </form.Field>
 
-        {isAiCategorizing && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner className="size-4" />
-            <span>AI is analyzing your answer...</span>
-          </div>
-        )}
-
-        <form.Field name="tags">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Tags</FieldLabel>
-                <InputBadge
-                  id={field.name}
-                  value={field.state.value}
-                  onChange={(value) => field.handleChange(value)}
-                  placeholder="Add tags (press Enter, comma, or semicolon)"
-                />
-                {existingTags.length > 0 && (
-                  <FieldDescription>
-                    Existing tags: {existingTags.join(", ")}
-                  </FieldDescription>
-                )}
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            );
-          }}
-        </form.Field>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={handleRephrase}
+          disabled={isAiRephrasing || isAiCategorizing || !answer.trim()}
+        >
+          {isAiRephrasing ? (
+            <Loader2Icon className="mr-2 size-4 animate-spin" />
+          ) : (
+            <SparklesIcon className="mr-2 size-4" />
+          )}
+          Rephrase with AI
+        </Button>
 
         <form.Field name="category">
           {(field) => {
@@ -323,8 +323,16 @@ export function EntryForm({
             );
 
             return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Category *</FieldLabel>
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
+                <FieldLabel htmlFor={field.name}>
+                  Category *{" "}
+                  {isAiCategorizing && (
+                    <SparklesIcon className="size-3 animate-pulse" />
+                  )}
+                </FieldLabel>
                 <Combobox
                   id={field.name}
                   name={field.name}
@@ -341,25 +349,50 @@ export function EntryForm({
             );
           }}
         </form.Field>
-      </FieldGroup>
 
-      {answer && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={handleRephrase}
-          disabled={isAiRephrasing || isAiCategorizing}
-        >
-          {isAiRephrasing ? (
-            <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <SparklesIcon className="mr-2 h-4 w-4" />
-          )}
-          Rephrase with AI
-        </Button>
-      )}
+        <form.Field name="tags">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid;
+            return (
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
+                <FieldLabel htmlFor={field.name}>
+                  Tags{" "}
+                  {isAiCategorizing && (
+                    <SparklesIcon className="size-3 animate-pulse" />
+                  )}{" "}
+                </FieldLabel>
+                <InputBadge
+                  id={field.name}
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value)}
+                  placeholder="Add tags (press Enter, comma, or semicolon)"
+                />
+                {top10Tags.length > 0 && (
+                  <FieldDescription>
+                    Existing tags:{" "}
+                    {top10Tags.map((tag) => (
+                      <Badge
+                        size="sm"
+                        key={tag.tag}
+                        variant="outline"
+                        className="mr-1 cursor-pointer"
+                        onClick={() => handleTagClick(tag.tag)}
+                      >
+                        {tag.tag}
+                      </Badge>
+                    ))}
+                  </FieldDescription>
+                )}
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            );
+          }}
+        </form.Field>
+      </FieldGroup>
 
       <Field orientation="horizontal">
         <form.Subscribe selector={(state) => [state.isSubmitting]}>
@@ -370,7 +403,7 @@ export function EntryForm({
               className="flex-1"
             >
               {isSubmitting && (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
               )}
               {mode === "edit" ? "Update" : "Save"}
             </Button>
