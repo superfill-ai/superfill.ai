@@ -53,7 +53,7 @@ export const AiProviderSettings = () => {
       setProviderOptions(options);
     };
     loadProviders();
-  }, []);
+  }, [keyStatuses]);
 
   const handleSaveApiKeys = async () => {
     await saveKeysMutation.mutateAsync(providerKeys);
