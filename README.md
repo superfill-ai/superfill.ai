@@ -218,7 +218,7 @@ bun run lint
 - [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
 - [x] Autofill directly without preview mode (autopilot mode)
 - [ ] Auto adding memories from filled forms based on user confirmation
-- [x] Let AI rephrase questions/answers on memory creation
+- [x] Let AI rephrase questions/answers on memory creation (Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! 🙏)
   - [ ] Better UI for rephrasing suggestions (inline buttons, etc. Ideas welcome!)
 - [ ] Let AI rephrase answers on auto-fill based on form context
 - [ ] Firefox support
