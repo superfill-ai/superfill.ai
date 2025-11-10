@@ -1,10 +1,3 @@
-import { useForm, useStore } from "@tanstack/react-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2Icon, SparklesIcon } from "lucide-react";
-import { useEffect } from "react";
-import { toast } from "sonner";
-import { useDebounce } from "use-debounce";
-import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
@@ -28,6 +21,13 @@ import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
 import { useMemoryStore } from "@/stores/memory";
 import type { MemoryEntry } from "@/types/memory";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Loader2Icon, SparklesIcon } from "lucide-react";
+import { useEffect } from "react";
+import { toast } from "sonner";
+import { useDebounce } from "use-debounce";
+import { z } from "zod";
 
 const logger = createLogger("component:entry-form");
 
@@ -260,7 +260,6 @@ export function EntryForm({
     toast.promise(
       rephraseMutation.mutateAsync({ currentQuestion, currentAnswer }),
       {
-        loading: "Rephrasing with AI...",
         success: "Content rephrased successfully!",
       },
     );
