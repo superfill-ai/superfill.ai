@@ -230,7 +230,7 @@ bun run lint
 - [ ] Browser native autofill integration (bypass extension popup)
 - [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
 - [ ] Auto adding memories from filled forms based on user confirmation
-- [ ] MCP support (Multi-Context Profiles)
+- [ ] MCP support
 - [ ] Upvote/downvote memory suggestions
 - [ ] Multi page form support
 - [ ] Customizable autofill shortcuts
