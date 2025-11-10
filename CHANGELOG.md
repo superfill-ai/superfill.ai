@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.0.8
+
+### Patch Changes
+
+- [`b8f06ba`](https://github.com/superfill-ai/superfill.ai/commit/b8f06ba2386bb2657735fa842f4d07a0c9fd1a2c) Thanks [@mikr13](https://github.com/mikr13)! - feat: add Ollama AI provider support and enhance connection validation
+
 ## 0.0.7
 
 ### Patch Changes
