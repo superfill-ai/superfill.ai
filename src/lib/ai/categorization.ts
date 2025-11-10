@@ -252,7 +252,7 @@ export const rephraseAgent = async (
 
 export const batchCategorization = async (
   entries: Array<{ answer: string; question?: string }>,
-  provider: "openai" | "anthropic",
+  provider: "openai" | "anthropic" | "groq" | "deepseek" | "gemini",
   apiKey: string,
 ): Promise<AnalysisResult[]> => {
   // For now, process sequentially. Future: implement proper batching

@@ -13,7 +13,7 @@ const logger = createLogger("store:settings");
 type SettingsState = {
   theme: Theme;
   trigger: Trigger;
-  selectedProvider: AIProvider;
+  selectedProvider?: AIProvider;
   selectedModels: Partial<Record<AIProvider, string>>;
   autoFillEnabled: boolean;
   autopilotMode: boolean;
@@ -41,7 +41,6 @@ type SettingsActions = {
 const defaultSettings: SettingsState = {
   theme: Theme.DEFAULT,
   trigger: Trigger.POPUP,
-  selectedProvider: "openai",
   selectedModels: {},
   autoFillEnabled: true,
   autopilotMode: false,
@@ -366,7 +365,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
             store.theme.setValue(Theme.DEFAULT),
             store.trigger.setValue(Trigger.POPUP),
             store.aiSettings.setValue({
-              selectedProvider: "openai",
+              selectedProvider: undefined,
               selectedModels: {},
               autoFillEnabled: true,
               autopilotMode: false,
