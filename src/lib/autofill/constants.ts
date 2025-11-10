@@ -1,13 +1,5 @@
 import type { FieldPurpose } from "@/types/autofill";
 
-export const SIMPLE_FIELD_PURPOSES: readonly FieldPurpose[] = [
-  "name",
-  "email",
-  "phone",
-] as const;
-
-export const SIMPLE_FIELD_CONFIDENCE = 0.95;
-
 export const FIELD_PURPOSE_KEYWORDS: Record<
   Exclude<FieldPurpose, "unknown">,
   readonly string[]
