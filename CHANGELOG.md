@@ -1,5 +1,15 @@
 # superfill.ai
 
+## 0.0.7
+
+### Patch Changes
+
+- [`177e49a`](https://github.com/superfill-ai/superfill.ai/commit/177e49a91f765d5a23904621077444701a602769) Thanks [@mikr13](https://github.com/mikr13)! - fix: improve browser fingerprinting details
+
+- [`26818ef`](https://github.com/superfill-ai/superfill.ai/commit/26818efce824e3ccfba351e529f875f15346773c) Thanks [@mikr13](https://github.com/mikr13)! - refactor: streamline entry form logic and enhance categorization with AI integration
+
+- [`2bebfdd`](https://github.com/superfill-ai/superfill.ai/commit/2bebfddfc70b26752bd0328a50927a28bca92e9e) Thanks [@mikr13](https://github.com/mikr13)! - refactor: update API key handling to save with model and streamline provider settings
+
 ## 0.0.6
 
 ### Patch Changes
