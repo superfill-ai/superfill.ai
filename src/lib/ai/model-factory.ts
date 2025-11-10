@@ -55,3 +55,14 @@ export const getAIModel = (
 
   throw new Error(`Unsupported AI provider: ${provider}`);
 };
+
+export const getDefaultModel = (provider: AIProvider): string => {
+  const defaults: Record<AIProvider, string> = {
+    openai: "gpt-5-nano",
+    anthropic: "claude-haiku-4-5-20251001",
+    groq: "openai/gpt-oss-20b",
+    deepseek: "deepseek-chat",
+    gemini: "models/gemini-2.5-flash",
+  };
+  return defaults[provider];
+};

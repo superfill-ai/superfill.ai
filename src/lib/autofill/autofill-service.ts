@@ -1,6 +1,6 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { z } from "zod";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";

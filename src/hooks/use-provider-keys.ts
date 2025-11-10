@@ -31,20 +31,23 @@ export function useProviderKeyStatuses() {
   });
 }
 
-export function useSaveApiKey() {
+export function useSaveApiKeyWithModel() {
   const queryClient = useQueryClient();
   const setApiKey = useSettingsStore((state) => state.setApiKey);
   const setSelectedProvider = useSettingsStore(
     (state) => state.setSelectedProvider,
   );
+  const setSelectedModel = useSettingsStore((state) => state.setSelectedModel);
 
   return useMutation({
     mutationFn: async ({
       provider,
       key,
+      defaultModel,
     }: {
       provider: AIProvider;
       key: string;
+      defaultModel: string;
     }) => {
       const config = getProviderConfig(provider);
 
@@ -53,8 +56,9 @@ export function useSaveApiKey() {
       }
 
       await setApiKey(provider, key);
+      await setSelectedModel(provider, defaultModel);
 
-      return { provider, key };
+      return { provider, key, defaultModel };
     },
     onSuccess: async ({ provider }) => {
       const config = getProviderConfig(provider);
@@ -93,52 +97,6 @@ export function useDeleteApiKey() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to delete API key");
-    },
-  });
-}
-
-export function useSaveMultipleApiKeys() {
-  const queryClient = useQueryClient();
-  const saveApiKey = useSaveApiKey();
-
-  return useMutation({
-    mutationFn: async (keys: Record<string, string>) => {
-      const entries = Object.entries(keys).filter(
-        ([_, key]) => key.trim() !== "",
-      );
-
-      if (entries.length === 0) {
-        throw new Error("Please enter at least one API key");
-      }
-
-      const results = await Promise.allSettled(
-        entries.map(([provider, key]) =>
-          saveApiKey.mutateAsync({ provider: provider as AIProvider, key }),
-        ),
-      );
-
-      const failures = results.filter((r) => r.status === "rejected");
-      if (failures.length > 0) {
-        const firstError = (failures[0] as PromiseRejectedResult).reason;
-        throw firstError;
-      }
-
-      return entries.map(([provider]) => provider as AIProvider);
-    },
-    onSuccess: async (savedProviders) => {
-      await queryClient.invalidateQueries({
-        queryKey: PROVIDER_KEYS_QUERY_KEY,
-      });
-
-      if (savedProviders.length === 1) {
-        const config = getProviderConfig(savedProviders[0]);
-        toast.success(`${config.name} API key saved successfully`);
-      } else {
-        toast.success(`${savedProviders.length} API keys saved successfully`);
-      }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to save API keys");
     },
   });
 }

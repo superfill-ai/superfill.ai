@@ -1,7 +1,7 @@
 import "./content.css";
 
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { settingsStorage } from "@/lib/storage";
 import { useSettingsStore } from "@/stores/settings";

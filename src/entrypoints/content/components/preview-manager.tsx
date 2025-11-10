@@ -4,7 +4,7 @@ import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
 import { useSettingsStore } from "@/stores/settings";

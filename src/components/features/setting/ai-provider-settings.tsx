@@ -1,7 +1,6 @@
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,11 +15,13 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { Separator } from "@/components/ui/separator";
 import {
   useDeleteApiKey,
   useProviderKeyStatuses,
-  useSaveMultipleApiKeys,
+  useSaveApiKeyWithModel,
 } from "@/hooks/use-provider-keys";
+import { getDefaultModel } from "@/lib/ai/model-factory";
 import { getProviderOptions } from "@/lib/providers";
 import {
   type AIProvider,
@@ -42,10 +43,12 @@ export const AiProviderSettings = () => {
     (state) => state.setSelectedProvider,
   );
   const { data: keyStatuses } = useProviderKeyStatuses();
-  const saveKeysMutation = useSaveMultipleApiKeys();
+  const saveKeyWithModelMutation = useSaveApiKeyWithModel();
   const deleteKeyMutation = useDeleteApiKey();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: we need to refetch when keyStatuses change
+  const allConfigs = getAllProviderConfigs();
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: need to run when keyStatuses change
   useEffect(() => {
     const loadProviders = async () => {
       const options = await getProviderOptions();
@@ -54,9 +57,13 @@ export const AiProviderSettings = () => {
     loadProviders();
   }, [keyStatuses]);
 
-  const handleSaveApiKeys = async () => {
-    await saveKeysMutation.mutateAsync(providerKeys);
-    setProviderKeys({});
+  const handleSaveApiKey = async (provider: AIProvider) => {
+    const key = providerKeys[provider];
+    if (!key?.trim()) return;
+
+    const defaultModel = getDefaultModel(provider);
+    await saveKeyWithModelMutation.mutateAsync({ provider, key, defaultModel });
+    setProviderKeys((prev) => ({ ...prev, [provider]: "" }));
   };
 
   const handleToggleShowKey = (provider: string) => {
@@ -70,8 +77,6 @@ export const AiProviderSettings = () => {
   const handleDeleteKey = async (provider: string) => {
     await deleteKeyMutation.mutateAsync(provider as AIProvider);
   };
-
-  const allConfigs = getAllProviderConfigs();
 
   return (
     <Card>
@@ -88,6 +93,7 @@ export const AiProviderSettings = () => {
                 config={config}
                 value={providerKeys[config.id] || ""}
                 onChange={(value) => handleKeyChange(config.id, value)}
+                onSave={() => handleSaveApiKey(config.id as AIProvider)}
                 showKey={!!showKeys[config.id]}
                 onToggleShow={() => handleToggleShowKey(config.id)}
                 hasExistingKey={!!keyStatuses?.[config.id]}
@@ -102,14 +108,7 @@ export const AiProviderSettings = () => {
             </div>
           ))}
 
-          <Button
-            onClick={handleSaveApiKeys}
-            className="w-full"
-            disabled={saveKeysMutation.isPending}
-          >
-            {saveKeysMutation.isPending ? "Saving..." : "Save API Keys"}
-          </Button>
-
+          <Separator className="my-2" />
           <Field data-invalid={false}>
             <FieldLabel htmlFor={providerComboboxId}>
               Current Provider

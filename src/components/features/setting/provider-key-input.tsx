@@ -11,6 +11,7 @@ interface ProviderKeyInputProps {
   config: ProviderConfig;
   value: string;
   onChange: (value: string) => void;
+  onSave: () => void;
   showKey: boolean;
   onToggleShow: () => void;
   hasExistingKey: boolean;
@@ -22,6 +23,7 @@ export const ProviderKeyInput = ({
   config,
   value,
   onChange,
+  onSave,
   showKey,
   onToggleShow,
   hasExistingKey,
@@ -33,6 +35,18 @@ export const ProviderKeyInput = ({
   if (!config.requiresApiKey) {
     return null;
   }
+
+  const handleBlur = () => {
+    if (value.trim()) {
+      onSave();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && value.trim()) {
+      onSave();
+    }
+  };
 
   return (
     <Field data-invalid={false}>
@@ -54,6 +68,8 @@ export const ProviderKeyInput = ({
           }
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
         />
         <div className="absolute right-0 top-0 h-full flex items-center gap-1 pr-1">
           {hasExistingKey && !value && (

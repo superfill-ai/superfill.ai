@@ -1,6 +1,6 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
 import { registerAutofillService } from "@/lib/autofill/autofill-service";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   getSessionService,
   registerSessionService,
