@@ -46,7 +46,10 @@ import {
   useTopMemories,
 } from "@/hooks/use-memory";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
-import { ERROR_MESSAGE_API_KEY_NOT_CONFIGURED } from "@/lib/errors";
+import {
+  ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
+  ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
+} from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
@@ -100,13 +103,25 @@ export const App = () => {
 
   const handleAutofill = async () => {
     try {
-      const userSettings = await store.userSettings.getValue();
-      const apiKey = await keyVault.getKey(userSettings.selectedProvider);
+      const aiSettings = await store.aiSettings.getValue();
+      if (!aiSettings.selectedProvider) {
+        toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use autofill",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        return;
+      }
+      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
           description:
-            "Please configure an AI provider in settings to use autofill",
+            "Please configure an API key in settings to use autofill",
           action: {
             label: "Open Settings",
             onClick: () => browser.runtime.openOptionsPage(),

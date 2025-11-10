@@ -19,7 +19,10 @@ import { InputBadge } from "@/components/ui/input-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
 import { allowedCategories } from "@/lib/copies";
-import { ERROR_MESSAGE_API_KEY_NOT_CONFIGURED } from "@/lib/errors";
+import {
+  ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
+  ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
+} from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
@@ -118,8 +121,21 @@ export function EntryForm({
       currentQuestion: string;
       currentAnswer: string;
     }) => {
-      const userSettings = await store.userSettings.getValue();
-      const apiKey = await keyVault.getKey(userSettings.selectedProvider);
+      const aiSettings = await store.aiSettings.getValue();
+      if (!aiSettings.selectedProvider) {
+        toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use rephrasing.",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+      }
+
+      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
@@ -151,8 +167,33 @@ export function EntryForm({
   const categorizeQuery = useQuery({
     queryKey: ["categorize", debouncedAnswer, debouncedQuestion],
     queryFn: async () => {
-      const userSettings = await store.userSettings.getValue();
-      const apiKey = await keyVault.getKey(userSettings.selectedProvider);
+      const aiSettings = await store.aiSettings.getValue();
+      if (!aiSettings.selectedProvider) {
+        toast.warning(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+      }
+      const apiKey = await keyVault.getKey(
+        aiSettings.selectedProvider ?? "openai",
+      );
+
+      if (!apiKey) {
+        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+      }
 
       return categorizationService.categorize(
         debouncedAnswer,

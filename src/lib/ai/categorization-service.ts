@@ -24,8 +24,13 @@ class CategorizationService {
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
-      const userSettings = await store.userSettings.getValue();
-      const { selectedProvider, selectedModels } = userSettings;
+      const aiSettings = await store.aiSettings.getValue();
+      const { selectedProvider, selectedModels } = aiSettings;
+
+      if (!selectedProvider) {
+        throw new Error("AI provider not configured");
+      }
+
       const selectedModel = selectedModels?.[selectedProvider];
 
       const result = await categorizationAgent(
@@ -54,8 +59,13 @@ class CategorizationService {
     }
 
     try {
-      const userSettings = await store.userSettings.getValue();
-      const { selectedProvider, selectedModels } = userSettings;
+      const aiSettings = await store.aiSettings.getValue();
+      const { selectedProvider, selectedModels } = aiSettings;
+
+      if (!selectedProvider) {
+        throw new Error("AI provider not configured");
+      }
+
       const selectedModel = selectedModels?.[selectedProvider];
 
       return await rephraseAgent(

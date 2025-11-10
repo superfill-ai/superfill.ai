@@ -526,8 +526,8 @@ class AutofillService {
     processingResult: AutofillResult,
     sessionId: string,
   ): PreviewSidebarPayload {
-    const userSettings = useSettingsStore.getState();
-    const confidenceThreshold = userSettings.confidenceThreshold;
+    const aiSettings = useSettingsStore.getState();
+    const confidenceThreshold = aiSettings.confidenceThreshold;
 
     logger.info(
       `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,

@@ -1,3 +1,5 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { AIProvider } from "@/lib/providers/registry";
 import {
   AI_PROVIDERS,
@@ -5,8 +7,6 @@ import {
   validateProviderKey,
 } from "@/lib/providers/registry";
 import { useSettingsStore } from "@/stores/settings";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 export const PROVIDER_KEYS_QUERY_KEY = ["provider-keys"] as const;
 

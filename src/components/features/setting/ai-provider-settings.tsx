@@ -1,5 +1,3 @@
-import { CheckCircle2 } from "lucide-react";
-import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +25,8 @@ import {
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
 import { useSettingsStore } from "@/stores/settings";
+import { CheckCircle2 } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 
@@ -45,6 +45,7 @@ export const AiProviderSettings = () => {
   const saveKeysMutation = useSaveMultipleApiKeys();
   const deleteKeyMutation = useDeleteApiKey();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: we need to refetch when keyStatuses change
   useEffect(() => {
     const loadProviders = async () => {
       const options = await getProviderOptions();
