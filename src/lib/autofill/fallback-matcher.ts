@@ -10,6 +10,8 @@ import {
   STOP_WORDS,
 } from "./constants";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
+import type { WebsiteContext } from "@/types/context";
+
 
 const logger = createLogger("fallback-matcher");
 

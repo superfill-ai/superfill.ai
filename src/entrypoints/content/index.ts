@@ -13,11 +13,14 @@ import type {
   FieldOpId,
   FormOpId,
   PreviewSidebarPayload,
+  DetectFormsResult,
 } from "@/types/autofill";
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { FormDetector } from "./lib/form-detector";
+import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
+
 
 const logger = createLogger("content");
 
@@ -103,8 +106,9 @@ export default defineContentScript({
 
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
+    const contextExtractor = new WebsiteContextExtractor();
 
-    contentAutofillMessaging.onMessage("detectForms", async () => {
+    contentAutofillMessaging.onMessage("detectForms", async (): Promise<DetectFormsResult>  => {
       try {
         const allForms = formDetector.detectAll();
 
@@ -126,7 +130,7 @@ export default defineContentScript({
               return false;
             }
           }
-
+          console.log("First try: Including form with fields:", form.fields);
           return true;
         });
 
@@ -165,6 +169,9 @@ export default defineContentScript({
             logger.info(`  └─ ... and ${form.fields.length - 3} more fields`);
           }
         });
+        
+        const websiteContext = contextExtractor.extract();
+        logger.info("Extracted website context:", websiteContext);
 
         logger.info(
           `Detected ${forms.length} forms with ${totalFields} total fields`,
@@ -174,6 +181,7 @@ export default defineContentScript({
           success: true,
           forms: serializedFormCache,
           totalFields,
+          websiteContext,
         };
       } catch (error) {
         logger.error("Error detecting forms:", error);

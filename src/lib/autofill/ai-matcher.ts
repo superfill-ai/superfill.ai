@@ -14,6 +14,8 @@ import { langfuseSpanProcessor } from "../observability/langfuse";
 import { MIN_MATCH_CONFIDENCE } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
+import type { WebsiteContext } from "@/types/context";
+
 
 const logger = createLogger("ai-matcher");
 
@@ -35,6 +37,11 @@ const AIMatchSchema = z.object({
     .array(z.string())
     .max(3)
     .describe("Up to 3 alternative memory IDs that could also match"),
+  rephrasedAnswer: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("The rephrased answer, if the context requires it. Otherwise, this should be null."),
 });
 
 const AIBatchMatchSchema = z.object({
@@ -57,6 +64,7 @@ export class AIMatcher {
   async matchFields(
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
     provider: AIProvider,
     apiKey: string,
     modelName?: string,
@@ -82,6 +90,7 @@ export class AIMatcher {
       const aiResults = await this.performAIMatching(
         fields,
         memories,
+        websiteContext,
         provider,
         apiKey,
         modelName,
@@ -107,6 +116,7 @@ export class AIMatcher {
   private async performAIMatching(
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
     provider: AIProvider,
     apiKey: string,
     modelName?: string,
@@ -115,9 +125,9 @@ export class AIMatcher {
       const model = getAIModel(provider, apiKey, modelName);
 
       const systemPrompt = this.buildSystemPrompt();
-      const userPrompt = this.buildUserPrompt(fields, memories);
+      const userPrompt = this.buildUserPrompt(fields, memories, websiteContext);
 
-      logger.info(`AI matching with ${provider} for ${fields.length} fields`);
+      logger.info(`AI matching with ${provider} for ${fields.length} fields`, { websiteContext },);
 
       updateActiveObservation({
         input: { fields, memories, provider },
@@ -179,31 +189,37 @@ export class AIMatcher {
   private buildSystemPrompt(): string {
     return `You are an expert form-filling assistant that matches form fields to stored user memories.
 
-Your task is to analyze form fields and determine which stored memory entry (if any) best matches each field.
+    Your task is to analyze form fields and determine which stored memory entry (if any) best matches each field.
 
-Matching Criteria:
-1. **Semantic Similarity**: The field's purpose should align with the memory's content
-2. **Context Alignment**: Field labels, placeholders, and helper text should relate to the memory's question/category
-3. **Type Compatibility**: Email fields need email memories, phone fields need phone memories, etc.
-4. **Confidence Scoring**: Only suggest matches you're confident about (0.5+ confidence)
+    Matching Criteria:
+    1. **Semantic Similarity**: The field's purpose should align with the memory's content
+    2. **Context Alignment**: Field labels, placeholders, and helper text should relate to the memory's question/category
+    3. **Type Compatibility**: Email fields need email memories, phone fields need phone memories, etc.
+    4. **Confidence Scoring**: Only suggest matches you're confident about (0.5+ confidence)
+    5. **Website Context is KING**: The website's type and purpose heavily influence the meaning of a field.
 
-Important Rules:
-- **NEVER** match password fields (they should have been filtered out already)
-- Set memoryId to null if no good match exists (confidence < 0.35)
-- Provide clear reasoning for each match or rejection
-- Include up to 3 alternative matches when applicable
-- Consider field purpose, labels, and context together
+    **CRUCIAL**: Use the provided Website Context to understand the form's purpose. A field labeled "Name" on a 'job_portal' is for a person's name, but on an 'e-commerce' site during checkout, it might be for a credit card name.
 
-Output Format:
-- Return an array of matches, one per field
-- Include confidence scores (0-1) for match quality
-- Explain your reasoning concisely
-- Suggest alternatives when multiple memories could fit`;
+    Important Rules:
+    1.  **Rephrasing**: If a stored answer is long or informal, and the website context requires a shorter or more professional tone, provide a 'rephrasedAnswer'. Otherwise, **leave 'rephrasedAnswer' as null**.
+        - DO NOT rephrase simple values like names, emails, or phone numbers.
+        - DO rephrase long "Bio" answers for shorter fields, or adjust the tone for professional vs. social sites.
+    2.  **Matching**: Set 'memoryId' to null if no good match exists (confidence < 0.35).
+    3.  **Reasoning**: Provide clear reasoning for each match, rejection, or rephrasing decision.
+    4. **NEVER** match password fields (they should have been filtered out already)
+    5. Consider field purpose, labels, and context together
+
+    Output Format:
+    - Return an array of matches, one per field
+    - Include confidence scores (0-1) for match quality
+    - Explain your reasoning concisely
+    - Suggest alternatives when multiple memories could fit`;
   }
 
   private buildUserPrompt(
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
   ): string {
     const fieldsMarkdown = fields
       .map(
@@ -228,7 +244,18 @@ Output Format:
       )
       .join("\n");
 
-    return `Match these form fields to the best stored memories:
+    // return `Match these form fields to the best stored memories:
+      const contextMarkdown = `
+      **Website Type**: ${websiteContext.websiteType}
+      **Inferred Form Purpose**: ${websiteContext.formPurpose}
+      **Page Title**: ${websiteContext.metadata.title}
+      `;
+
+    return `Based on the following website context, match the form fields to the best stored memories.
+
+## Website Context
+${contextMarkdown}
+
 
 ## Form Fields
 ${fieldsMarkdown}
@@ -240,7 +267,8 @@ For each field, determine:
 1. Which memory (if any) is the best match
 2. Your confidence in that match (0-1)
 3. Why you chose that memory (or why no memory fits)
-4. Up to 3 alternative memories that could also work`;
+4. A 'rephrasedAnswer' ONLY if the context requires it, otherwise null.
+5. Up to 3 alternative memories that could also work.`;
   }
 
   private convertAIResultsToMappings(
@@ -280,12 +308,22 @@ For each field, determine:
       const confidence = roundConfidence(aiMatch.confidence);
       const meetsThreshold = confidence >= MIN_MATCH_CONFIDENCE;
 
+      const originalAnswer = meetsThreshold && memory ? memory.answer : null;
+      const rephrasedAnswer = aiMatch.rephrasedAnswer;
+      const useRephrased = !!rephrasedAnswer;
+
       return {
         fieldOpid: aiMatch.fieldOpid,
         memoryId: meetsThreshold && memory ? memory.id : null,
-        value: meetsThreshold && memory ? memory.answer : null,
+        value: useRephrased ? rephrasedAnswer : originalAnswer,
+        originalValue: originalAnswer,
+        isRephrased: useRephrased,
         confidence,
-        reasoning: aiMatch.reasoning || "AI-powered semantic match",
+        reasoning:
+          aiMatch.reasoning ||
+          (useRephrased
+            ? "AI-powered match with contextual rephrasing."
+            : "AI-powered semantic match."),
         alternativeMatches,
       };
     });

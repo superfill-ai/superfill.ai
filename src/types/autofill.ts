@@ -1,3 +1,5 @@
+import { WebsiteContext } from "./context";
+
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;
 };
@@ -8,8 +10,9 @@ export type DetectFormsResult =
       success: true;
       forms: DetectedFormSnapshot[];
       totalFields: number;
+      websiteContext: WebsiteContext;
     }
-  | { success: false; forms: never[]; totalFields: 0; error: string };
+  | { success: false; forms: never[]; totalFields: 0; error: string;};
 
 export interface DetectedForm {
   opid: FormOpId;
