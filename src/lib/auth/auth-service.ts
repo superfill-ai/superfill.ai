@@ -1,5 +1,5 @@
-import { createLogger } from "@/lib/logger";
 import { defineProxyService } from "@webext-core/proxy-service";
+import { createLogger } from "@/lib/logger";
 import { generatePKCE, generateState } from "./crypto-utils";
 
 const logger = createLogger("auth-service");

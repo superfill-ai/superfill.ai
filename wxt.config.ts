@@ -18,10 +18,7 @@ export default defineConfig({
       "https://generativelanguage.googleapis.com/*",
     ],
     externally_connectable: {
-      matches: [
-        "http://localhost:3002/*",
-        "https://superfill.ai/*",
-      ],
+      matches: ["http://localhost:3002/*", "https://superfill.ai/*"],
     },
     icons: {
       16: "/icon-16.png",

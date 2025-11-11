@@ -1,9 +1,3 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import type { ProviderConfig } from "@/lib/providers/registry";
-import { getKeyValidationService } from "@/lib/security/key-validation-service";
 import {
   AlertCircleIcon,
   CheckCircle2,
@@ -13,6 +7,12 @@ import {
   XCircle,
 } from "lucide-react";
 import { useId, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import type { ProviderConfig } from "@/lib/providers/registry";
+import { getKeyValidationService } from "@/lib/security/key-validation-service";
 
 interface ProviderKeyInputProps {
   providerId: string;
@@ -129,8 +129,8 @@ export const ProviderKeyInput = ({
             </span>
           ) : (
             <span className="text-destructive text-xs">
-              <AlertCircleIcon className="inline-block size-4" /> To use
-              Ollama with this extension, please ensure that{" "}
+              <AlertCircleIcon className="inline-block size-4" /> To use Ollama
+              with this extension, please ensure that{" "}
               <a
                 href="https://medium.com/dcoderai/how-to-handle-cors-settings-in-ollama-a-comprehensive-guide-ee2a5a1beef0"
                 target="_blank"

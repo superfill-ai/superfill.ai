@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
@@ -26,8 +28,6 @@ import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
 import { useAuthStore } from "@/stores/auth";
 import { useMemoryStore } from "@/stores/memory";
-import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 const logger = createLogger("options:App");
 
@@ -40,6 +40,7 @@ export const App = () => {
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: not needed
   useEffect(() => {
     checkAuthStatus().catch(logger.error);
   }, []);

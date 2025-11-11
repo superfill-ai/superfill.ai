@@ -75,6 +75,11 @@ export const useMemoryStore = create<MemoryState & MemoryActions>()(
         await store.memories.setValue([...get().entries]);
 
         set({ loading: false });
+
+        import("@/lib/sync/auto-sync-manager").then(({ autoSyncManager }) => {
+          autoSyncManager.triggerDebouncedPush();
+        });
+
         return newEntry;
       } catch (error) {
         const errorMessage =
@@ -109,6 +114,10 @@ export const useMemoryStore = create<MemoryState & MemoryActions>()(
         await store.memories.setValue(get().entries);
 
         set({ loading: false });
+
+        import("@/lib/sync/auto-sync-manager").then(({ autoSyncManager }) => {
+          autoSyncManager.triggerDebouncedPush();
+        });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to update entry";
@@ -128,6 +137,10 @@ export const useMemoryStore = create<MemoryState & MemoryActions>()(
         await store.memories.setValue(get().entries);
 
         set({ loading: false });
+
+        import("@/lib/sync/auto-sync-manager").then(({ autoSyncManager }) => {
+          autoSyncManager.triggerDebouncedPush();
+        });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to delete entry";

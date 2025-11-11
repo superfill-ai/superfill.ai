@@ -10,6 +10,7 @@ import { createLogger } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
+import { registerSyncService } from "@/lib/sync/sync-service";
 
 const logger = createLogger("background");
 
@@ -21,8 +22,49 @@ export default defineBackground(() => {
   registerAutofillService();
   registerSessionService();
   registerAuthService();
+  registerSyncService();
 
   const sessionService = getSessionService();
+
+  setTimeout(() => {
+    logger.info("Checking auth status for startup sync");
+
+    import("@/stores/auth").then(({ useAuthStore }) => {
+      const authStore = useAuthStore.getState();
+
+      authStore.checkAuthStatus().then((isAuthenticated) => {
+        if (isAuthenticated) {
+          logger.info("User authenticated, triggering startup sync");
+
+          authStore.getAuthToken().then((token) => {
+            if (token) {
+              import("@/lib/sync/sync-service").then(({ getSyncService }) => {
+                const syncService = getSyncService();
+
+                syncService
+                  .setAuthToken(token)
+                  .then(() => {
+                    import("@/lib/sync/auto-sync-manager").then(
+                      ({ autoSyncManager }) => {
+                        autoSyncManager.triggerSync("full", { silent: true });
+                      },
+                    );
+                  })
+                  .catch((error) => {
+                    logger.error(
+                      "Failed to initialize sync service on startup",
+                      { error },
+                    );
+                  });
+              });
+            }
+          });
+        } else {
+          logger.info("User not authenticated, skipping startup sync");
+        }
+      });
+    });
+  }, 3000); // Wait 3 seconds for extension to stabilize
 
   browser.runtime.onInstalled.addListener((details) => {
     if (details.reason === "install") {

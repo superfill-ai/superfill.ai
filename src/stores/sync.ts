@@ -1,8 +1,8 @@
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
 import type { SyncState } from "@/types/memory";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:sync");
 
@@ -161,21 +161,99 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
       },
 
       initiateSync: async () => {
-        throw new Error("Sync operations not implemented - Phase 2 feature");
+        try {
+          set({ loading: true, error: null });
+
+          const { getSyncService } = await import("@/lib/sync/sync-service");
+          const syncService = getSyncService();
+
+          if (!syncService.isAuthenticated()) {
+            throw new Error("Not authenticated. Please login first.");
+          }
+
+          const result = await syncService.performFullSync();
+
+          if (result.success) {
+            await get().markSynced();
+          } else {
+            await get().markSyncError(result.errors.join(", "));
+          }
+
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Sync failed";
+          await get().markSyncError(errorMessage);
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
       },
 
       pullFromRemote: async () => {
-        throw new Error("Pull from remote not implemented - Phase 2 feature");
+        try {
+          set({ loading: true, error: null });
+
+          const { getSyncService } = await import("@/lib/sync/sync-service");
+          const syncService = getSyncService();
+
+          if (!syncService.isAuthenticated()) {
+            throw new Error("Not authenticated. Please login first.");
+          }
+
+          const syncState = await store.syncState.getValue();
+          const lastSyncTimestamp = syncState?.lastSync
+            ? new Date(syncState.lastSync).getTime()
+            : undefined;
+
+          const result = await syncService.pullFromRemote(lastSyncTimestamp);
+
+          if (result.success) {
+            await get().markSynced();
+          } else {
+            await get().markSyncError(result.errors.join(", "));
+          }
+
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Pull failed";
+          await get().markSyncError(errorMessage);
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
       },
 
       pushToRemote: async () => {
-        throw new Error("Push to remote not implemented - Phase 2 feature");
+        try {
+          set({ loading: true, error: null });
+
+          const { getSyncService } = await import("@/lib/sync/sync-service");
+          const syncService = getSyncService();
+
+          if (!syncService.isAuthenticated()) {
+            throw new Error("Not authenticated. Please login first.");
+          }
+
+          const result = await syncService.pushToRemote();
+
+          if (result.success) {
+            await get().markSynced();
+          } else {
+            await get().markSyncError(result.errors.join(", "));
+          }
+
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Push failed";
+          await get().markSyncError(errorMessage);
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
       },
 
       resolveConflicts: async () => {
-        throw new Error(
-          "Conflict resolution not implemented - Phase 2 feature",
-        );
+        logger.warn("Manual conflict resolution not yet implemented");
       },
     }),
     {

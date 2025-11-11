@@ -1,9 +1,9 @@
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import { decrypt, encrypt } from "@/lib/security/encryption";
 import { getBrowserFingerprint } from "@/lib/security/fingerprint";
 import type { EncryptedKey } from "@/types/settings";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:auth");
 
@@ -51,6 +51,24 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
           });
 
           logger.info("Auth token encrypted and stored successfully");
+
+          import("@/lib/sync/sync-service").then(({ getSyncService }) => {
+            const syncService = getSyncService();
+            syncService
+              .setAuthToken(token)
+              .then(() => {
+                logger.info("Sync service authenticated");
+
+                import("@/lib/sync/auto-sync-manager").then(
+                  ({ autoSyncManager }) => {
+                    autoSyncManager.triggerSync("full", { silent: false });
+                  },
+                );
+              })
+              .catch((error) => {
+                logger.error("Failed to initialize sync service", { error });
+              });
+          });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -98,6 +116,13 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
           });
 
           logger.info("Auth token cleared successfully");
+
+          // Clear sync service auth
+          import("@/lib/sync/sync-service").then(({ getSyncService }) => {
+            const syncService = getSyncService();
+            syncService.clearAuth();
+            logger.info("Sync service auth cleared");
+          });
         } catch (error) {
           const errorMessage =
             error instanceof Error
