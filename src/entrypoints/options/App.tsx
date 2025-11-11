@@ -36,8 +36,6 @@ export const App = () => {
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
-  console.log("isAuthenticated", isAuthenticated);
-
   useState(() => {
     checkAuthStatus();
   });
