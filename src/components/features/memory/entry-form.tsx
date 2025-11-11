@@ -1,10 +1,10 @@
 import { useForm, useStore } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2Icon } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { useDebounce } from "use-debounce";
 import { z } from "zod";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import {
@@ -15,10 +15,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
-import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
 import { allowedCategories } from "@/lib/copies";
+import {
+  ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
+  ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
+} from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
@@ -36,6 +39,7 @@ const entryFormSchema = z.object({
 
 interface EntryFormProps {
   mode: "create" | "edit";
+  layout?: "compact" | "normal";
   initialData?: MemoryEntry;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -44,11 +48,12 @@ interface EntryFormProps {
 export function EntryForm({
   mode,
   initialData,
+  layout = "normal",
   onSuccess,
   onCancel,
 }: EntryFormProps) {
-  const { addEntry, updateEntry, entries } = useMemoryStore();
-  const existingTags = [...new Set(entries.flatMap((e) => e.tags))];
+  const { addEntry, updateEntry } = useMemoryStore();
+  const top10Tags = useMemoryStore().getTopUsedTags(10);
 
   const categorizationService = getCategorizationService();
 
@@ -104,46 +109,109 @@ export function EntryForm({
   const answer = useStore(form.store, (state) => state.values.answer);
   const question = useStore(form.store, (state) => state.values.question);
 
-  const [debouncedAnswer] = useDebounce(answer, 500);
-  const [debouncedQuestion] = useDebounce(question, 500);
+  const rephraseMutation = useMutation({
+    mutationFn: async ({
+      currentQuestion,
+      currentAnswer,
+    }: {
+      currentQuestion: string;
+      currentAnswer: string;
+    }) => {
+      const aiSettings = await store.aiSettings.getValue();
+      if (!aiSettings.selectedProvider) {
+        toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use rephrasing.",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+      }
 
-  const analysisQuery = useQuery({
-    queryKey: ["analyze", debouncedAnswer, debouncedQuestion],
-    queryFn: async () => {
-      const userSettings = await store.userSettings.getValue();
-      const apiKey = await keyVault.getKey(userSettings.selectedProvider);
+      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
 
-      return categorizationService.analyze(
-        debouncedAnswer,
-        debouncedQuestion,
+      if (!apiKey) {
+        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use rephrasing.",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+      }
+
+      return categorizationService.rephrase(
+        currentAnswer,
+        currentQuestion,
         apiKey || undefined,
       );
     },
-    enabled: !!debouncedAnswer && mode === "create",
-    staleTime: 1000 * 60 * 5,
-    retry: 1,
+    onSuccess: (data) => {
+      if (data?.rephrasedQuestion) {
+        form.setFieldValue("question", data.rephrasedQuestion);
+      }
+      form.setFieldValue("answer", data.rephrasedAnswer);
+    },
   });
 
-  const isAiProcessing = analysisQuery.isLoading;
+  const categorizeAndTaggingMutation = useMutation({
+    mutationFn: async () => {
+      const aiSettings = await store.aiSettings.getValue();
+      if (!aiSettings.selectedProvider) {
+        toast.warning(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+      }
+      const apiKey = await keyVault.getKey(
+        aiSettings.selectedProvider ?? "openai",
+      );
 
-  useEffect(() => {
-    if (mode === "create" && debouncedAnswer && analysisQuery.data) {
-      const currentCategory = form.getFieldValue("category");
-      const currentTags = form.getFieldValue("tags");
-
-      if (!currentCategory && analysisQuery.data.category) {
-        form.setFieldValue("category", analysisQuery.data.category);
+      if (!apiKey) {
+        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
       }
 
-      if (
-        currentTags.length === 0 &&
-        analysisQuery.data.tags &&
-        analysisQuery.data.tags.length > 0
-      ) {
-        form.setFieldValue("tags", analysisQuery.data.tags);
+      return categorizationService.categorize(
+        answer,
+        question,
+        apiKey || undefined,
+      );
+    },
+    onSuccess: (data) => {
+      if (data?.category) {
+        form.setFieldValue("category", data.category);
       }
-    }
-  }, [analysisQuery.data, debouncedAnswer, mode, form]);
+
+      if (data?.tags && data.tags.length > 0) {
+        form.setFieldValue("tags", [
+          ...form.getFieldValue("tags"),
+          ...data.tags,
+        ]);
+      }
+    },
+  });
+
+  const isAiCategorizing = categorizeAndTaggingMutation.isPending;
+  const isAiRephrasing = rephraseMutation.isPending;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -165,6 +233,43 @@ export function EntryForm({
     onCancel?.();
   };
 
+  const handleRephrase = () => {
+    const currentQuestion = form.getFieldValue("question");
+    const currentAnswer = form.getFieldValue("answer");
+
+    if (!currentAnswer) {
+      toast.error("Please provide an answer before rephrasing.");
+      return;
+    }
+
+    toast.promise(
+      rephraseMutation.mutateAsync({ currentQuestion, currentAnswer }),
+      {
+        success: "Content rephrased successfully!",
+      },
+    );
+  };
+
+  const handleTagClick = (tag: string) => {
+    const currentTags = form.getFieldValue("tags");
+    if (!currentTags.includes(tag)) {
+      form.setFieldValue("tags", [...currentTags, tag]);
+    }
+  };
+
+  const handleCategorizingAndTagging = () => {
+    const currentAnswer = form.getFieldValue("answer");
+
+    if (!currentAnswer) {
+      toast.error("Please provide an answer before categorizing.");
+      return;
+    }
+
+    toast.promise(categorizeAndTaggingMutation.mutateAsync(), {
+      success: "Content categorized and tagged successfully!",
+    });
+  };
+
   return (
     <form
       onSubmit={(e) => {
@@ -179,7 +284,10 @@ export function EntryForm({
             const isInvalid =
               field.state.meta.isTouched && !field.state.meta.isValid;
             return (
-              <Field data-invalid={isInvalid}>
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
                 <FieldLabel htmlFor={field.name}>
                   Question (Optional)
                 </FieldLabel>
@@ -204,7 +312,10 @@ export function EntryForm({
               field.state.meta.isTouched && !field.state.meta.isValid;
 
             return (
-              <Field data-invalid={isInvalid}>
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
                 <FieldLabel htmlFor={field.name}>Answer *</FieldLabel>
                 <Textarea
                   id={field.name}
@@ -221,36 +332,39 @@ export function EntryForm({
           }}
         </form.Field>
 
-        {isAiProcessing && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner className="size-4" />
-            <span>AI is analyzing your answer...</span>
-          </div>
-        )}
+        <div className="flex gap-2 flex-1 justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={handleRephrase}
+            disabled={isAiRephrasing || !answer.trim()}
+          >
+            {isAiRephrasing ? (
+              <Loader2Icon className="mr-2 size-3 animate-spin" />
+            ) : (
+              <SparklesIcon className="mr-2 size-3" />
+            )}
+            Rephrase with AI
+          </Button>
 
-        <form.Field name="tags">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Tags</FieldLabel>
-                <InputBadge
-                  id={field.name}
-                  value={field.state.value}
-                  onChange={(value) => field.handleChange(value)}
-                  placeholder="Add tags (press Enter, comma, or semicolon)"
-                />
-                {existingTags.length > 0 && (
-                  <FieldDescription>
-                    Existing tags: {existingTags.join(", ")}
-                  </FieldDescription>
-                )}
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            );
-          }}
-        </form.Field>
+          {mode === "create" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={handleCategorizingAndTagging}
+              disabled={isAiCategorizing || !answer.trim()}
+            >
+              {isAiCategorizing ? (
+                <Loader2Icon className="mr-2 size-3 animate-spin" />
+              ) : (
+                <TagsIcon className="mr-2 size-3" />
+              )}
+              Categorize & Tag with AI
+            </Button>
+          )}
+        </div>
 
         <form.Field name="category">
           {(field) => {
@@ -265,8 +379,16 @@ export function EntryForm({
             );
 
             return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Category *</FieldLabel>
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
+                <FieldLabel htmlFor={field.name}>
+                  Category *{" "}
+                  {isAiCategorizing && (
+                    <SparklesIcon className="size-3 animate-pulse" />
+                  )}
+                </FieldLabel>
                 <Combobox
                   id={field.name}
                   name={field.name}
@@ -283,6 +405,49 @@ export function EntryForm({
             );
           }}
         </form.Field>
+
+        <form.Field name="tags">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid;
+            return (
+              <Field
+                data-invalid={isInvalid}
+                className={layout === "compact" ? "gap-1" : ""}
+              >
+                <FieldLabel htmlFor={field.name}>
+                  Tags{" "}
+                  {isAiCategorizing && (
+                    <SparklesIcon className="size-3 animate-pulse" />
+                  )}{" "}
+                </FieldLabel>
+                <InputBadge
+                  id={field.name}
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value)}
+                  placeholder="Add tags (press Enter, comma, or semicolon)"
+                />
+                {top10Tags.length > 0 && (
+                  <FieldDescription>
+                    Existing tags:{" "}
+                    {top10Tags.map((tag) => (
+                      <Badge
+                        size="sm"
+                        key={tag.tag}
+                        variant="outline"
+                        className="mr-1 cursor-pointer"
+                        onClick={() => handleTagClick(tag.tag)}
+                      >
+                        {tag.tag}
+                      </Badge>
+                    ))}
+                  </FieldDescription>
+                )}
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            );
+          }}
+        </form.Field>
       </FieldGroup>
 
       <Field orientation="horizontal">
@@ -290,11 +455,11 @@ export function EntryForm({
           {([isSubmitting]) => (
             <Button
               type="submit"
-              disabled={isSubmitting || isAiProcessing}
+              disabled={isSubmitting || isAiCategorizing || isAiRephrasing}
               className="flex-1"
             >
               {isSubmitting && (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
               )}
               {mode === "edit" ? "Update" : "Save"}
             </Button>

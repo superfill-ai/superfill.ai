@@ -1,7 +1,7 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
 import { registerAuthService } from "@/lib/auth/auth-service";
 import { registerAutofillService } from "@/lib/autofill/autofill-service";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   getSessionService,
   registerSessionService,
@@ -23,6 +23,13 @@ export default defineBackground(() => {
   registerAuthService();
 
   const sessionService = getSessionService();
+
+  browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "install") {
+      logger.info("Extension installed for the first time, opening settings");
+      browser.runtime.openOptionsPage();
+    }
+  });
 
   contentAutofillMessaging.onMessage("startSession", async () => {
     return sessionService.startSession();

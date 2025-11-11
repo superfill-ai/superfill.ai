@@ -1,8 +1,10 @@
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import { defineProxyService } from "@webext-core/proxy-service";
+import { z } from "zod";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
-import type { AIProvider } from "@/lib/providers/registry";
 import { store } from "@/lib/storage";
+import { useSettingsStore } from "@/stores/settings";
 import type {
   AutofillResult,
   CompressedFieldData,
@@ -13,8 +15,7 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
-import { defineProxyService } from "@webext-core/proxy-service";
-import { z } from "zod";
+import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
 import { AIMatcher } from "./ai-matcher";
 import {
   MAX_FIELDS_PER_PAGE,
@@ -144,17 +145,10 @@ class AutofillService {
         tabId,
       );
 
-      const userSettings = await store.userSettings.getValue();
-
       try {
         await contentAutofillMessaging.sendMessage(
           "showPreview",
-          this.buildPreviewPayload(
-            forms,
-            processingResult,
-            sessionId,
-            userSettings.confidenceThreshold,
-          ),
+          this.buildPreviewPayload(forms, processingResult, sessionId),
           tabId,
         );
       } catch (previewError) {
@@ -439,9 +433,21 @@ class AutofillService {
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
     try {
-      const userSettings = await store.userSettings.getValue();
-      const provider = userSettings.selectedProvider as AIProvider;
-      const selectedModel = userSettings.selectedModels?.[provider];
+      const settingStore = useSettingsStore.getState();
+      const provider = settingStore.selectedProvider;
+
+      if (!provider) {
+        throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
+      }
+
+      const selectedModel = settingStore.selectedModels?.[provider];
+
+      logger.info(
+        "AutofillService: Using AI provider",
+        provider,
+        "with model",
+        selectedModel,
+      );
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");
@@ -531,8 +537,10 @@ class AutofillService {
     forms: DetectedFormSnapshot[],
     processingResult: AutofillResult,
     sessionId: string,
-    confidenceThreshold: number,
   ): PreviewSidebarPayload {
+    const aiSettings = useSettingsStore.getState();
+    const confidenceThreshold = aiSettings.confidenceThreshold;
+
     logger.info(
       `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,
     );

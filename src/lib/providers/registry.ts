@@ -1,11 +1,3 @@
-/**
- * Provider Registry - Single source of truth for AI provider configurations
- *
- * To add a new provider:
- * 1. Add entry to PROVIDER_REGISTRY with configuration
- * 2. That's it! The UI and types will automatically update
- */
-
 export interface ProviderConfig {
   id: string;
   name: string;
@@ -22,7 +14,7 @@ export const PROVIDER_REGISTRY = {
     name: "OpenAI",
     keyPrefix: "sk-",
     keyPlaceholder: "sk-...",
-    description: "GPT-4, GPT-3.5, and other OpenAI models",
+    description: "GPT-5, GPT-o models and more",
     requiresApiKey: true,
     validateKey: (key: string) => key.startsWith("sk-") && key.length > 20,
   },
@@ -31,7 +23,7 @@ export const PROVIDER_REGISTRY = {
     name: "Anthropic",
     keyPrefix: "sk-ant-",
     keyPlaceholder: "sk-ant-...",
-    description: "Claude 3 models (Opus, Sonnet, Haiku)",
+    description: "Claude 4.1 models (Opus, Sonnet, Haiku)",
     requiresApiKey: true,
     validateKey: (key: string) => key.startsWith("sk-ant-") && key.length > 20,
   },
@@ -62,15 +54,15 @@ export const PROVIDER_REGISTRY = {
     requiresApiKey: true,
     validateKey: (key: string) => key.startsWith("AIza") && key.length > 20,
   },
-  // ollama: {
-  //   id: "ollama",
-  //   name: "Ollama (Local)",
-  //   keyPrefix: "",
-  //   keyPlaceholder: "Not required for local",
-  //   description: "Run models locally on your machine",
-  //   requiresApiKey: false,
-  //   validateKey: () => true,
-  // },
+  ollama: {
+    id: "ollama",
+    name: "Ollama (Local)",
+    keyPrefix: "",
+    keyPlaceholder: "http://localhost:11434",
+    description: "Run models locally on your machine",
+    requiresApiKey: false,
+    validateKey: () => true,
+  },
 } as const satisfies Record<string, ProviderConfig>;
 
 export type AIProvider = keyof typeof PROVIDER_REGISTRY;

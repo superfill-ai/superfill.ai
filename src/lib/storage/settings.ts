@@ -1,9 +1,9 @@
 import type { SyncState } from "@/types/memory";
-import type { UserSettings } from "@/types/settings";
+import type { AISettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
 import { Trigger } from "@/types/trigger";
 
-const theme = storage.defineItem<Theme>("local:settings:vite-ui-theme", {
+const theme = storage.defineItem<Theme>("local:settings:ui-theme", {
   fallback: Theme.DEFAULT,
   version: 1,
 });
@@ -13,12 +13,12 @@ const trigger = storage.defineItem<Trigger>("local:settings:trigger", {
   version: 1,
 });
 
-const userSettings = storage.defineItem<UserSettings>(
-  "local:settings:user-settings",
+const aiSettings = storage.defineItem<AISettings>(
+  "local:settings:ai-settings",
   {
     fallback: {
-      selectedProvider: "openai",
       autoFillEnabled: true,
+      autopilotMode: false,
       confidenceThreshold: 0.6,
     },
     version: 1,
@@ -37,6 +37,6 @@ const syncState = storage.defineItem<SyncState>("local:settings:sync-state", {
 export const settingsStorage = {
   theme,
   trigger,
-  userSettings,
+  aiSettings,
   syncState,
 };

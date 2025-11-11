@@ -17,71 +17,62 @@ interface OpenAIModel {
 
 interface GeminiModel {
   name: string;
-  supportedGenerationMethods?: string[];
-  displayName?: string;
+  supportedGenerationMethods: string[];
+  displayName: string;
+}
+
+interface AnthropicModel {
+  id: string;
+  display_name: string;
+  type: string;
+}
+
+interface DeepSeekModel {
+  id: string;
+  object: string;
+  name: string;
+}
+
+interface OllamaModel {
+  name: string;
+  model: string;
+  modified_at: string;
+  size: number;
+  digest: string;
+  details: {
+    format: string;
+    family: string;
+    families?: string[];
+    parameter_size: string;
+    quantization_level: string;
+  };
 }
 
 const DEFAULT_MODELS: Record<AIProvider, ModelInfo[]> = {
-  openai: [
-    { id: "gpt-5-nano", name: "GPT-5 Nano", contextWindow: 128000 },
-    { id: "gpt-5-mini", name: "GPT-5 Mini", contextWindow: 128000 },
-    { id: "gpt-4o", name: "GPT-4o", contextWindow: 128000 },
-    { id: "gpt-4o-mini", name: "GPT-4o Mini", contextWindow: 128000 },
-  ],
+  openai: [{ id: "gpt-5-nano", name: "GPT-5 Nano" }],
   anthropic: [
     {
-      id: "claude-haiku-4-5-latest",
+      id: "claude-haiku-4-5-20251001",
       name: "Claude Haiku 4.5",
-      contextWindow: 200000,
-    },
-    {
-      id: "claude-3-5-sonnet-latest",
-      name: "Claude 3.5 Sonnet",
-      contextWindow: 200000,
-    },
-    {
-      id: "claude-3-opus-latest",
-      name: "Claude 3 Opus",
-      contextWindow: 200000,
     },
   ],
   groq: [
     {
       id: "llama-4-maverick",
       name: "Llama 4 Maverick 400B",
-      contextWindow: 128000,
-    },
-    {
-      id: "llama-3.3-70b-versatile",
-      name: "Llama 3.3 70B Versatile",
-      contextWindow: 128000,
-    },
-    {
-      id: "llama-3.1-70b-versatile",
-      name: "Llama 3.1 70B Versatile",
-      contextWindow: 128000,
     },
   ],
-  deepseek: [
-    { id: "deepseek-v3", name: "DeepSeek V3", contextWindow: 64000 },
-    { id: "deepseek-r1", name: "DeepSeek R1", contextWindow: 64000 },
-    { id: "deepseek-chat", name: "DeepSeek Chat", contextWindow: 64000 },
-  ],
+  deepseek: [{ id: "deepseek-chat", name: "DeepSeek Chat" }],
   gemini: [
     {
-      id: "gemini-2.5-flash",
+      id: "models/gemini-2.5-flash",
       name: "Gemini 2.5 Flash",
-      contextWindow: 1048576,
     },
+  ],
+  ollama: [
     {
-      id: "gemini-2.5-pro",
-      name: "Gemini 2.5 Pro",
-      contextWindow: 1048576,
-    },
-    {
-      id: "gemini-2.0-flash",
-      name: "Gemini 2.0 Flash",
-      contextWindow: 1048576,
+      id: "gemma3:4b",
+      name: "Gemma3 - 4b",
     },
   ],
 };
@@ -97,14 +88,15 @@ class ModelService {
         case "openai":
           return await this.fetchOpenAIModels(apiKey);
         case "anthropic":
-          // Anthropic doesn't have a public models endpoint, use defaults
-          return DEFAULT_MODELS.anthropic;
+          return await this.fetchAnthropicModels(apiKey);
         case "groq":
           return await this.fetchGroqModels(apiKey);
         case "deepseek":
           return await this.fetchDeepSeekModels(apiKey);
         case "gemini":
           return await this.fetchGeminiModels(apiKey);
+        case "ollama":
+          return await this.fetchOllamaModels();
         default:
           return DEFAULT_MODELS[provider] || [];
       }
@@ -138,6 +130,33 @@ class ModelService {
       return models.length > 0 ? models : DEFAULT_MODELS.openai;
     } catch {
       return DEFAULT_MODELS.openai;
+    }
+  }
+
+  private async fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/models", {
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+      });
+
+      if (!response.ok) {
+        return DEFAULT_MODELS.anthropic;
+      }
+
+      const data = (await response.json()) as { data: AnthropicModel[] };
+      const models = data.data
+        .filter((m) => m.type === "model")
+        .map((m) => ({
+          id: m.id,
+          name: m.display_name,
+        }));
+
+      return models.length > 0 ? models : DEFAULT_MODELS.anthropic;
+    } catch {
+      return DEFAULT_MODELS.anthropic;
     }
   }
 
@@ -175,7 +194,7 @@ class ModelService {
 
   private async fetchDeepSeekModels(apiKey: string): Promise<ModelInfo[]> {
     try {
-      const response = await fetch("https://api.deepseek.com/v1/models", {
+      const response = await fetch("https://api.deepseek.com/models", {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
 
@@ -183,8 +202,8 @@ class ModelService {
         return DEFAULT_MODELS.deepseek;
       }
 
-      const data = (await response.json()) as { data: OpenAIModel[] };
-      const models = data.data.map((m: OpenAIModel) => ({
+      const data = (await response.json()) as { data: DeepSeekModel[] };
+      const models = data.data.map((m) => ({
         id: m.id,
         name: m.id
           .split("-")
@@ -221,13 +240,9 @@ class ModelService {
             m.supportedGenerationMethods?.includes("generateContent"),
         )
         .map((m: GeminiModel) => {
-          const id = m.name.replace("models/", "");
           return {
-            id,
-            name: id
-              .split("-")
-              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-              .join(" "),
+            id: m.name,
+            name: m.displayName,
           };
         });
 
@@ -237,15 +252,36 @@ class ModelService {
     }
   }
 
-  getDefaultModel(provider: AIProvider): string {
-    const defaults: Record<AIProvider, string> = {
-      openai: "gpt-5-nano",
-      anthropic: "claude-haiku-4-5-latest",
-      groq: "llama-4-maverick",
-      deepseek: "deepseek-v3",
-      gemini: "gemini-2.5-flash",
-    };
-    return defaults[provider];
+  private async fetchOllamaModels(): Promise<ModelInfo[]> {
+    try {
+      const response = await fetch("http://localhost:11434/api/tags");
+
+      if (!response.ok) {
+        return DEFAULT_MODELS.ollama;
+      }
+
+      const data = (await response.json()) as { models: OllamaModel[] };
+      const models = data.models.map((m: OllamaModel) => {
+        const displayName = m.name
+          .split(":")
+          .map((part) =>
+            part
+              .split(/[-_]/)
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" "),
+          )
+          .join(" - ");
+
+        return {
+          id: m.name,
+          name: displayName,
+        };
+      });
+
+      return models.length > 0 ? models : DEFAULT_MODELS.ollama;
+    } catch {
+      return DEFAULT_MODELS.ollama;
+    }
   }
 }
 

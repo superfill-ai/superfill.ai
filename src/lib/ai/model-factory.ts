@@ -1,7 +1,8 @@
-import type { AIProvider } from "@/lib/providers/registry";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import { ollama } from "ai-sdk-ollama";
+import type { AIProvider } from "@/lib/providers/registry";
 
 const OPENAI_COMPATIBLE_PROVIDERS = {
   openai: {
@@ -16,10 +17,6 @@ const OPENAI_COMPATIBLE_PROVIDERS = {
     baseURL: "https://api.deepseek.com/v1",
     defaultModel: "deepseek-v3",
   },
-  // ollama: {
-  //   baseURL: "http://localhost:11434/v1",
-  //   defaultModel: "llama3.2",
-  // },
 } as const;
 
 export const getAIModel = (
@@ -28,7 +25,12 @@ export const getAIModel = (
   model?: string,
 ) => {
   if (provider === "anthropic") {
-    const anthropic = createAnthropic({ apiKey });
+    const anthropic = createAnthropic({
+      apiKey,
+      headers: {
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+    });
     return anthropic(model || "claude-haiku-4-5-latest");
   }
 
@@ -37,11 +39,16 @@ export const getAIModel = (
     return google(model || "gemini-2.5-flash");
   }
 
-  const config = OPENAI_COMPATIBLE_PROVIDERS[provider];
+  if (provider === "ollama") {
+    return ollama(model || "llama3.2");
+  }
 
-  if (config) {
+  if (provider in OPENAI_COMPATIBLE_PROVIDERS) {
+    const config =
+      OPENAI_COMPATIBLE_PROVIDERS[
+        provider as keyof typeof OPENAI_COMPATIBLE_PROVIDERS
+      ];
     const openaiCompatible = createOpenAI({
-      // apiKey: provider === "ollama" ? "ollama" : apiKey,
       apiKey,
       ...(config.baseURL && { baseURL: config.baseURL }),
     });
@@ -49,4 +56,16 @@ export const getAIModel = (
   }
 
   throw new Error(`Unsupported AI provider: ${provider}`);
+};
+
+export const getDefaultModel = (provider: AIProvider): string => {
+  const defaults: Record<AIProvider, string> = {
+    openai: "gpt-5-nano",
+    anthropic: "claude-haiku-4-5-20251001",
+    groq: "openai/gpt-oss-20b",
+    deepseek: "deepseek-chat",
+    gemini: "models/gemini-2.5-flash",
+    ollama: "llama3.2",
+  };
+  return defaults[provider];
 };

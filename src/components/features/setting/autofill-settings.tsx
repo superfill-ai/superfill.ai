@@ -19,9 +19,11 @@ import { useSettingsStore } from "@/stores/settings";
 
 export const AutofillSettings = () => {
   const autofillEnabledId = useId();
+  const autopilotModeId = useId();
   const confidenceThresholdId = useId();
 
   const autoFillEnabled = useSettingsStore((state) => state.autoFillEnabled);
+  const autopilotMode = useSettingsStore((state) => state.autopilotMode);
   const confidenceThreshold = useSettingsStore(
     (state) => state.confidenceThreshold,
   );
@@ -29,6 +31,7 @@ export const AutofillSettings = () => {
   const setAutoFillEnabled = useSettingsStore(
     (state) => state.setAutoFillEnabled,
   );
+  const setAutopilotMode = useSettingsStore((state) => state.setAutopilotMode);
   const setConfidenceThreshold = useSettingsStore(
     (state) => state.setConfidenceThreshold,
   );
@@ -54,6 +57,22 @@ export const AutofillSettings = () => {
               id={autofillEnabledId}
               checked={autoFillEnabled}
               onCheckedChange={setAutoFillEnabled}
+            />
+          </Field>
+
+          <Field orientation="horizontal" data-invalid={false}>
+            <FieldContent>
+              <FieldLabel htmlFor={autopilotModeId}>Autopilot Mode</FieldLabel>
+              <FieldDescription>
+                Automatically fill fields without showing preview when
+                confidence is above threshold
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id={autopilotModeId}
+              checked={autopilotMode}
+              onCheckedChange={setAutopilotMode}
+              disabled={!autoFillEnabled}
             />
           </Field>
 

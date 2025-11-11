@@ -1,10 +1,10 @@
-import { getAIModel } from "@/lib/ai/model-factory";
-import { createLogger } from "@/lib/logger";
-import type { AIProvider } from "@/lib/providers/registry";
 import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getAIModel } from "@/lib/ai/model-factory";
+import { createLogger } from "@/lib/logger";
+import type { AIProvider } from "@/lib/providers/registry";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 
 const logger = createLogger("ai:categorization");
@@ -28,6 +28,16 @@ export const AnalysisResultSchema = z.object({
 });
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
+
+export const RephraseResultSchema = z.object({
+  rephrasedQuestion: z
+    .string()
+    .describe("A clear, well-formulated question based on the answer."),
+  rephrasedAnswer: z
+    .string()
+    .describe("A refined and clear version of the original answer."),
+});
+export type RephraseResult = z.infer<typeof RephraseResultSchema>;
 export type Category = z.infer<typeof CategoryEnum>;
 
 export const fallbackCategorization = async (
@@ -39,8 +49,8 @@ export const fallbackCategorization = async (
   let category: Category = "general";
   const tags: string[] = [];
 
-  if (lower.includes("email") || lower.includes("@")) category = "contact";
-  if (lower.includes("phone") || lower.includes("mobile")) category = "contact";
+  if (z.email().safeParse(answer).success) category = "contact";
+  if (z.e164().safeParse(answer).success) category = "contact";
   if (
     lower.includes("address") ||
     lower.includes("street") ||
@@ -178,9 +188,71 @@ Be precise and consider context. For example:
   }
 };
 
+export const rephraseAgent = async (
+  answer: string,
+  question: string | undefined,
+  provider: AIProvider,
+  apiKey: string,
+  modelName?: string,
+): Promise<RephraseResult> => {
+  try {
+    const model = getAIModel(provider, apiKey, modelName);
+
+    const systemPrompt = `You are an expert in clarity and conciseness. Your task is to rephrase a user's question and answer to be more clear, professional, and easily searchable.
+- For the question, create a clear, interrogative sentence that accurately represents the data in the answer. If no question is provided, infer one.
+- For the answer, refine it for clarity and consistency without losing the original meaning. Correct any typos or grammatical errors.
+- Return the rephrased content.`;
+
+    const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
+
+    updateActiveObservation({
+      input: { answer, question },
+    });
+    updateActiveTrace({
+      name: "superfill:memory-rephrase",
+      input: { answer, question },
+    });
+
+    const { object } = await generateObject({
+      model,
+      system: systemPrompt,
+      prompt: userPrompt,
+      schema: RephraseResultSchema,
+      schemaName: "RephraseResult",
+      schemaDescription: "Rephrased question and answer for user data",
+      temperature: 0.5,
+    });
+
+    updateActiveObservation({
+      output: object,
+    });
+    updateActiveTrace({
+      output: object,
+    });
+    trace.getActiveSpan()?.end();
+
+    return object;
+  } catch (error) {
+    logger.error("AI rephrasing failed:", error);
+
+    updateActiveObservation({
+      output: error,
+      level: "ERROR",
+    });
+    updateActiveTrace({
+      output: error,
+    });
+    trace.getActiveSpan()?.end();
+
+    throw new Error("Failed to rephrase content with AI.");
+  } finally {
+    (async () => await langfuseSpanProcessor.forceFlush())();
+  }
+};
+
 export const batchCategorization = async (
   entries: Array<{ answer: string; question?: string }>,
-  provider: "openai" | "anthropic",
+  provider: "openai" | "anthropic" | "groq" | "deepseek" | "gemini",
   apiKey: string,
 ): Promise<AnalysisResult[]> => {
   // For now, process sequentially. Future: implement proper batching

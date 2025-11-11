@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -37,10 +38,15 @@ import {
   useTopMemories,
 } from "@/hooks/use-memory";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
-import { createLogger } from "@/lib/logger";
+import {
+  ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
+  ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
+} from "@/lib/errors";
+import { createLogger, DEBUG } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
 import { useMemoryStore } from "@/stores/memory";
+import { useSettingsStore } from "@/stores/settings";
 import {
   SettingsIcon,
   SparklesIcon,
@@ -60,6 +66,8 @@ export const App = () => {
   const deleteEntry = useMemoryStore((state) => state.deleteEntry);
   const initialized = useMemoryStore((state) => state.initialized);
   const error = useMemoryStore((state) => state.error);
+  const selectedModels = useSettingsStore((state) => state.selectedModels);
+  const selectedProvider = useSettingsStore((state) => state.selectedProvider);
   const stats = useMemoryStats();
   const topMemories = useTopMemories(10);
   const [activeTab, setActiveTab] = useState<
@@ -99,16 +107,44 @@ export const App = () => {
 
   const handleAutofill = async () => {
     try {
-      const userSettings = await store.userSettings.getValue();
-      const apiKey = await keyVault.getKey(userSettings.selectedProvider);
+      const aiSettings = await store.aiSettings.getValue();
+      if (!aiSettings.selectedProvider) {
+        toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
+          description:
+            "Please configure an AI provider in settings to use autofill",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        return;
+      }
+      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
+
+      if (!apiKey || apiKey.trim() === "") {
+        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+          description:
+            "Please configure an API key in settings to use autofill",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        return;
+      }
+
       toast.info("Starting autofill... This window will close shortly.");
 
       const autofillService = getAutofillService();
       autofillService.startAutofillOnActiveTab(apiKey || undefined);
 
-      setTimeout(() => {
-        window.close();
-      }, 600);
+      if (!DEBUG) {
+        setTimeout(() => {
+          window.close();
+        }, 600);
+      }
     } catch (error) {
       logger.error("Autofill error:", error);
       toast.error(
@@ -256,7 +292,7 @@ export const App = () => {
               </Button>
             </div>
 
-            <Card>
+            <Card className="gap-2">
               <CardHeader>
                 <CardTitle>Ready to Autofill</CardTitle>
                 <CardDescription>
@@ -264,6 +300,14 @@ export const App = () => {
                   this page using your stored memories.
                 </CardDescription>
               </CardHeader>
+              {selectedProvider && (
+                <CardFooter>
+                  <span className="text-muted-foreground text-xs underline">
+                    Selected model: {selectedModels[selectedProvider] || "N/A"}{" "}
+                    of {selectedProvider}
+                  </span>
+                </CardFooter>
+              )}
             </Card>
 
             <Card>
@@ -297,7 +341,7 @@ export const App = () => {
                 <ItemTitle>
                   {editingEntryId ? "Edit Memory" : "Add New Memory"}
                 </ItemTitle>
-                <ItemDescription>
+                <ItemDescription className="text-nowrap">
                   {editingEntryId
                     ? "Update your memory entry below"
                     : "Store information that you want to use for auto-filling forms"}
@@ -307,6 +351,7 @@ export const App = () => {
             <Item className="p-0">
               <ItemContent>
                 <EntryForm
+                  layout="compact"
                   mode={editingEntryId ? "edit" : "create"}
                   initialData={
                     editingEntryId

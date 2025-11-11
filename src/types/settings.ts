@@ -7,15 +7,16 @@ export interface EncryptedKey {
   salt: string;
 }
 
-export interface UserSettings {
-  selectedProvider: AIProvider;
+export interface AISettings {
+  selectedProvider?: AIProvider;
   selectedModels?: Partial<Record<AIProvider, string>>;
   autoFillEnabled: boolean;
+  autopilotMode: boolean;
   confidenceThreshold: number;
 }
 
 export interface AllSettings {
   theme: Theme;
   trigger: Trigger;
-  userSettings: UserSettings;
+  aiSettings: AISettings;
 }

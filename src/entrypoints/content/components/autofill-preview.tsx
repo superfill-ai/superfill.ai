@@ -1,3 +1,5 @@
+import { XIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -19,9 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import type { FieldOpId, PreviewFieldData } from "@/types/autofill";
-import { XIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import type { PreviewRenderData } from "../preview-manager";
+import type { PreviewRenderData } from "./preview-manager";
 
 type AutofillPreviewProps = {
   data: PreviewRenderData;

@@ -1,7 +1,10 @@
 import "./content.css";
 
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-service";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
+import { settingsStorage } from "@/lib/storage";
+import { useSettingsStore } from "@/stores/settings";
 import type {
   AutofillProgress,
   DetectedField,
@@ -11,10 +14,10 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import { FieldAnalyzer } from "./field-analyzer";
-import { FormDetector } from "./form-detector";
-import { PreviewSidebarManager } from "./preview-manager";
+import { AutopilotManager } from "./components/autopilot-manager";
+import { PreviewSidebarManager } from "./components/preview-manager";
+import { FieldAnalyzer } from "./lib/field-analyzer";
+import { FormDetector } from "./lib/form-detector";
 
 const logger = createLogger("content");
 
@@ -22,6 +25,7 @@ const formCache = new Map<FormOpId, DetectedForm>();
 const fieldCache = new Map<FieldOpId, DetectedField>();
 let serializedFormCache: DetectedFormSnapshot[] = [];
 let previewManager: PreviewSidebarManager | null = null;
+let autopilotManager: AutopilotManager | null = null;
 
 const cacheDetectedForms = (forms: DetectedForm[]) => {
   formCache.clear();
@@ -75,6 +79,18 @@ const ensurePreviewManager = (ctx: ContentScriptContext) => {
   }
 
   return previewManager;
+};
+
+const ensureAutopilotManager = (ctx: ContentScriptContext) => {
+  if (!autopilotManager) {
+    autopilotManager = new AutopilotManager({
+      ctx,
+      getFieldMetadata: (fieldOpid) => fieldCache.get(fieldOpid) ?? null,
+      getFormMetadata: (formOpid) => formCache.get(formOpid) ?? null,
+    });
+  }
+
+  return autopilotManager;
 };
 
 export default defineContentScript({
@@ -174,9 +190,25 @@ export default defineContentScript({
       "updateProgress",
       async ({ data: progress }: { data: AutofillProgress }) => {
         try {
-          const manager = ensurePreviewManager(ctx);
-          await manager.showLoading(progress);
-          return true;
+          const settingStore = useSettingsStore.getState();
+
+          logger.info(settingsStorage);
+
+          if (settingStore.autopilotMode) {
+            if (
+              progress.state === "showing-preview" ||
+              progress.state === "completed"
+            ) {
+              return true;
+            }
+            const manager = ensureAutopilotManager(ctx);
+            await manager.showProgress(progress);
+            return true;
+          } else {
+            const manager = ensurePreviewManager(ctx);
+            await manager.showProgress(progress);
+            return true;
+          }
         } catch (error) {
           logger.error("Error updating progress:", error);
           return false;
@@ -196,33 +228,53 @@ export default defineContentScript({
           payload: data,
         });
 
-        logger.info("Mappings details:", {
-          mappings: data.mappings,
-        });
+        const settingStore = useSettingsStore.getState();
+        logger.info(settingsStorage);
+        let manager: PreviewSidebarManager | AutopilotManager;
 
-        logger.info("Forms details:", {
-          forms: data.forms,
-        });
+        if (settingStore.autopilotMode) {
+          manager = ensureAutopilotManager(ctx);
+        } else {
+          manager = ensurePreviewManager(ctx);
+        }
 
         try {
-          const manager = ensurePreviewManager(ctx);
-          logger.info("Preview manager created, attempting to show...");
+          if (
+            settingStore.autopilotMode &&
+            manager instanceof AutopilotManager
+          ) {
+            logger.info("Autopilot manager created, attempting to show...");
 
-          await manager.show({
-            payload: data,
-          });
+            await manager.processAutofillData(
+              data.mappings,
+              settingStore.confidenceThreshold,
+              data.sessionId,
+            );
 
-          logger.info("Preview shown successfully");
+            logger.info("Autopilot manager processed data successfully");
+          } else if (manager instanceof PreviewSidebarManager) {
+            logger.info("Preview manager created, attempting to show...");
+
+            await manager.show({
+              payload: data,
+            });
+
+            logger.info("Preview shown successfully");
+          }
+          return true;
         } catch (error) {
           logger.error("Error showing preview:", {
             error,
             errorMessage: error instanceof Error ? error.message : "Unknown",
             errorStack: error instanceof Error ? error.stack : undefined,
           });
+          await manager.showProgress({
+            state: "failed",
+            message: "Auto-fill failed",
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
           throw error;
         }
-
-        return true;
       },
     );
 
@@ -231,12 +283,23 @@ export default defineContentScript({
         previewManager.destroy();
       }
 
+      if (autopilotManager) {
+        autopilotManager.hide();
+      }
+
       return true;
     });
 
     // Temporarily show contentAutofill permanent UI for testing
+    // const manager = ensureAutopilotManager(ctx);
+    // await manager.showProgress({
+    //   state: "detecting",
+    //   message: "Detecting forms on the page...",
+    //   fieldsDetected: 5,
+    //   fieldsMatched: 2,
+    // });
     // const manager = ensurePreviewManager(ctx);
-    // manager.showLoading({
+    // manager.showProgress({
     //   state: "detecting",
     //   message: "Detecting forms on the page...",
     // });

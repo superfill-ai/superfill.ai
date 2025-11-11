@@ -1,5 +1,6 @@
+import { CheckCircle2 } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -14,17 +15,19 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { Separator } from "@/components/ui/separator";
 import {
+  useDeleteApiKey,
   useProviderKeyStatuses,
-  useSaveMultipleApiKeys,
+  useSaveApiKeyWithModel,
 } from "@/hooks/use-provider-keys";
+import { getDefaultModel } from "@/lib/ai/model-factory";
 import { getProviderOptions } from "@/lib/providers";
 import {
   type AIProvider,
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
 import { useSettingsStore } from "@/stores/settings";
-import { useEffect, useId, useState } from "react";
 import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 
@@ -34,28 +37,37 @@ export const AiProviderSettings = () => {
   const [providerOptions, setProviderOptions] = useState<
     ReturnType<typeof getProviderOptions> extends Promise<infer T> ? T : never
   >([]);
-
   const providerComboboxId = useId();
-
   const selectedProvider = useSettingsStore((state) => state.selectedProvider);
   const setSelectedProvider = useSettingsStore(
     (state) => state.setSelectedProvider,
   );
-
   const { data: keyStatuses } = useProviderKeyStatuses();
-  const saveKeysMutation = useSaveMultipleApiKeys();
+  const saveKeyWithModelMutation = useSaveApiKeyWithModel();
+  const deleteKeyMutation = useDeleteApiKey();
+  const allConfigs = getAllProviderConfigs();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: need to run when keyStatuses change
   useEffect(() => {
     const loadProviders = async () => {
       const options = await getProviderOptions();
       setProviderOptions(options);
     };
     loadProviders();
-  }, []);
+  }, [keyStatuses]);
 
-  const handleSaveApiKeys = async () => {
-    await saveKeysMutation.mutateAsync(providerKeys);
-    setProviderKeys({});
+  const handleSaveApiKey = async (provider: AIProvider) => {
+    const key = providerKeys[provider];
+    const apiKey = provider === "ollama" ? "ollama-local" : key;
+    if (provider !== "ollama" && !key?.trim()) return;
+
+    const defaultModel = getDefaultModel(provider);
+    await saveKeyWithModelMutation.mutateAsync({
+      provider,
+      key: apiKey,
+      defaultModel,
+    });
+    setProviderKeys((prev) => ({ ...prev, [provider]: "" }));
   };
 
   const handleToggleShowKey = (provider: string) => {
@@ -66,7 +78,9 @@ export const AiProviderSettings = () => {
     setProviderKeys((prev) => ({ ...prev, [provider]: value }));
   };
 
-  const allConfigs = getAllProviderConfigs();
+  const handleDeleteKey = async (provider: string) => {
+    await deleteKeyMutation.mutateAsync(provider as AIProvider);
+  };
 
   return (
     <Card>
@@ -83,9 +97,12 @@ export const AiProviderSettings = () => {
                 config={config}
                 value={providerKeys[config.id] || ""}
                 onChange={(value) => handleKeyChange(config.id, value)}
+                onSave={() => handleSaveApiKey(config.id as AIProvider)}
                 showKey={!!showKeys[config.id]}
                 onToggleShow={() => handleToggleShowKey(config.id)}
                 hasExistingKey={!!keyStatuses?.[config.id]}
+                onDelete={() => handleDeleteKey(config.id)}
+                isSelected={selectedProvider === config.id}
               />
               <ModelSelector
                 provider={config.id as AIProvider}
@@ -95,14 +112,7 @@ export const AiProviderSettings = () => {
             </div>
           ))}
 
-          <Button
-            onClick={handleSaveApiKeys}
-            className="w-full"
-            disabled={saveKeysMutation.isPending}
-          >
-            {saveKeysMutation.isPending ? "Saving..." : "Save API Keys"}
-          </Button>
-
+          <Separator className="my-2" />
           <Field data-invalid={false}>
             <FieldLabel htmlFor={providerComboboxId}>
               Current Provider
@@ -117,11 +127,17 @@ export const AiProviderSettings = () => {
                 value: p.value,
                 label: p.label,
                 disabled: !p.available,
-                badge: !p.available ? (
-                  <Badge variant="secondary" className="ml-auto">
-                    No API Key
-                  </Badge>
-                ) : undefined,
+                badge:
+                  p.value === selectedProvider ? (
+                    <Badge variant="default" className="ml-auto gap-1">
+                      <CheckCircle2 className="size-3" />
+                      Active
+                    </Badge>
+                  ) : !p.available ? (
+                    <Badge variant="secondary" className="ml-auto">
+                      No API Key
+                    </Badge>
+                  ) : undefined,
               }))}
               placeholder="Select provider..."
               searchPlaceholder="Search provider..."

@@ -1,7 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { getModelService, type ModelInfo } from "@/lib/providers/model-service";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
-import { useQuery } from "@tanstack/react-query";
 
 export const useProviderModels = (provider: AIProvider) => {
   return useQuery({
@@ -24,6 +24,7 @@ export const useDefaultModel = (provider: AIProvider): string => {
     groq: "llama-4-maverick",
     deepseek: "deepseek-v3",
     gemini: "gemini-2.5-flash",
+    ollama: "llama3.2",
   };
   return defaults[provider];
 };

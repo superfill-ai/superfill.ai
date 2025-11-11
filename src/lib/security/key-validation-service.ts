@@ -1,5 +1,5 @@
-import type { AIProvider } from "@/lib/providers/registry";
 import { defineProxyService } from "@webext-core/proxy-service";
+import type { AIProvider } from "@/lib/providers/registry";
 
 class KeyValidationService {
   async validateKey(provider: AIProvider, key: string): Promise<boolean> {
@@ -15,8 +15,8 @@ class KeyValidationService {
           return await this.testDeepSeekKey(key);
         case "gemini":
           return await this.testGeminiKey(key);
-        // case "ollama":
-        //   return true; // Local, no validation needed
+        case "ollama":
+          return await this.testOllamaConnection();
         default:
           return false;
       }
@@ -90,6 +90,17 @@ class KeyValidationService {
           },
         },
       );
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  private async testOllamaConnection(): Promise<boolean> {
+    try {
+      const response = await fetch("http://localhost:11434/api/tags", {
+        method: "GET",
+      });
       return response.ok;
     } catch {
       return false;

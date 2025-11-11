@@ -5,7 +5,7 @@ import { settingsStorage } from "./settings";
 export const store = {
   theme: settingsStorage.theme,
   trigger: settingsStorage.trigger,
-  userSettings: settingsStorage.userSettings,
+  aiSettings: settingsStorage.aiSettings,
   syncState: settingsStorage.syncState,
 
   memories: dataStorage.memories,

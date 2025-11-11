@@ -1,21 +1,22 @@
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
 import { store } from "@/lib/storage";
-import type { UserSettings } from "@/types/settings";
+import type { AISettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
 import { Trigger } from "@/types/trigger";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:settings");
 
 type SettingsState = {
   theme: Theme;
   trigger: Trigger;
-  selectedProvider: AIProvider;
+  selectedProvider?: AIProvider;
   selectedModels: Partial<Record<AIProvider, string>>;
   autoFillEnabled: boolean;
+  autopilotMode: boolean;
   confidenceThreshold: number;
   loading: boolean;
   error: string | null;
@@ -28,19 +29,21 @@ type SettingsActions = {
   setSelectedProvider: (provider: AIProvider) => Promise<void>;
   setSelectedModel: (provider: AIProvider, model: string) => Promise<void>;
   setAutoFillEnabled: (enabled: boolean) => Promise<void>;
+  setAutopilotMode: (enabled: boolean) => Promise<void>;
   setConfidenceThreshold: (threshold: number) => Promise<void>;
   setApiKey: (provider: AIProvider, key: string) => Promise<void>;
   getApiKey: (provider: AIProvider) => Promise<string | null>;
-  updateUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
+  deleteApiKey: (provider: AIProvider) => Promise<void>;
+  updateAISettings: (settings: Partial<AISettings>) => Promise<void>;
   resetSettings: () => Promise<void>;
 };
 
 const defaultSettings: SettingsState = {
   theme: Theme.DEFAULT,
   trigger: Trigger.POPUP,
-  selectedProvider: "openai",
   selectedModels: {},
   autoFillEnabled: true,
+  autopilotMode: false,
   confidenceThreshold: 0.6,
   loading: false,
   error: null,
@@ -105,8 +108,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           set({ loading: true, error: null });
           set({ selectedProvider: provider });
 
-          const currentSettings = await store.userSettings.getValue();
-          await store.userSettings.setValue({
+          const currentSettings = await store.aiSettings.getValue();
+          await store.aiSettings.setValue({
             ...currentSettings,
             selectedProvider: provider,
           });
@@ -127,8 +130,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           const updatedModels = { ...currentModels, [provider]: model };
           set({ selectedModels: updatedModels });
 
-          const currentSettings = await store.userSettings.getValue();
-          await store.userSettings.setValue({
+          const currentSettings = await store.aiSettings.getValue();
+          await store.aiSettings.setValue({
             ...currentSettings,
             selectedModels: updatedModels,
           });
@@ -147,8 +150,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           set({ loading: true, error: null });
           set({ autoFillEnabled: enabled });
 
-          const currentSettings = await store.userSettings.getValue();
-          await store.userSettings.setValue({
+          const currentSettings = await store.aiSettings.getValue();
+          await store.aiSettings.setValue({
             ...currentSettings,
             autoFillEnabled: enabled,
           });
@@ -162,13 +165,35 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         }
       },
 
+      setAutopilotMode: async (enabled: boolean) => {
+        try {
+          set({ loading: true, error: null });
+          set({ autopilotMode: enabled });
+
+          const currentSettings = await store.aiSettings.getValue();
+          await store.aiSettings.setValue({
+            ...currentSettings,
+            autopilotMode: enabled,
+          });
+
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Failed to set autopilot mode";
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
+      },
+
       setConfidenceThreshold: async (threshold: number) => {
         try {
           set({ loading: true, error: null });
           set({ confidenceThreshold: threshold });
 
-          const currentSettings = await store.userSettings.getValue();
-          await store.userSettings.setValue({
+          const currentSettings = await store.aiSettings.getValue();
+          await store.aiSettings.setValue({
             ...currentSettings,
             confidenceThreshold: threshold,
           });
@@ -184,13 +209,13 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         }
       },
 
-      updateUserSettings: async (settings: Partial<UserSettings>) => {
+      updateAISettings: async (settings: Partial<AISettings>) => {
         try {
           set({ loading: true, error: null });
           set(settings);
 
-          const currentSettings = await store.userSettings.getValue();
-          await store.userSettings.setValue({
+          const currentSettings = await store.aiSettings.getValue();
+          await store.aiSettings.setValue({
             ...currentSettings,
             ...settings,
           });
@@ -214,8 +239,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
             await keyVault.storeKey(provider, key);
             set({ selectedProvider: provider });
 
-            const currentSettings = await store.userSettings.getValue();
-            await store.userSettings.setValue({
+            const currentSettings = await store.aiSettings.getValue();
+            await store.aiSettings.setValue({
               ...currentSettings,
               selectedProvider: provider,
             });
@@ -237,6 +262,19 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         return keyVault.getKey(provider);
       },
 
+      deleteApiKey: async (provider) => {
+        try {
+          set({ loading: true, error: null });
+          await keyVault.deleteKey(provider);
+          set({ loading: false });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to delete API key";
+          set({ loading: false, error: errorMessage });
+          throw error;
+        }
+      },
+
       resetSettings: async () => {
         try {
           set({ loading: true, error: null });
@@ -245,14 +283,14 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           await Promise.all([
             store.theme.setValue(defaultSettings.theme),
             store.trigger.setValue(defaultSettings.trigger),
-            store.userSettings.setValue({
+            store.aiSettings.setValue({
               selectedProvider: defaultSettings.selectedProvider,
               selectedModels: defaultSettings.selectedModels,
               autoFillEnabled: defaultSettings.autoFillEnabled,
+              autopilotMode: defaultSettings.autopilotMode,
               confidenceThreshold: defaultSettings.confidenceThreshold,
             }),
           ]);
-
           set({ loading: false });
         } catch (error) {
           const errorMessage =
@@ -267,20 +305,21 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       storage: createJSONStorage(() => ({
         getItem: async () => {
           try {
-            const [theme, trigger, userSettings] = await Promise.all([
+            const [theme, trigger, aiSettings] = await Promise.all([
               store.theme.getValue(),
               store.trigger.getValue(),
-              store.userSettings.getValue(),
+              store.aiSettings.getValue(),
             ]);
 
             return JSON.stringify({
               state: {
                 theme,
                 trigger,
-                selectedProvider: userSettings.selectedProvider,
-                selectedModels: userSettings.selectedModels || {},
-                autoFillEnabled: userSettings.autoFillEnabled,
-                confidenceThreshold: userSettings.confidenceThreshold,
+                selectedProvider: aiSettings.selectedProvider,
+                selectedModels: aiSettings.selectedModels || {},
+                autoFillEnabled: aiSettings.autoFillEnabled,
+                autopilotMode: aiSettings.autopilotMode,
+                confidenceThreshold: aiSettings.confidenceThreshold,
                 loading: false,
                 error: null,
               },
@@ -308,10 +347,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
             await Promise.all([
               store.theme.setValue(state.theme),
               store.trigger.setValue(state.trigger),
-              store.userSettings.setValue({
+              store.aiSettings.setValue({
                 selectedProvider: state.selectedProvider,
                 selectedModels: state.selectedModels,
                 autoFillEnabled: state.autoFillEnabled,
+                autopilotMode: state.autopilotMode,
                 confidenceThreshold: state.confidenceThreshold,
               }),
             ]);
@@ -324,10 +364,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           await Promise.all([
             store.theme.setValue(Theme.DEFAULT),
             store.trigger.setValue(Trigger.POPUP),
-            store.userSettings.setValue({
-              selectedProvider: "openai",
+            store.aiSettings.setValue({
+              selectedProvider: undefined,
               selectedModels: {},
               autoFillEnabled: true,
+              autopilotMode: false,
               confidenceThreshold: 0.6,
             }),
           ]);
