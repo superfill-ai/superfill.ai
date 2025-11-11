@@ -45,7 +45,6 @@ class AuthService {
     authUrl.searchParams.set("code_challenge", challenge);
     authUrl.searchParams.set("code_challenge_method", "S256");
     authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("response_type", "code");
 
     logger.info("Initiating secure OAuth flow with PKCE");
 
@@ -109,10 +108,15 @@ class AuthService {
       import.meta.env.WXT_API_URL || import.meta.env.WXT_WEBSITE_URL;
 
     try {
+      const extensionId = browser.runtime.id;
+      const manifest = browser.runtime.getManifest();
+
       const response = await fetch(`${apiUrl}/api/auth/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Extension-ID": extensionId,
+          "X-Extension-Version": manifest.version,
         },
         body: JSON.stringify({
           code,
