@@ -23,22 +23,26 @@ import { APP_NAME } from "@/constants";
 import { useInitializeMemory } from "@/hooks/use-memory";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getAuthService } from "@/lib/auth/auth-service";
+import { createLogger } from "@/lib/logger";
 import { useAuthStore } from "@/stores/auth";
 import { useMemoryStore } from "@/stores/memory";
 import { useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+const logger = createLogger("options:App");
+
 export const App = () => {
   useInitializeMemory();
   const isMobile = useIsMobile();
   const entries = useMemoryStore((state) => state.entries);
-  const { isAuthenticated, checkAuthStatus, setAuthToken } = useAuthStore();
+  const { isAuthenticated, setAuthToken, clearAuthToken, checkAuthStatus } =
+    useAuthStore();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
-  useState(() => {
-    checkAuthStatus();
-  });
+  useEffect(() => {
+    checkAuthStatus().catch(logger.error);
+  }, []);
 
   const handleSignIn = async () => {
     try {
@@ -47,10 +51,19 @@ export const App = () => {
 
       if (result) {
         await setAuthToken(result.token);
-        console.log("Auth successful, token encrypted and stored");
+        logger.info("Auth successful, token encrypted and stored");
       }
     } catch (error) {
-      console.error("Sign-in failed", error);
+      logger.error("Sign-in failed", error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await clearAuthToken();
+      logger.info("Signed out successfully");
+    } catch (error) {
+      logger.error("Sign-out failed", error);
     }
   };
 
@@ -106,9 +119,13 @@ export const App = () => {
           <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
         </div>
         <div className="flex items-center gap-2">
-          {!isAuthenticated && (
+          {!isAuthenticated ? (
             <Button onClick={handleSignIn} variant="outline" size="sm">
               Sign in to sync
+            </Button>
+          ) : (
+            <Button onClick={handleSignOut} variant="destructive" size="sm">
+              Sign out
             </Button>
           )}
           <ThemeToggle />

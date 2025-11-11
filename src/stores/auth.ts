@@ -53,7 +53,9 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
           logger.info("Auth token encrypted and stored successfully");
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : "Failed to store auth token";
+            error instanceof Error
+              ? error.message
+              : "Failed to store auth token";
           logger.error("Failed to encrypt and store auth token", { error });
           set({ loading: false, error: errorMessage, isAuthenticated: false });
           throw error;
@@ -78,7 +80,10 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
           return decryptedToken;
         } catch (error) {
           logger.error("Failed to decrypt auth token", { error });
-          set({ error: "Failed to decrypt auth token", isAuthenticated: false });
+          set({
+            error: "Failed to decrypt auth token",
+            isAuthenticated: false,
+          });
           return null;
         }
       },
@@ -95,7 +100,9 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
           logger.info("Auth token cleared successfully");
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : "Failed to clear auth token";
+            error instanceof Error
+              ? error.message
+              : "Failed to clear auth token";
           logger.error("Failed to clear auth token", { error });
           set({ error: errorMessage });
           throw error;
