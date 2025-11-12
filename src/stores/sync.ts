@@ -54,11 +54,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             ...updates,
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -78,11 +74,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             syncUrl: url,
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set sync URL";
@@ -100,11 +92,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             syncToken: token,
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set sync token";
@@ -124,11 +112,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             conflictResolution: resolution,
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -150,11 +134,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             status: "pending",
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -175,11 +155,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             lastSync: new Date().toISOString(),
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to mark synced";
@@ -197,11 +173,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             status: "pending",
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -221,11 +193,7 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             status: "error",
           };
 
-          set({ syncState: updatedSyncState });
-
-          await store.syncState.setValue(updatedSyncState);
-
-          set({ loading: false });
+          set({ syncState: updatedSyncState, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -300,12 +268,14 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
         setItem: async (_name: string, value: string) => {
           try {
             const parsed = JSON.parse(value);
+
             if (!parsed || typeof parsed !== "object" || !("state" in parsed)) {
               logger.warn("Invalid sync state structure, skipping save");
               return;
             }
 
             const { state } = parsed as { state: SyncStoreState };
+
             if (!state || !state.syncState) {
               logger.warn("No state in parsed sync data, skipping save");
               return;
