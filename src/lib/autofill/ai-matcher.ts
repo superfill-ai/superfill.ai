@@ -10,12 +10,11 @@ import type {
   CompressedMemoryData,
   FieldMapping,
 } from "@/types/autofill";
+import type { WebsiteContext } from "@/types/context";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 import { MIN_MATCH_CONFIDENCE } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
-import type { WebsiteContext } from "@/types/context";
-
 
 const logger = createLogger("ai-matcher");
 
@@ -41,7 +40,9 @@ const AIMatchSchema = z.object({
     .string()
     .nullable()
     .optional()
-    .describe("The rephrased answer, if the context requires it. Otherwise, this should be null."),
+    .describe(
+      "The rephrased answer, if the context requires it. Otherwise, this should be null.",
+    ),
 });
 
 const AIBatchMatchSchema = z.object({
@@ -127,7 +128,9 @@ export class AIMatcher {
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(fields, memories, websiteContext);
 
-      logger.info(`AI matching with ${provider} for ${fields.length} fields`, { websiteContext },);
+      logger.info(`AI matching with ${provider} for ${fields.length} fields`, {
+        websiteContext,
+      });
 
       updateActiveObservation({
         input: { fields, memories, provider },
@@ -245,7 +248,7 @@ export class AIMatcher {
       .join("\n");
 
     // return `Match these form fields to the best stored memories:
-      const contextMarkdown = `
+    const contextMarkdown = `
       **Website Type**: ${websiteContext.websiteType}
       **Inferred Form Purpose**: ${websiteContext.formPurpose}
       **Page Title**: ${websiteContext.metadata.title}

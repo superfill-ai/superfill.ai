@@ -28,4 +28,3 @@ export interface WebsiteContext {
   websiteType: WebsiteType;
   formPurpose: string; // e.g., "application", "profile", "survey"
 }
-

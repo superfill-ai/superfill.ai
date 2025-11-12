@@ -2,6 +2,7 @@ import "./content.css";
 
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { createLogger } from "@/lib/logger";
 import { settingsStorage } from "@/lib/storage";
 import { useSettingsStore } from "@/stores/settings";
@@ -10,17 +11,15 @@ import type {
   DetectedField,
   DetectedForm,
   DetectedFormSnapshot,
+  DetectFormsResult,
   FieldOpId,
   FormOpId,
   PreviewSidebarPayload,
-  DetectFormsResult,
 } from "@/types/autofill";
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { FormDetector } from "./lib/form-detector";
-import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
-
 
 const logger = createLogger("content");
 
@@ -108,91 +107,94 @@ export default defineContentScript({
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
 
-    contentAutofillMessaging.onMessage("detectForms", async (): Promise<DetectFormsResult>  => {
-      try {
-        const allForms = formDetector.detectAll();
+    contentAutofillMessaging.onMessage(
+      "detectForms",
+      async (): Promise<DetectFormsResult> => {
+        try {
+          const allForms = formDetector.detectAll();
 
-        const forms = allForms.filter((form) => {
-          if (form.fields.length === 0) return false;
+          const forms = allForms.filter((form) => {
+            if (form.fields.length === 0) return false;
 
-          if (form.fields.length === 1) {
-            const field = form.fields[0];
-            logger.info("Single field form:", field);
-            const isUnlabeled =
-              !field.metadata.labelTag &&
-              !field.metadata.labelAria &&
-              !field.metadata.placeholder &&
-              !field.metadata.labelLeft &&
-              !field.metadata.labelRight &&
-              !field.metadata.labelTop;
+            if (form.fields.length === 1) {
+              const field = form.fields[0];
+              logger.info("Single field form:", field);
+              const isUnlabeled =
+                !field.metadata.labelTag &&
+                !field.metadata.labelAria &&
+                !field.metadata.placeholder &&
+                !field.metadata.labelLeft &&
+                !field.metadata.labelRight &&
+                !field.metadata.labelTop;
 
-            if (field.metadata.fieldPurpose === "unknown" && isUnlabeled) {
-              return false;
+              if (field.metadata.fieldPurpose === "unknown" && isUnlabeled) {
+                return false;
+              }
             }
-          }
-          console.log("First try: Including form with fields:", form.fields);
-          return true;
-        });
 
-        cacheDetectedForms(forms);
-        serializedFormCache = serializeForms(forms);
-
-        const totalFields = forms.reduce(
-          (sum, form) => sum + form.fields.length,
-          0,
-        );
-
-        logger.info("Detected forms and fields:", forms.length, totalFields);
-
-        forms.forEach((form, index) => {
-          logger.info(`Form ${index + 1}:`, {
-            opid: form.opid,
-            name: form.name,
-            fieldCount: form.fields.length,
-            action: form.action,
-            method: form.method,
+            return true;
           });
 
-          form.fields.slice(0, 3).forEach((field) => {
-            logger.info(`  └─ Field ${field.opid}:`, {
-              type: field.metadata.fieldType,
-              purpose: field.metadata.fieldPurpose,
-              labels: {
-                tag: field.metadata.labelTag,
-                aria: field.metadata.labelAria,
-                placeholder: field.metadata.placeholder,
-              },
+          cacheDetectedForms(forms);
+          serializedFormCache = serializeForms(forms);
+
+          const totalFields = forms.reduce(
+            (sum, form) => sum + form.fields.length,
+            0,
+          );
+
+          logger.info("Detected forms and fields:", forms.length, totalFields);
+
+          forms.forEach((form, index) => {
+            logger.info(`Form ${index + 1}:`, {
+              opid: form.opid,
+              name: form.name,
+              fieldCount: form.fields.length,
+              action: form.action,
+              method: form.method,
             });
+
+            form.fields.slice(0, 3).forEach((field) => {
+              logger.info(`  └─ Field ${field.opid}:`, {
+                type: field.metadata.fieldType,
+                purpose: field.metadata.fieldPurpose,
+                labels: {
+                  tag: field.metadata.labelTag,
+                  aria: field.metadata.labelAria,
+                  placeholder: field.metadata.placeholder,
+                },
+              });
+            });
+
+            if (form.fields.length > 3) {
+              logger.info(`  └─ ... and ${form.fields.length - 3} more fields`);
+            }
           });
 
-          if (form.fields.length > 3) {
-            logger.info(`  └─ ... and ${form.fields.length - 3} more fields`);
-          }
-        });
-        
-        const websiteContext = contextExtractor.extract();
-        logger.info("Extracted website context:", websiteContext);
+          const websiteContext = contextExtractor.extract();
+          logger.info("Extracted website context:", websiteContext);
 
-        logger.info(
-          `Detected ${forms.length} forms with ${totalFields} total fields`,
-        );
+          logger.info(
+            `Detected ${forms.length} forms with ${totalFields} total fields`,
+          );
 
-        return {
-          success: true,
-          forms: serializedFormCache,
-          totalFields,
-          websiteContext,
-        };
-      } catch (error) {
-        logger.error("Error detecting forms:", error);
-        return {
-          success: false,
-          forms: [],
-          totalFields: 0,
-          error: error instanceof Error ? error.message : "Unknown error",
-        };
-      }
-    });
+          return {
+            success: true,
+            forms: serializedFormCache,
+            totalFields,
+            websiteContext,
+          };
+        } catch (error) {
+          logger.error("Error detecting forms:", error);
+          return {
+            success: false,
+            forms: [],
+            totalFields: 0,
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
+      },
+    );
 
     contentAutofillMessaging.onMessage(
       "updateProgress",

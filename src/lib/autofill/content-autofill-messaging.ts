@@ -4,7 +4,6 @@ import type {
   DetectFormsResult,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import type { WebsiteContext } from "@/types/context";
 import type { FillSession, FormMapping } from "@/types/memory";
 
 interface ContentAutofillProtocolMap {

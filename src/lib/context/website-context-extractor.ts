@@ -19,7 +19,10 @@ export class WebsiteContextExtractor {
     const metadata: PageMetadata = {
       title: document.title,
       description: this.getMetaContent("description"),
-      keywords: this.getMetaContent("keywords")?.split(",").map((k) => k.trim()) ?? null,
+      keywords:
+        this.getMetaContent("keywords")
+          ?.split(",")
+          .map((k) => k.trim()) ?? null,
       ogTitle: this.getMetaContent("og:title"),
       ogDescription: this.getMetaContent("og:description"),
       ogSiteName: this.getMetaContent("og:site_name"),
@@ -45,4 +48,3 @@ export class WebsiteContextExtractor {
     return context;
   }
 }
-
