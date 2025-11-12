@@ -26,5 +26,5 @@ export interface PageMetadata {
 export interface WebsiteContext {
   metadata: PageMetadata;
   websiteType: WebsiteType;
-  formPurpose: string; // e.g., "application", "profile", "survey"
+  formPurpose: string;
 }
