@@ -67,6 +67,7 @@ export function useSaveApiKeyWithModel() {
         queryKey: PROVIDER_KEYS_QUERY_KEY,
       });
 
+      await queryClient.invalidateQueries({ queryKey: ["models", provider] });
       await setSelectedProvider(provider);
 
       toast.success(`${config.name} API key saved successfully`);
@@ -92,6 +93,8 @@ export function useDeleteApiKey() {
       await queryClient.invalidateQueries({
         queryKey: PROVIDER_KEYS_QUERY_KEY,
       });
+
+      await queryClient.invalidateQueries({ queryKey: ["models", provider] });
 
       toast.success(`${config.name} API key deleted successfully`);
     },

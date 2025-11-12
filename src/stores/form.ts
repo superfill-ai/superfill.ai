@@ -58,6 +58,7 @@ export const useFormStore = create<FormState & FormActions>()(
                   ? { ...mapping, timestamp: new Date().toISOString() }
                   : m,
               ),
+              loading: false,
             }));
           } else {
             set((state) => ({
@@ -65,12 +66,9 @@ export const useFormStore = create<FormState & FormActions>()(
                 ...state.formMappings,
                 { ...mapping, timestamp: new Date().toISOString() },
               ],
+              loading: false,
             }));
           }
-
-          await store.formMappings.setValue(get().formMappings);
-
-          set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -101,11 +99,8 @@ export const useFormStore = create<FormState & FormActions>()(
             formMappings: state.formMappings.map((m) =>
               m.url === url ? updatedMapping : m,
             ),
+            loading: false,
           }));
-
-          await store.formMappings.setValue(get().formMappings);
-
-          set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -121,11 +116,8 @@ export const useFormStore = create<FormState & FormActions>()(
           set({ loading: true, error: null });
           set((state) => ({
             formMappings: state.formMappings.filter((m) => m.url !== url),
+            loading: false,
           }));
-
-          await store.formMappings.setValue(get().formMappings);
-
-          set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -143,11 +135,7 @@ export const useFormStore = create<FormState & FormActions>()(
       clearFormMappings: async () => {
         try {
           set({ loading: true, error: null });
-          set({ formMappings: [] });
-
-          await store.formMappings.setValue([]);
-
-          set({ loading: false });
+          set({ formMappings: [], loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -172,11 +160,9 @@ export const useFormStore = create<FormState & FormActions>()(
           set((state) => ({
             fillSessions: [...state.fillSessions, newSession],
             currentSession: newSession,
+            loading: false,
           }));
 
-          await store.fillSessions.setValue(get().fillSessions);
-
-          set({ loading: false });
           return newSession;
         } catch (error) {
           const errorMessage =
@@ -208,11 +194,8 @@ export const useFormStore = create<FormState & FormActions>()(
               state.currentSession?.id === id
                 ? updatedSession
                 : state.currentSession,
+            loading: false,
           }));
-
-          await store.fillSessions.setValue(get().fillSessions);
-
-          set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to update session";
@@ -242,11 +225,8 @@ export const useFormStore = create<FormState & FormActions>()(
             ),
             currentSession:
               state.currentSession?.id === id ? null : state.currentSession,
+            loading: false,
           }));
-
-          await store.fillSessions.setValue(get().fillSessions);
-
-          set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -279,11 +259,8 @@ export const useFormStore = create<FormState & FormActions>()(
             ),
             currentSession:
               state.currentSession?.id === id ? null : state.currentSession,
+            loading: false,
           }));
-
-          await store.fillSessions.setValue(get().fillSessions);
-
-          set({ loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -311,11 +288,7 @@ export const useFormStore = create<FormState & FormActions>()(
       clearSessions: async () => {
         try {
           set({ loading: true, error: null });
-          set({ fillSessions: [], currentSession: null });
-
-          await store.fillSessions.setValue([]);
-
-          set({ loading: false });
+          set({ fillSessions: [], currentSession: null, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to clear sessions";
@@ -351,12 +324,14 @@ export const useFormStore = create<FormState & FormActions>()(
         setItem: async (_name: string, value: string) => {
           try {
             const parsed = JSON.parse(value);
+
             if (!parsed || typeof parsed !== "object" || !("state" in parsed)) {
               logger.warn("Invalid form data structure, skipping save");
               return;
             }
 
             const { state } = parsed as { state: FormState };
+
             if (!state) {
               logger.warn("No state in parsed form data, skipping save");
               return;

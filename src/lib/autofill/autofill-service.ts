@@ -1,5 +1,3 @@
-import { defineProxyService } from "@webext-core/proxy-service";
-import { z } from "zod";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
@@ -14,16 +12,12 @@ import type {
   FieldMapping,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import type { MemoryEntry } from "@/types/memory";
 import type { WebsiteContext } from "@/types/context";
+import type { MemoryEntry } from "@/types/memory";
+import { defineProxyService } from "@webext-core/proxy-service";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
 import { AIMatcher } from "./ai-matcher";
-import {
-  MAX_FIELDS_PER_PAGE,
-  MAX_MEMORIES_FOR_MATCHING,
-  SIMPLE_FIELD_CONFIDENCE,
-  SIMPLE_FIELD_PURPOSES,
-} from "./constants";
+import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping } from "./mapping-utils";
 
@@ -32,8 +26,6 @@ const logger = createLogger("autofill-service");
 class AutofillService {
   private aiMatcher: AIMatcher;
   private fallbackMatcher: FallbackMatcher;
-  private static readonly EMAIL_SCHEMA = z.email();
-  private static readonly PHONE_SCHEMA = z.string().regex(/^\+?[1-9]\d{1,14}$/);
 
   constructor() {
     this.aiMatcher = new AIMatcher();
@@ -257,32 +249,17 @@ class AutofillService {
       }
 
       const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
-      const { simpleFields, complexFields } =
-        this.categorizeFields(fieldsToProcess);
-
-      logger.info(
-        `Categorized ${simpleFields.length} simple fields and ${complexFields.length} complex fields`,
-      );
-
-      const simpleMappings = await this.matchSimpleFields(
-        simpleFields,
-        memories,
-      );
-      const complexMappings = await this.matchComplexFields(
-        complexFields,
+      const mappings = await this.matchFields(
+        fields,
         memories,
         websiteContext,
         apiKey,
       );
-      const allMappings = this.combineMappings(
-        fieldsToProcess,
-        simpleMappings,
-        complexMappings,
-      );
+      const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
 
       logger.info(
-        `Autofill completed in ${processingTime.toFixed(2)}ms: ${simpleMappings.length} simple + ${complexMappings.length} complex`,
+        `Autofill completed in ${processingTime.toFixed(2)}ms: ${mappings.length} mappings`,
       );
 
       return {
@@ -300,135 +277,7 @@ class AutofillService {
     }
   }
 
-  private categorizeFields(fields: DetectedFieldSnapshot[]): {
-    simpleFields: DetectedFieldSnapshot[];
-    complexFields: DetectedFieldSnapshot[];
-  } {
-    const simpleFields: DetectedFieldSnapshot[] = [];
-    const complexFields: DetectedFieldSnapshot[] = [];
-
-    for (const field of fields) {
-      const purpose = field.metadata.fieldPurpose;
-
-      if (SIMPLE_FIELD_PURPOSES.includes(purpose)) {
-        simpleFields.push(field);
-      } else {
-        complexFields.push(field);
-      }
-    }
-
-    return { simpleFields, complexFields };
-  }
-
-  private async matchSimpleFields(
-    fields: DetectedFieldSnapshot[],
-    memories: MemoryEntry[],
-  ): Promise<FieldMapping[]> {
-    return fields.map((field) => this.matchSingleSimpleField(field, memories));
-  }
-
-  private matchSingleSimpleField(
-    field: DetectedFieldSnapshot,
-    memories: MemoryEntry[],
-  ): FieldMapping {
-    const purpose = field.metadata.fieldPurpose;
-
-    const relevantMemories = memories.filter((memory) => {
-      const category = memory.category.toLowerCase();
-      const tags = memory.tags.map((t) => t.toLowerCase());
-
-      if (purpose === "email") {
-        return (
-          category.includes("email") ||
-          category.includes("contact") ||
-          tags.some((t) => t.includes("email"))
-        );
-      }
-
-      if (purpose === "phone") {
-        return (
-          category.includes("phone") ||
-          category.includes("contact") ||
-          tags.some((t) => t.includes("phone") || t.includes("tel"))
-        );
-      }
-
-      if (purpose === "name") {
-        return (
-          category.includes("name") ||
-          category.includes("personal") ||
-          tags.some((t) => t.includes("name"))
-        );
-      }
-
-      return false;
-    });
-
-    if (relevantMemories.length === 0) {
-      return createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
-        field,
-        `No ${purpose} memory found`,
-      );
-    }
-
-    const scoredMemories = relevantMemories
-      .map((memory) => ({
-        memory,
-        score: this.scoreSimpleFieldMatch(field, memory),
-      }))
-      .filter((scored) => scored.score > 0)
-      .sort((a, b) => b.score - a.score);
-
-    if (scoredMemories.length === 0) {
-      return createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
-        field,
-        `No valid ${purpose} format in memories`,
-      );
-    }
-
-    const bestMatch = scoredMemories[0];
-    const alternativeMatches = scoredMemories.slice(1, 4).map((scored) => ({
-      memoryId: scored.memory.id,
-      value: scored.memory.answer,
-      confidence: scored.score,
-    }));
-
-    return {
-      fieldOpid: field.opid,
-      memoryId: bestMatch.memory.id,
-      value: bestMatch.memory.answer,
-      confidence: SIMPLE_FIELD_CONFIDENCE,
-      reasoning: `Direct ${purpose} match with validation`,
-      alternativeMatches,
-    };
-  }
-
-  private scoreSimpleFieldMatch(
-    field: DetectedFieldSnapshot,
-    memory: MemoryEntry,
-  ): number {
-    const purpose = field.metadata.fieldPurpose;
-    const value = memory.answer.trim();
-
-    if (purpose === "email") {
-      return AutofillService.EMAIL_SCHEMA.safeParse(value).success ? 1 : 0;
-    }
-
-    if (purpose === "phone") {
-      return AutofillService.PHONE_SCHEMA.safeParse(value).success ? 0.9 : 0;
-    }
-
-    if (purpose === "name") {
-      if (value.length >= 2 && value.length <= 100 && /[a-z]/i.test(value)) {
-        return 0.95;
-      }
-      return 0;
-    }
-
-    return 0;
-  }
-
-  private async matchComplexFields(
+  private async matchFields(
     fields: DetectedFieldSnapshot[],
     memories: MemoryEntry[],
     websiteContext: WebsiteContext,
@@ -484,7 +333,7 @@ class AutofillService {
   }
 
   private compressField(field: DetectedFieldSnapshot): CompressedFieldData {
-    const labels = [
+    const allLabels = [
       field.metadata.labelTag,
       field.metadata.labelAria,
       field.metadata.labelData,
@@ -492,6 +341,8 @@ class AutofillService {
       field.metadata.labelRight,
       field.metadata.labelTop,
     ].filter(Boolean) as string[];
+
+    const labels = Array.from(new Set(allLabels));
 
     const context = [
       field.metadata.placeholder,
@@ -522,12 +373,11 @@ class AutofillService {
 
   private combineMappings(
     originalFields: DetectedFieldSnapshot[],
-    simpleMappings: FieldMapping[],
-    complexMappings: FieldMapping[],
+    mappings: FieldMapping[],
   ): FieldMapping[] {
     const mappingMap = new Map<string, FieldMapping>();
 
-    for (const mapping of [...simpleMappings, ...complexMappings]) {
+    for (const mapping of mappings) {
       mappingMap.set(mapping.fieldOpid, mapping);
     }
 
