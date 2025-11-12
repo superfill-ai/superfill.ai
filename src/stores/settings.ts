@@ -57,9 +57,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       setTheme: async (theme: Theme) => {
         try {
           set({ loading: true, error: null });
-          set({ theme });
-          await store.theme.setValue(theme);
-          set({ loading: false });
+          set({ theme, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set theme";
@@ -78,9 +76,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
               : currentTheme === Theme.DARK
                 ? Theme.DEFAULT
                 : Theme.LIGHT;
-          set({ theme: newTheme });
-          await store.theme.setValue(newTheme);
-          set({ loading: false });
+          set({ theme: newTheme, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to toggle theme";
@@ -92,9 +88,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       setTrigger: async (trigger: Trigger) => {
         try {
           set({ loading: true, error: null });
-          set({ trigger });
-          await store.trigger.setValue(trigger);
-          set({ loading: false });
+          set({ trigger, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set trigger";
@@ -106,15 +100,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       setSelectedProvider: async (provider: AIProvider) => {
         try {
           set({ loading: true, error: null });
-          set({ selectedProvider: provider });
-
-          const currentSettings = await store.aiSettings.getValue();
-          await store.aiSettings.setValue({
-            ...currentSettings,
-            selectedProvider: provider,
-          });
-
-          set({ loading: false });
+          set({ selectedProvider: provider, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set provider";
@@ -128,15 +114,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           set({ loading: true, error: null });
           const currentModels = get().selectedModels;
           const updatedModels = { ...currentModels, [provider]: model };
-          set({ selectedModels: updatedModels });
-
-          const currentSettings = await store.aiSettings.getValue();
-          await store.aiSettings.setValue({
-            ...currentSettings,
-            selectedModels: updatedModels,
-          });
-
-          set({ loading: false });
+          set({ selectedModels: updatedModels, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set model";
@@ -148,15 +126,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       setAutoFillEnabled: async (enabled: boolean) => {
         try {
           set({ loading: true, error: null });
-          set({ autoFillEnabled: enabled });
-
-          const currentSettings = await store.aiSettings.getValue();
-          await store.aiSettings.setValue({
-            ...currentSettings,
-            autoFillEnabled: enabled,
-          });
-
-          set({ loading: false });
+          set({ autoFillEnabled: enabled, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set auto-fill";
@@ -168,15 +138,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       setAutopilotMode: async (enabled: boolean) => {
         try {
           set({ loading: true, error: null });
-          set({ autopilotMode: enabled });
-
-          const currentSettings = await store.aiSettings.getValue();
-          await store.aiSettings.setValue({
-            ...currentSettings,
-            autopilotMode: enabled,
-          });
-
-          set({ loading: false });
+          set({ autopilotMode: enabled, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -190,15 +152,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       setConfidenceThreshold: async (threshold: number) => {
         try {
           set({ loading: true, error: null });
-          set({ confidenceThreshold: threshold });
-
-          const currentSettings = await store.aiSettings.getValue();
-          await store.aiSettings.setValue({
-            ...currentSettings,
-            confidenceThreshold: threshold,
-          });
-
-          set({ loading: false });
+          set({ confidenceThreshold: threshold, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -212,15 +166,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateAISettings: async (settings: Partial<AISettings>) => {
         try {
           set({ loading: true, error: null });
-          set(settings);
-
-          const currentSettings = await store.aiSettings.getValue();
-          await store.aiSettings.setValue({
-            ...currentSettings,
-            ...settings,
-          });
-
-          set({ loading: false });
+          set({ ...settings, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -237,15 +183,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
 
           if (await keyVault.validateKey(provider, key)) {
             await keyVault.storeKey(provider, key);
-            set({ selectedProvider: provider });
-
-            const currentSettings = await store.aiSettings.getValue();
-            await store.aiSettings.setValue({
-              ...currentSettings,
-              selectedProvider: provider,
-            });
-
-            set({ loading: false });
+            set({ selectedProvider: provider, loading: false });
           } else {
             set({ loading: false, error: "Invalid API key" });
             throw new Error("Invalid API key");
@@ -278,20 +216,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       resetSettings: async () => {
         try {
           set({ loading: true, error: null });
-          set(defaultSettings);
-
-          await Promise.all([
-            store.theme.setValue(defaultSettings.theme),
-            store.trigger.setValue(defaultSettings.trigger),
-            store.aiSettings.setValue({
-              selectedProvider: defaultSettings.selectedProvider,
-              selectedModels: defaultSettings.selectedModels,
-              autoFillEnabled: defaultSettings.autoFillEnabled,
-              autopilotMode: defaultSettings.autopilotMode,
-              confidenceThreshold: defaultSettings.confidenceThreshold,
-            }),
-          ]);
-          set({ loading: false });
+          set({ ...defaultSettings, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to reset settings";
