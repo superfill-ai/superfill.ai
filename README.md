@@ -227,6 +227,7 @@ bun run lint
 #### Free features
 
 - [ ] Browser native autofill integration (bypass extension popup)
+- [ ] [Improvement] Cache Previous fill results for faster fill on similar form fields/urls
 - [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
 - [ ] Auto adding memories from filled forms based on user confirmation
 - [ ] MCP support
