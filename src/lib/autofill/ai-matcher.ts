@@ -227,52 +227,52 @@ export class AIMatcher {
     const fieldsMarkdown = fields
       .map(
         (f, idx) => `
-**Field ${idx + 1}**
-- opid: ${f.opid}
-- type: ${f.type}
-- purpose: ${f.purpose}
-- labels: ${f.labels.filter(Boolean).join(", ") || "none"}
-- context: ${f.context || "none"}`,
-      )
-      .join("\n");
+          **Field ${idx + 1}**
+          - opid: ${f.opid}
+          - type: ${f.type}
+          - purpose: ${f.purpose}
+          - labels: ${f.labels.filter(Boolean).join(", ") || "none"}
+          - context: ${f.context || "none"}`,
+                )
+                .join("\n");
 
-    const memoriesMarkdown = memories
-      .map(
-        (m, idx) => `
-**Memory ${idx + 1}**
-- id: ${m.id}
-- question: ${m.question || "none"}
-- answer: ${m.answer.substring(0, 100)}
-- category: ${m.category}`,
-      )
-      .join("\n");
+              const memoriesMarkdown = memories
+                .map(
+                  (m, idx) => `
+          **Memory ${idx + 1}**
+          - id: ${m.id}
+          - question: ${m.question || "none"}
+          - answer: ${m.answer.substring(0, 100)}
+          - category: ${m.category}`,
+                )
+                .join("\n");
 
-    // return `Match these form fields to the best stored memories:
-    const contextMarkdown = `
-      **Website Type**: ${websiteContext.websiteType}
-      **Inferred Form Purpose**: ${websiteContext.formPurpose}
-      **Page Title**: ${websiteContext.metadata.title}
-      `;
+              // return `Match these form fields to the best stored memories:
+              const contextMarkdown = `
+                **Website Type**: ${websiteContext.websiteType}
+                **Inferred Form Purpose**: ${websiteContext.formPurpose}
+                **Page Title**: ${websiteContext.metadata.title}
+                `;
 
-    return `Based on the following website context, match the form fields to the best stored memories.
+              return `Based on the following website context, match the form fields to the best stored memories.
 
-## Website Context
-${contextMarkdown}
+          ## Website Context
+          ${contextMarkdown}
 
 
-## Form Fields
-${fieldsMarkdown}
+          ## Form Fields
+          ${fieldsMarkdown}
 
-## Available Memories
-${memoriesMarkdown}
+          ## Available Memories
+          ${memoriesMarkdown}
 
-For each field, determine:
-1. Which memory (if any) is the best match
-2. Your confidence in that match (0-1)
-3. Why you chose that memory (or why no memory fits)
-4. A 'rephrasedAnswer' ONLY if the context requires it, otherwise null.
-5. Up to 3 alternative memories that could also work.`;
-  }
+          For each field, determine:
+          1. Which memory (if any) is the best match
+          2. Your confidence in that match (0-1)
+          3. Why you chose that memory (or why no memory fits)
+          4. A 'rephrasedAnswer' ONLY if the context requires it, otherwise null.
+          5. Up to 3 alternative memories that could also work.`;
+      }
 
   private convertAIResultsToMappings(
     aiResults: AIBatchMatchResult,
@@ -312,14 +312,14 @@ For each field, determine:
       const meetsThreshold = confidence >= MIN_MATCH_CONFIDENCE;
 
       const originalAnswer = meetsThreshold && memory ? memory.answer : null;
-      const rephrasedAnswer = aiMatch.rephrasedAnswer;
+      const rephrasedAnswer = aiMatch.rephrasedAnswer || null;
       const useRephrased = !!rephrasedAnswer;
-
+      
       return {
         fieldOpid: aiMatch.fieldOpid,
         memoryId: meetsThreshold && memory ? memory.id : null,
-        value: useRephrased ? rephrasedAnswer : originalAnswer,
-        originalValue: originalAnswer,
+        value: originalAnswer,
+        rephrasedValue: useRephrased ? rephrasedAnswer : null,
         isRephrased: useRephrased,
         confidence,
         reasoning:

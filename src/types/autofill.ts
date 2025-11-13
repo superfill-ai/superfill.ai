@@ -124,6 +124,7 @@ export interface FieldMapping {
   fieldOpid: string;
   memoryId: string | null;
   value: string | null;
+  rephrasedValue: string | null;
   confidence: number;
   reasoning: string;
   alternativeMatches: Array<{
