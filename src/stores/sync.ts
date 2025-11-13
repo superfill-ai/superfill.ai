@@ -1,8 +1,9 @@
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
+import { getSyncService } from "@/lib/sync/sync-service";
 import type { SyncState } from "@/types/memory";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:sync");
 
@@ -164,7 +165,6 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
         try {
           set({ loading: true, error: null });
 
-          const { getSyncService } = await import("@/lib/sync/sync-service");
           const syncService = getSyncService();
 
           if (!syncService.isAuthenticated()) {
@@ -193,7 +193,6 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
         try {
           set({ loading: true, error: null });
 
-          const { getSyncService } = await import("@/lib/sync/sync-service");
           const syncService = getSyncService();
 
           if (!syncService.isAuthenticated()) {
@@ -205,7 +204,9 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
             ? new Date(syncState.lastSync).getTime()
             : undefined;
 
-          const result = await syncService.pullFromRemote(lastSyncTimestamp);
+          const result = await syncService.pullFromRemote(
+            `${lastSyncTimestamp}`,
+          );
 
           if (result.success) {
             await get().markSynced();
@@ -227,7 +228,6 @@ export const useSyncStore = create<SyncStoreState & SyncActions>()(
         try {
           set({ loading: true, error: null });
 
-          const { getSyncService } = await import("@/lib/sync/sync-service");
           const syncService = getSyncService();
 
           if (!syncService.isAuthenticated()) {

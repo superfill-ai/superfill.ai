@@ -1,14 +1,13 @@
+import { createLogger } from "@/lib/logger";
+import { autoSyncManager } from "@/lib/sync/auto-sync-manager";
+import { getSyncService } from "@/lib/sync/sync-service";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { createLogger } from "@/lib/logger";
-import { decrypt, encrypt } from "@/lib/security/encryption";
-import { getBrowserFingerprint } from "@/lib/security/fingerprint";
-import type { EncryptedKey } from "@/types/settings";
 
 const logger = createLogger("store:auth");
 
 type AuthStoreState = {
-  encryptedToken: EncryptedKey | null;
+  token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
@@ -21,12 +20,12 @@ type AuthActions = {
   checkAuthStatus: () => Promise<boolean>;
 };
 
-const AUTH_STORAGE_KEY = "superfill:auth:encrypted";
+const AUTH_STORAGE_KEY = "superfill:auth:token";
 
 export const useAuthStore = create<AuthStoreState & AuthActions>()(
   persist(
     (set, get) => ({
-      encryptedToken: null,
+      token: null,
       isAuthenticated: false,
       loading: false,
       error: null,
@@ -35,81 +34,42 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
         try {
           set({ loading: true, error: null });
 
-          const fingerprint = await getBrowserFingerprint();
-          const salt = fingerprint.slice(0, 32);
-          const encryptedData = await encrypt(token, fingerprint, salt);
-
-          const encryptedToken: EncryptedKey = {
-            encrypted: encryptedData,
-            salt,
-          };
-
           set({
-            encryptedToken,
+            token,
             isAuthenticated: true,
             loading: false,
           });
 
-          logger.info("Auth token encrypted and stored successfully");
+          logger.info("Auth token stored successfully");
 
-          import("@/lib/sync/sync-service").then(({ getSyncService }) => {
+          try {
             const syncService = getSyncService();
-            syncService
-              .setAuthToken(token)
-              .then(() => {
-                logger.info("Sync service authenticated");
+            await syncService.setAuthToken(token);
+            logger.info("Sync service authenticated");
 
-                import("@/lib/sync/auto-sync-manager").then(
-                  ({ autoSyncManager }) => {
-                    autoSyncManager.triggerSync("full", { silent: false });
-                  },
-                );
-              })
-              .catch((error) => {
-                logger.error("Failed to initialize sync service", { error });
-              });
-          });
+            await autoSyncManager.triggerSync("full", { silent: false });
+          } catch (error) {
+            logger.error("Failed to initialize sync service", { error });
+          }
         } catch (error) {
           const errorMessage =
             error instanceof Error
               ? error.message
               : "Failed to store auth token";
-          logger.error("Failed to encrypt and store auth token", { error });
+          logger.error("Failed to store auth token", { error });
           set({ loading: false, error: errorMessage, isAuthenticated: false });
           throw error;
         }
       },
 
       getAuthToken: async () => {
-        try {
-          const { encryptedToken } = get();
-
-          if (!encryptedToken) {
-            return null;
-          }
-
-          const fingerprint = await getBrowserFingerprint();
-          const decryptedToken = await decrypt(
-            encryptedToken.encrypted,
-            fingerprint,
-            encryptedToken.salt,
-          );
-
-          return decryptedToken;
-        } catch (error) {
-          logger.error("Failed to decrypt auth token", { error });
-          set({
-            error: "Failed to decrypt auth token",
-            isAuthenticated: false,
-          });
-          return null;
-        }
+        return get().token;
       },
 
       clearAuthToken: async () => {
         try {
           set({
-            encryptedToken: null,
+            token: null,
             isAuthenticated: false,
             loading: false,
             error: null,
@@ -117,12 +77,9 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
 
           logger.info("Auth token cleared successfully");
 
-          // Clear sync service auth
-          import("@/lib/sync/sync-service").then(({ getSyncService }) => {
-            const syncService = getSyncService();
-            syncService.clearAuth();
-            logger.info("Sync service auth cleared");
-          });
+          const syncService = getSyncService();
+          syncService.clearAuth();
+          logger.info("Sync service auth cleared");
         } catch (error) {
           const errorMessage =
             error instanceof Error
@@ -136,7 +93,7 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
 
       checkAuthStatus: async () => {
         try {
-          const token = await get().getAuthToken();
+          const { token } = get();
           const isAuthenticated = !!token;
 
           set({ isAuthenticated });

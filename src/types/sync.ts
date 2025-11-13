@@ -9,9 +9,7 @@ export const syncedUserSettingsSchema = z.object({
 export type SyncedUserSettings = z.infer<typeof syncedUserSettingsSchema>;
 
 export const syncConfigSchema = z.object({
-  syncUrl: z.string(),
-
-  authUserId: z.string().optional(),
+  authUserId: z.string(),
   email: z.string().optional(),
   name: z.string().optional(),
 
@@ -75,7 +73,6 @@ export const userProfileSchema = z.object({
   email: z.string(),
   name: z.string().optional(),
   image: z.string().optional(),
-  syncUrl: z.string(),
   lastSyncedAt: z.number().optional(),
 });
 

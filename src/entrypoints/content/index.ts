@@ -1,6 +1,5 @@
 import "./content.css";
 
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { settingsStorage } from "@/lib/storage";
@@ -14,6 +13,7 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
@@ -295,8 +295,8 @@ export default defineContentScript({
     // await manager.showProgress({
     //   state: "detecting",
     //   message: "Detecting forms on the page...",
-    //   fieldsDetected: 5,
-    //   fieldsMatched: 2,
+    //   fieldsDetected: 15,
+    //   fieldsMatched: 9,
     // });
     // const manager = ensurePreviewManager(ctx);
     // manager.showProgress({

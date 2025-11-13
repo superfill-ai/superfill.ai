@@ -1,32 +1,33 @@
-import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
+import { useAuthStore } from "@/stores/auth";
 import type { MemoryEntry } from "@/types/memory";
-import type { SyncMemoryEntry, SyncOperationResult } from "@/types/sync";
-import { getConvexClient } from "./convex-client";
+import type { SyncOperationResult } from "@/types/sync";
+import { defineProxyService } from "@webext-core/proxy-service";
+import {
+  clearSupabaseAuth,
+  isSupabaseAuthenticated,
+  setSupabaseAuth,
+  supabase,
+} from "../supabase/client";
 
 const logger = createLogger("sync-service");
 
 class SyncService {
   private syncInProgress = false;
-  private authToken: string | null = null;
 
   async setAuthToken(token: string): Promise<void> {
-    this.authToken = token;
-    const convexClient = getConvexClient();
-    await convexClient.initialize(token);
-    logger.info("Sync service authenticated");
+    setSupabaseAuth(token);
+    logger.info("Sync service authenticated with Supabase");
   }
 
   clearAuth(): void {
-    this.authToken = null;
-    const convexClient = getConvexClient();
-    convexClient.clearAuth();
+    clearSupabaseAuth();
     logger.info("Sync service auth cleared");
   }
 
-  isAuthenticated(): boolean {
-    return this.authToken !== null && getConvexClient().isInitialized();
+  async isAuthenticated() {
+    return await isSupabaseAuthenticated();
   }
 
   async performFullSync(): Promise<SyncOperationResult> {
@@ -34,8 +35,19 @@ class SyncService {
       throw new Error("Sync already in progress");
     }
 
-    if (!this.isAuthenticated()) {
-      throw new Error("Not authenticated. Please login first.");
+    let authenticated = await isSupabaseAuthenticated();
+
+    if (!authenticated) {
+      const token = await useAuthStore.getState().getAuthToken();
+
+      if (token) {
+        await this.setAuthToken(token);
+        authenticated = await isSupabaseAuthenticated();
+      }
+    }
+
+    if (!authenticated) {
+      throw new Error("Cannot perform sync: not authenticated");
     }
 
     this.syncInProgress = true;
@@ -48,7 +60,7 @@ class SyncService {
 
       const syncState = await store.syncState.getValue();
       const lastSyncTimestamp = syncState?.lastSync
-        ? new Date(syncState.lastSync).getTime()
+        ? syncState.lastSync
         : undefined;
 
       const pullResult = await this.pullFromRemote(lastSyncTimestamp);
@@ -65,6 +77,15 @@ class SyncService {
         lastSync: new Date().toISOString(),
         conflictResolution: syncState?.conflictResolution || "newest",
         status: errors.length > 0 ? "error" : "synced",
+      });
+
+      await supabase.from("sync_logs").insert({
+        operation: "full_sync",
+        status: errors.length > 0 ? "error" : "success",
+        item_count: itemsSynced,
+        conflicts_resolved: conflictsResolved,
+        error_message: errors.length > 0 ? errors.join("; ") : null,
+        conflict_resolution_strategy: syncState?.conflictResolution || "newest",
       });
 
       logger.info("Full sync completed", {
@@ -105,7 +126,7 @@ class SyncService {
   }
 
   async pullFromRemote(
-    lastSyncTimestamp?: number,
+    lastSyncTimestamp?: string,
   ): Promise<SyncOperationResult> {
     const errors: string[] = [];
     let itemsSynced = 0;
@@ -114,16 +135,16 @@ class SyncService {
     try {
       logger.info("Pulling data from remote", { lastSyncTimestamp });
 
-      const convexClient = getConvexClient().getClient();
+      const { data: remoteMemories, error: fetchError } = await supabase.rpc(
+        "get_memories_since",
+        {
+          since_timestamp: lastSyncTimestamp || null,
+        },
+      );
 
-      // biome-ignore lint/suspicious/noExplicitAny: Convex API string literal type
-      const result = (await convexClient.query("memories:pullMemories" as any, {
-        lastSyncTimestamp,
-      })) as {
-        memories: SyncMemoryEntry[];
-        deletedMemories?: Array<{ localId: string; deletedAt: number }>;
-        timestamp: number;
-      };
+      if (fetchError) {
+        throw new Error(`Failed to fetch memories: ${fetchError.message}`);
+      }
 
       const localMemories = (await store.memories.getValue()) || [];
       const syncState = await store.syncState.getValue();
@@ -131,18 +152,34 @@ class SyncService {
 
       const memoryMap = new Map(localMemories.map((m) => [m.id, m]));
 
-      for (const remoteMemory of result.memories) {
-        const localMemory = memoryMap.get(remoteMemory.localId);
+      for (const remoteMemory of remoteMemories || []) {
+        const localMemory = memoryMap.get(remoteMemory.local_id);
 
         if (!localMemory) {
-          const newMemory = this.convertSyncMemoryToLocal(remoteMemory);
+          const newMemory: MemoryEntry = {
+            id: remoteMemory.local_id,
+            syncId: remoteMemory.local_id,
+            question: remoteMemory.question || undefined,
+            answer: remoteMemory.answer,
+            category: remoteMemory.category,
+            tags: remoteMemory.tags,
+            confidence: Number(remoteMemory.confidence),
+            embedding: remoteMemory.embedding || undefined,
+            metadata: {
+              createdAt: remoteMemory.created_at,
+              updatedAt: remoteMemory.updated_at,
+              source: remoteMemory.source as "manual" | "import",
+              usageCount: remoteMemory.usage_count,
+              lastUsed: remoteMemory.last_used || undefined,
+            },
+          };
           localMemories.push(newMemory);
           itemsSynced++;
         } else {
           const localUpdatedAt = new Date(
             localMemory.metadata.updatedAt,
           ).getTime();
-          const remoteUpdatedAt = remoteMemory.metadata.updatedAt;
+          const remoteUpdatedAt = new Date(remoteMemory.updated_at).getTime();
 
           if (remoteUpdatedAt > localUpdatedAt) {
             if (
@@ -152,8 +189,23 @@ class SyncService {
               const index = localMemories.findIndex(
                 (m) => m.id === localMemory.id,
               );
-              localMemories[index] =
-                this.convertSyncMemoryToLocal(remoteMemory);
+              localMemories[index] = {
+                id: remoteMemory.local_id,
+                syncId: remoteMemory.local_id,
+                question: remoteMemory.question || undefined,
+                answer: remoteMemory.answer,
+                category: remoteMemory.category,
+                tags: remoteMemory.tags,
+                confidence: Number(remoteMemory.confidence),
+                embedding: remoteMemory.embedding || undefined,
+                metadata: {
+                  createdAt: remoteMemory.created_at,
+                  updatedAt: remoteMemory.updated_at,
+                  source: remoteMemory.source as "manual" | "import",
+                  usageCount: remoteMemory.usage_count,
+                  lastUsed: remoteMemory.last_used || undefined,
+                },
+              };
               conflictsResolved++;
               itemsSynced++;
             }
@@ -163,19 +215,27 @@ class SyncService {
             }
           }
         }
-      }
 
-      for (const deletedMemory of result.deletedMemories || []) {
-        const index = localMemories.findIndex(
-          (m) => m.id === deletedMemory.localId,
-        );
-        if (index !== -1) {
-          localMemories.splice(index, 1);
-          itemsSynced++;
+        if (remoteMemory.is_deleted) {
+          const index = localMemories.findIndex(
+            (m) => m.id === remoteMemory.local_id,
+          );
+          if (index !== -1) {
+            localMemories.splice(index, 1);
+            itemsSynced++;
+          }
         }
       }
 
       await store.memories.setValue(localMemories);
+
+      await supabase.from("sync_logs").insert({
+        operation: "pull",
+        status: "success",
+        item_count: itemsSynced,
+        conflicts_resolved: conflictsResolved,
+        conflict_resolution_strategy: conflictResolution,
+      });
 
       logger.info("Pull completed", { itemsSynced, conflictsResolved });
 
@@ -191,6 +251,14 @@ class SyncService {
       logger.error("Pull failed", { error });
       errors.push(error instanceof Error ? error.message : "Pull failed");
 
+      await supabase.from("sync_logs").insert({
+        operation: "pull",
+        status: "error",
+        item_count: itemsSynced,
+        conflicts_resolved: conflictsResolved,
+        error_message: error instanceof Error ? error.message : "Pull failed",
+      });
+
       return {
         success: false,
         operation: "pull",
@@ -205,45 +273,60 @@ class SyncService {
   async pushToRemote(): Promise<SyncOperationResult> {
     const errors: string[] = [];
     let itemsSynced = 0;
-    let conflictsResolved = 0;
+    const conflictsResolved = 0;
 
     try {
       logger.info("Pushing data to remote");
 
-      const convexClient = getConvexClient().getClient();
       const localMemories = (await store.memories.getValue()) || [];
 
-      const syncMemories: SyncMemoryEntry[] = localMemories.map((memory) =>
-        this.convertLocalMemoryToSync(memory),
-      );
+      for (const memory of localMemories) {
+        try {
+          const { error } = await supabase.rpc("upsert_memory", {
+            p_local_id: memory.id,
+            p_question: memory.question || null,
+            p_answer: memory.answer,
+            p_category: memory.category,
+            p_tags: memory.tags,
+            p_confidence: memory.confidence,
+            p_embedding: memory.embedding || null,
+            p_source: memory.metadata.source,
+            p_usage_count: memory.metadata.usageCount,
+            p_last_used: memory.metadata.lastUsed || null,
+            p_created_at: memory.metadata.createdAt,
+            p_updated_at: memory.metadata.updatedAt,
+          });
 
-      const result = (await convexClient.mutation(
-        // biome-ignore lint/suspicious/noExplicitAny: Convex API string literal type
-        "memories:pushMemories" as any,
-        {
-          memories: syncMemories,
-        },
-      )) as {
-        success: boolean;
-        created: number;
-        updated: number;
-        conflicts: number;
-        conflictItems?: Array<{ localId: string; reason: string }>;
-      };
-
-      itemsSynced = result.created + result.updated;
-      conflictsResolved = result.conflicts;
-
-      if (result.conflictItems && result.conflictItems.length > 0) {
-        logger.warn("Conflicts detected during push", {
-          conflicts: result.conflictItems,
-        });
+          if (error) {
+            errors.push(`Failed to sync memory ${memory.id}: ${error.message}`);
+          } else {
+            itemsSynced++;
+          }
+        } catch (memoryError) {
+          const errorMsg =
+            memoryError instanceof Error
+              ? memoryError.message
+              : "Unknown error";
+          errors.push(`Failed to sync memory ${memory.id}: ${errorMsg}`);
+        }
       }
 
-      logger.info("Push completed", { itemsSynced, conflictsResolved });
+      await supabase.from("sync_logs").insert({
+        operation: "push",
+        status: errors.length > 0 ? "partial" : "success",
+        item_count: itemsSynced,
+        conflicts_resolved: conflictsResolved,
+        error_message: errors.length > 0 ? errors.join("; ") : null,
+      });
+
+      logger.info("Push completed", {
+        itemsSynced,
+        conflictsResolved,
+        errors: errors.length,
+      });
 
       return {
-        success: true,
+        success: errors.length === 0,
         operation: "push",
         itemsSynced,
         conflictsResolved,
@@ -253,6 +336,14 @@ class SyncService {
     } catch (error) {
       logger.error("Push failed", { error });
       errors.push(error instanceof Error ? error.message : "Push failed");
+
+      await supabase.from("sync_logs").insert({
+        operation: "push",
+        status: "error",
+        item_count: itemsSynced,
+        conflicts_resolved: conflictsResolved,
+        error_message: error instanceof Error ? error.message : "Push failed",
+      });
 
       return {
         success: false,
@@ -269,57 +360,33 @@ class SyncService {
     try {
       logger.info("Syncing AI settings");
 
-      // TODO: Implement when Convex has AI settings sync endpoints
-      logger.warn("AI settings sync not yet implemented on server");
+      const aiSettings = await store.aiSettings.getValue();
+      if (!aiSettings) {
+        logger.warn("No AI settings to sync");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("users")
+        .update({
+          settings: {
+            autoFillEnabled: aiSettings.autoFillEnabled,
+            confidenceThreshold: aiSettings.confidenceThreshold,
+            selectedProvider: aiSettings.selectedProvider,
+          },
+          last_synced_at: new Date().toISOString(),
+        })
+        .eq("id", (await supabase.auth.getUser()).data.user?.id || "");
+
+      if (error) {
+        throw new Error(`Failed to sync AI settings: ${error.message}`);
+      }
+
+      logger.info("AI settings synced successfully");
     } catch (error) {
       logger.error("Failed to sync AI settings", { error });
       throw error;
     }
-  }
-
-  private convertSyncMemoryToLocal(syncMemory: SyncMemoryEntry): MemoryEntry {
-    return {
-      id: syncMemory.localId,
-      syncId: syncMemory.localId,
-      question: syncMemory.question,
-      answer: syncMemory.answer,
-      category: syncMemory.category,
-      tags: syncMemory.tags,
-      confidence: syncMemory.confidence,
-      embedding: syncMemory.embedding,
-      metadata: {
-        createdAt: new Date(syncMemory.metadata.createdAt).toISOString(),
-        updatedAt: new Date(syncMemory.metadata.updatedAt).toISOString(),
-        source: syncMemory.metadata.source as "manual" | "import",
-        usageCount: syncMemory.metadata.usageCount,
-        lastUsed: syncMemory.metadata.lastUsed
-          ? new Date(syncMemory.metadata.lastUsed).toISOString()
-          : undefined,
-      },
-    };
-  }
-
-  private convertLocalMemoryToSync(memory: MemoryEntry): SyncMemoryEntry {
-    return {
-      localId: memory.id,
-      question: memory.question,
-      answer: memory.answer,
-      category: memory.category,
-      tags: memory.tags,
-      confidence: memory.confidence,
-      embedding: memory.embedding,
-      metadata: {
-        createdAt: new Date(memory.metadata.createdAt).getTime(),
-        updatedAt: new Date(memory.metadata.updatedAt).getTime(),
-        source: memory.metadata.source,
-        usageCount: memory.metadata.usageCount,
-        lastUsed: memory.metadata.lastUsed
-          ? new Date(memory.metadata.lastUsed).getTime()
-          : undefined,
-      },
-      isDeleted: false,
-      deletedAt: undefined,
-    };
   }
 
   isSyncInProgress(): boolean {

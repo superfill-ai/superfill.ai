@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
@@ -26,8 +24,11 @@ import { useInitializeMemory } from "@/hooks/use-memory";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
+import { getSyncService } from "@/lib/sync/sync-service";
 import { useAuthStore } from "@/stores/auth";
 import { useMemoryStore } from "@/stores/memory";
+import { useEffect, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 
 const logger = createLogger("options:App");
 
@@ -52,7 +53,7 @@ export const App = () => {
 
       if (result) {
         await setAuthToken(result.token);
-        logger.info("Auth successful, token encrypted and stored");
+        logger.info("Auth successful, token stored");
       }
     } catch (error) {
       logger.error("Sign-in failed", error);
@@ -65,6 +66,23 @@ export const App = () => {
       logger.info("Signed out successfully");
     } catch (error) {
       logger.error("Sign-out failed", error);
+    }
+  };
+
+  const handleSync = async () => {
+    try {
+      const syncService = getSyncService();
+      const result = await syncService.performFullSync();
+
+      if (result.success) {
+        logger.info("Data sync completed successfully");
+      } else {
+        logger.error("Data sync encountered errors", {
+          errors: result.errors,
+        });
+      }
+    } catch (error) {
+      logger.error("Data sync failed", error);
     }
   };
 
@@ -125,9 +143,14 @@ export const App = () => {
               Sign in to sync
             </Button>
           ) : (
-            <Button onClick={handleSignOut} variant="destructive" size="sm">
-              Sign out
-            </Button>
+            <>
+              <Button onClick={handleSync} variant="outline" size="sm">
+                Initiate Data sync
+              </Button>
+              <Button onClick={handleSignOut} variant="destructive" size="sm">
+                Sign out
+              </Button>
+            </>
           )}
           <ThemeToggle />
         </div>

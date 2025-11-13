@@ -1,5 +1,5 @@
-import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
+import { defineProxyService } from "@webext-core/proxy-service";
 import { generatePKCE, generateState } from "./crypto-utils";
 
 const logger = createLogger("auth-service");
@@ -111,7 +111,7 @@ class AuthService {
       const extensionId = browser.runtime.id;
       const manifest = browser.runtime.getManifest();
 
-      const response = await fetch(`${apiUrl}/api/auth/token`, {
+      const response = await fetch(`${apiUrl}/api/auth/exchange`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -133,12 +133,12 @@ class AuthService {
 
       const data = await response.json();
 
-      if (!data.token || !data.userId) {
+      if (!data.access_token || !data.userId) {
         throw new Error("Invalid token response from server");
       }
 
       return {
-        token: data.token,
+        token: data.access_token,
         userId: data.userId,
       };
     } catch (error) {
