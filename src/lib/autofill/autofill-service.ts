@@ -13,6 +13,7 @@ import type {
   FieldMapping,
   PreviewSidebarPayload,
 } from "@/types/autofill";
+import type { WebsiteContext } from "@/types/context";
 import type { MemoryEntry } from "@/types/memory";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
 import { AIMatcher } from "./ai-matcher";
@@ -116,7 +117,12 @@ class AutofillService {
         tabId,
       );
 
-      const processingResult = await this.processForms(forms, pageUrl, apiKey);
+      const processingResult = await this.processForms(
+        forms,
+        pageUrl,
+        result.websiteContext,
+        apiKey,
+      );
 
       logger.info("Autofill processing result:", processingResult);
 
@@ -195,6 +201,7 @@ class AutofillService {
   private async processForms(
     forms: DetectedFormSnapshot[],
     _pageUrl: string,
+    websiteContext: WebsiteContext,
     apiKey?: string,
   ): Promise<AutofillResult> {
     const startTime = performance.now();
@@ -242,8 +249,12 @@ class AutofillService {
       }
 
       const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
-
-      const mappings = await this.matchFields(fields, memories, apiKey);
+      const mappings = await this.matchFields(
+        fields,
+        memories,
+        websiteContext,
+        apiKey,
+      );
       const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
 
@@ -269,6 +280,7 @@ class AutofillService {
   private async matchFields(
     fields: DetectedFieldSnapshot[],
     memories: MemoryEntry[],
+    websiteContext: WebsiteContext,
     apiKey?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
@@ -306,6 +318,7 @@ class AutofillService {
       return await this.aiMatcher.matchFields(
         compressedFields,
         compressedMemories,
+        websiteContext,
         provider,
         apiKey,
         selectedModel,

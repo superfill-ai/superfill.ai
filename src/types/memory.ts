@@ -52,8 +52,8 @@ export const formMappingSchema = z.object({
   url: z.url(),
   formId: z.string().optional(),
   fields: z.array(formFieldSchema),
-  matches: z.map(z.string(), memoryEntrySchema), // Map form field name to MemoryEntry (field.name -> potential matches)
-  confidence: z.number().min(0).max(1), // Overall confidence score for the mapping
+  matches: z.map(z.string(), memoryEntrySchema),
+  confidence: z.number().min(0).max(1),
   timestamp: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
   }),

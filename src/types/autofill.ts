@@ -1,3 +1,5 @@
+import type { WebsiteContext } from "./context";
+
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;
 };
@@ -8,6 +10,7 @@ export type DetectFormsResult =
       success: true;
       forms: DetectedFormSnapshot[];
       totalFields: number;
+      websiteContext: WebsiteContext;
     }
   | { success: false; forms: never[]; totalFields: 0; error: string };
 
@@ -121,6 +124,7 @@ export interface FieldMapping {
   fieldOpid: string;
   memoryId: string | null;
   value: string | null;
+  rephrasedValue: string | null;
   confidence: number;
   reasoning: string;
   alternativeMatches: Array<{

@@ -177,20 +177,25 @@ export class AutopilotManager {
       });
       this.sessionId = sessionId;
 
-      this.fieldsToFill = mappings
-        .filter(
-          (mapping) =>
-            mapping.value !== null &&
-            mapping.memoryId !== null &&
-            mapping.confidence >= confidenceThreshold &&
-            mapping.autoFill !== false,
-        )
-        .map((mapping) => ({
-          fieldOpid: mapping.fieldOpid,
-          value: mapping.value!,
-          confidence: mapping.confidence,
-          memoryId: mapping.memoryId!,
-        }));
+      const fieldsToFill: AutopilotFillData[] = [];
+      for (const mapping of mappings) {
+        const valueToFill = mapping.rephrasedValue ?? mapping.value;
+
+        if (
+          valueToFill !== null &&
+          mapping.memoryId !== null &&
+          mapping.confidence >= confidenceThreshold &&
+          mapping.autoFill !== false
+        ) {
+          fieldsToFill.push({
+            fieldOpid: mapping.fieldOpid,
+            value: valueToFill,
+            confidence: mapping.confidence,
+            memoryId: mapping.memoryId,
+          });
+        }
+      }
+      this.fieldsToFill = fieldsToFill;
 
       logger.info(
         `Prepared ${this.fieldsToFill.length} fields for autopilot fill`,

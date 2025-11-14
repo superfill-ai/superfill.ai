@@ -15,7 +15,6 @@ const DEFAULT_OPTIONS: Required<CsvOptions> = {
 function escapeField(value: string, options: Required<CsvOptions>): string {
   const { delimiter, quote, escape: escapeChar } = options;
 
-  // If field contains delimiter, quote, or line break, it must be quoted
   if (
     value.includes(delimiter) ||
     value.includes(quote) ||

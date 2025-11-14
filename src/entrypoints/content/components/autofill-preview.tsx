@@ -1,5 +1,3 @@
-import { XIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -17,16 +15,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import type { FieldOpId, PreviewFieldData } from "@/types/autofill";
+import { Redo2Icon, SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { PreviewRenderData } from "./preview-manager";
 
 type AutofillPreviewProps = {
   data: PreviewRenderData;
   onClose: () => void;
-  onFill: (fieldOpids: FieldOpId[]) => void;
+  onFill: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
   onHighlight: (fieldOpid: FieldOpId) => void;
   onUnhighlight: () => void;
 };
@@ -57,11 +56,18 @@ const getFieldSubtitle = (field: PreviewFieldData) => {
 };
 
 const getSuggestedValue = (field: PreviewFieldData): string => {
+  if (field.mapping.rephrasedValue) {
+    return field.mapping.rephrasedValue;
+  }
+
   if (field.mapping.value) {
     return field.mapping.value;
   }
 
-  if (field.metadata.currentValue) {
+  if (
+    field.metadata.currentValue &&
+    field.metadata.currentValue.trim() !== ""
+  ) {
     return field.metadata.currentValue;
   }
 
@@ -74,16 +80,29 @@ const FieldRow = ({
   onToggle,
   onHighlight,
   onUnhighlight,
+  onChoiceChange,
 }: {
   field: PreviewFieldData;
   selected: boolean;
   onToggle: (next: boolean) => void;
+  onChoiceChange: (useOriginal: boolean) => void;
   onHighlight: () => void;
   onUnhighlight: () => void;
 }) => {
   const confidence = field.mapping.confidence;
   const { label, intent } = confidenceMeta(confidence);
   const suggestion = getSuggestedValue(field);
+  const [useOriginal, setUseOriginal] = useState(false);
+
+  const handleToggleChoice = () => {
+    const nextState = !useOriginal;
+    setUseOriginal(nextState);
+    onChoiceChange(nextState);
+  };
+
+  const finalSuggestion = useOriginal
+    ? (field.mapping.value ?? suggestion)
+    : suggestion;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: highlighting only
@@ -100,29 +119,70 @@ const FieldRow = ({
           <p className="text-sm font-medium leading-5 text-foreground">
             {field.primaryLabel}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {getFieldSubtitle(field)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">
+              {getFieldSubtitle(field)}
+            </p>
+            <Badge
+              variant={
+                intent === "success"
+                  ? "secondary"
+                  : intent === "warning"
+                    ? "outline"
+                    : "destructive"
+              }
+            >
+              {label} · {Math.round(confidence * 100)}%
+            </Badge>
+          </div>
         </div>
         <Switch checked={selected} onCheckedChange={onToggle} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="truncate" title={suggestion}>
-          {suggestion}
-        </span>
-        <Separator orientation="vertical" className="h-3" />
-        <Badge
-          variant={
-            intent === "success"
-              ? "secondary"
-              : intent === "warning"
-                ? "outline"
-                : "destructive"
-          }
+      <div
+        className={cn(
+          "space-y-1 rounded-md p-2 text-xs",
+          field.mapping.rephrasedValue &&
+            (!useOriginal ? "bg-primary/5" : "bg-muted/50"),
+        )}
+      >
+        {field.mapping.rephrasedValue && (
+          <div className="flex items-center justify-between">
+            <p
+              className={cn(
+                "flex items-center gap-1.5 font-semibold",
+                !useOriginal ? "text-primary/90" : "text-muted-foreground",
+              )}
+            >
+              {!useOriginal && <SparklesIcon className="size-3.5" />}
+              {useOriginal ? "Original Memory" : "AI Rephrased Memory"}
+            </p>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="h-6 gap-1.5 text-muted-foreground"
+              onClick={handleToggleChoice}
+            >
+              {useOriginal ? (
+                <>
+                  <Redo2Icon className="size-3" /> Use AI version
+                </>
+              ) : (
+                <>
+                  <Undo2Icon className="size-3" /> Use original
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+        <p
+          className={cn(
+            "text-xs leading-relaxed wrap-break-word pt-1",
+            useOriginal ? "text-foreground" : "text-muted-foreground/90",
+          )}
         >
-          {label} · {Math.round(confidence * 100)}%
-        </Badge>
+          {finalSuggestion}
+        </p>
       </div>
 
       {field.mapping.reasoning && (
@@ -130,7 +190,6 @@ const FieldRow = ({
           {field.mapping.reasoning}
         </p>
       )}
-
       {field.mapping.alternativeMatches.length > 0 && (
         <div className="space-y-1 rounded-md border border-dashed border-border/60 bg-muted/30 p-2">
           <p className="text-xs font-medium text-muted-foreground">
@@ -171,6 +230,9 @@ export const AutofillPreview = ({
   }, [data]);
 
   const [selection, setSelection] = useState<SelectionState>(initialSelection);
+  const [fieldChoices, setFieldChoices] = useState<Map<FieldOpId, boolean>>(
+    new Map(),
+  );
 
   useEffect(() => {
     setSelection(new Set(initialSelection));
@@ -180,7 +242,27 @@ export const AutofillPreview = ({
   const totalFields = data.summary.totalFields;
 
   const handleFill = () => {
-    onFill(Array.from(selection));
+    const fieldsToFill: { fieldOpid: FieldOpId; value: string }[] = [];
+
+    for (const form of data.forms) {
+      for (const field of form.fields) {
+        if (selection.has(field.fieldOpid)) {
+          const useOriginal = fieldChoices.get(field.fieldOpid) ?? false;
+          const valueToFill = useOriginal
+            ? field.mapping.value
+            : (field.mapping.rephrasedValue ?? field.mapping.value);
+
+          if (valueToFill) {
+            fieldsToFill.push({
+              fieldOpid: field.fieldOpid,
+              value: valueToFill,
+            });
+          }
+        }
+      }
+    }
+
+    onFill(fieldsToFill);
   };
 
   const handleToggle = (fieldOpid: FieldOpId, next: boolean) => {
@@ -191,6 +273,14 @@ export const AutofillPreview = ({
       } else {
         updated.delete(fieldOpid);
       }
+      return updated;
+    });
+  };
+
+  const handleChoiceChange = (fieldOpid: FieldOpId, useOriginal: boolean) => {
+    setFieldChoices((prev) => {
+      const updated = new Map(prev);
+      updated.set(fieldOpid, useOriginal);
       return updated;
     });
   };
@@ -239,6 +329,9 @@ export const AutofillPreview = ({
                           selected={selection.has(field.fieldOpid)}
                           onToggle={(next) =>
                             handleToggle(field.fieldOpid, next)
+                          }
+                          onChoiceChange={(useOriginal) =>
+                            handleChoiceChange(field.fieldOpid, useOriginal)
                           }
                           onHighlight={() => onHighlight(field.fieldOpid)}
                           onUnhighlight={onUnhighlight}
