@@ -215,10 +215,10 @@ bun run lint
 - [x] Auto-fill engine with confidence scoring
 - [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
 - [x] Autofill directly without preview mode (autopilot mode)
-- [x] Let AI rephrase questions/answers on memory creation (Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! 🙏)
+- [x] Let AI rephrase questions/answers on memory creation
 - [x] Top used tags & click-to-add functionality
 - [x] Ollama AI provider support
-- [ ] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
+- [x] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
 - [ ] Firefox support (in-progress, submission made to Firefox Add-ons store)
 - [ ] Semantic search across stored data
 - [ ] Mark memories as favorites
