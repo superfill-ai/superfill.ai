@@ -1,5 +1,3 @@
-import { SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -17,10 +15,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import type { FieldOpId, PreviewFieldData } from "@/types/autofill";
+import { Redo2Icon, SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { PreviewRenderData } from "./preview-manager";
 
 type AutofillPreviewProps = {
@@ -102,7 +101,7 @@ const FieldRow = ({
   };
 
   const finalSuggestion = useOriginal
-    ? field.mapping.value ?? suggestion
+    ? (field.mapping.value ?? suggestion)
     : suggestion;
 
   return (
@@ -129,8 +128,8 @@ const FieldRow = ({
                 intent === "success"
                   ? "secondary"
                   : intent === "warning"
-                  ? "outline"
-                  : "destructive"
+                    ? "outline"
+                    : "destructive"
               }
             >
               {label} · {Math.round(confidence * 100)}%
@@ -164,8 +163,15 @@ const FieldRow = ({
               className="h-6 gap-1.5 text-muted-foreground"
               onClick={handleToggleChoice}
             >
-              <Undo2Icon className="size-3" />
-              {useOriginal ? "Use AI version" : "Use original"}
+              {useOriginal ? (
+                <>
+                  <Redo2Icon className="size-3" /> Use AI version
+                </>
+              ) : (
+                <>
+                  <Undo2Icon className="size-3" /> Use original
+                </>
+              )}
             </Button>
           </div>
         )}
@@ -224,7 +230,6 @@ export const AutofillPreview = ({
   }, [data]);
 
   const [selection, setSelection] = useState<SelectionState>(initialSelection);
-  // Store the user's choice for each field (true for original, false for AI)
   const [fieldChoices, setFieldChoices] = useState<Map<FieldOpId, boolean>>(
     new Map(),
   );
@@ -245,7 +250,7 @@ export const AutofillPreview = ({
           const useOriginal = fieldChoices.get(field.fieldOpid) ?? false;
           const valueToFill = useOriginal
             ? field.mapping.value
-            : field.mapping.rephrasedValue ?? field.mapping.value;
+            : (field.mapping.rephrasedValue ?? field.mapping.value);
 
           if (valueToFill) {
             fieldsToFill.push({

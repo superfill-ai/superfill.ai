@@ -1,8 +1,8 @@
+import type { AIProvider } from "@/lib/providers/registry";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { ollama } from "ai-sdk-ollama";
-import type { AIProvider } from "@/lib/providers/registry";
 
 const OPENAI_COMPATIBLE_PROVIDERS = {
   openai: {

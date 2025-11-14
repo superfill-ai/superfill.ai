@@ -1,7 +1,3 @@
-import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
-import { trace } from "@opentelemetry/api";
-import { generateObject } from "ai";
-import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -11,6 +7,10 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
+import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
+import { trace } from "@opentelemetry/api";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 import { MIN_MATCH_CONFIDENCE } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
@@ -87,7 +87,6 @@ export class AIMatcher {
 
     try {
       const startTime = performance.now();
-
       const aiResults = await this.performAIMatching(
         fields,
         memories,
@@ -233,28 +232,27 @@ export class AIMatcher {
           - purpose: ${f.purpose}
           - labels: ${f.labels.filter(Boolean).join(", ") || "none"}
           - context: ${f.context || "none"}`,
-                )
-                .join("\n");
+      )
+      .join("\n");
 
-              const memoriesMarkdown = memories
-                .map(
-                  (m, idx) => `
+    const memoriesMarkdown = memories
+      .map(
+        (m, idx) => `
           **Memory ${idx + 1}**
           - id: ${m.id}
           - question: ${m.question || "none"}
           - answer: ${m.answer.substring(0, 100)}
           - category: ${m.category}`,
-                )
-                .join("\n");
+      )
+      .join("\n");
 
-              // return `Match these form fields to the best stored memories:
-              const contextMarkdown = `
+    const contextMarkdown = `
                 **Website Type**: ${websiteContext.websiteType}
                 **Inferred Form Purpose**: ${websiteContext.formPurpose}
                 **Page Title**: ${websiteContext.metadata.title}
                 `;
 
-              return `Based on the following website context, match the form fields to the best stored memories.
+    return `Based on the following website context, match the form fields to the best stored memories.
 
           ## Website Context
           ${contextMarkdown}
@@ -272,7 +270,7 @@ export class AIMatcher {
           3. Why you chose that memory (or why no memory fits)
           4. A 'rephrasedAnswer' ONLY if the context requires it, otherwise null.
           5. Up to 3 alternative memories that could also work.`;
-      }
+  }
 
   private convertAIResultsToMappings(
     aiResults: AIBatchMatchResult,
@@ -314,7 +312,7 @@ export class AIMatcher {
       const originalAnswer = meetsThreshold && memory ? memory.answer : null;
       const rephrasedAnswer = aiMatch.rephrasedAnswer || null;
       const useRephrased = !!rephrasedAnswer;
-      
+
       return {
         fieldOpid: aiMatch.fieldOpid,
         memoryId: meetsThreshold && memory ? memory.id : null,
