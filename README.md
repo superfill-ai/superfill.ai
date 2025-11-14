@@ -221,7 +221,6 @@ bun run lint
 - [x] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
 - [ ] Firefox support (in-progress, submission made to Firefox Add-ons store)
 - [ ] Semantic search across stored data
-- [ ] Mark memories as favorites
 
 ### 📋 In Progress (Phase 2, Nov 15th)
 
