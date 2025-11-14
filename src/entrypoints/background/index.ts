@@ -12,48 +12,51 @@ import { registerKeyValidationService } from "@/lib/security/key-validation-serv
 
 const logger = createLogger("background");
 
-export default defineBackground(() => {
-  tracerProvider.register();
-  registerCategorizationService();
-  registerKeyValidationService();
-  registerModelService();
-  registerAutofillService();
-  registerSessionService();
+export default defineBackground({
+  type: "module",
+  main: () => {
+    tracerProvider.register();
+    registerCategorizationService();
+    registerKeyValidationService();
+    registerModelService();
+    registerAutofillService();
+    registerSessionService();
 
-  const sessionService = getSessionService();
+    const sessionService = getSessionService();
 
-  browser.runtime.onInstalled.addListener((details) => {
-    if (details.reason === "install") {
-      logger.info("Extension installed for the first time, opening settings");
-      browser.runtime.openOptionsPage();
-    }
-  });
+    browser.runtime.onInstalled.addListener((details) => {
+      if (details.reason === "install") {
+        logger.info("Extension installed for the first time, opening settings");
+        browser.runtime.openOptionsPage();
+      }
+    });
 
-  contentAutofillMessaging.onMessage("startSession", async () => {
-    return sessionService.startSession();
-  });
+    contentAutofillMessaging.onMessage("startSession", async () => {
+      return sessionService.startSession();
+    });
 
-  contentAutofillMessaging.onMessage(
-    "updateSessionStatus",
-    async ({ data }) => {
-      return sessionService.updateSessionStatus(data.sessionId, data.status);
-    },
-  );
+    contentAutofillMessaging.onMessage(
+      "updateSessionStatus",
+      async ({ data }) => {
+        return sessionService.updateSessionStatus(data.sessionId, data.status);
+      },
+    );
 
-  contentAutofillMessaging.onMessage("completeSession", async ({ data }) => {
-    return sessionService.completeSession(data.sessionId);
-  });
+    contentAutofillMessaging.onMessage("completeSession", async ({ data }) => {
+      return sessionService.completeSession(data.sessionId);
+    });
 
-  contentAutofillMessaging.onMessage(
-    "incrementMemoryUsage",
-    async ({ data }) => {
-      return sessionService.incrementMemoryUsage(data.memoryIds);
-    },
-  );
+    contentAutofillMessaging.onMessage(
+      "incrementMemoryUsage",
+      async ({ data }) => {
+        return sessionService.incrementMemoryUsage(data.memoryIds);
+      },
+    );
 
-  contentAutofillMessaging.onMessage("saveFormMappings", async ({ data }) => {
-    return sessionService.saveFormMappings(data.sessionId, data.formMappings);
-  });
+    contentAutofillMessaging.onMessage("saveFormMappings", async ({ data }) => {
+      return sessionService.saveFormMappings(data.sessionId, data.formMappings);
+    });
 
-  logger.info("Background script initialized with all services");
+    logger.info("Background script initialized with all services");
+  },
 });
