@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { readCSVFile } from "@/lib/csv";
 import { createLogger } from "@/lib/logger";
-import { useMemoryStore } from "@/stores/memory";
+import { useDataStore } from "@/lib/stores/data";
 
 const logger = createLogger("component:entry-list");
 
@@ -49,13 +49,13 @@ interface EntryListProps {
 }
 
 export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
-  const entries = useMemoryStore((state) => state.entries);
-  const loading = useMemoryStore((state) => state.loading);
-  const deleteEntry = useMemoryStore((state) => state.deleteEntry);
-  const getEntryById = useMemoryStore((state) => state.getEntryById);
-  const exportToCSV = useMemoryStore((state) => state.exportToCSV);
-  const importFromCSV = useMemoryStore((state) => state.importFromCSV);
-  const downloadCSVTemplate = useMemoryStore(
+  const entries = useDataStore((state) => state.entries);
+  const loading = useDataStore((state) => state.loading);
+  const deleteEntry = useDataStore((state) => state.deleteEntry);
+  const getEntryById = useDataStore((state) => state.getEntryById);
+  const exportToCSV = useDataStore((state) => state.exportToCSV);
+  const importFromCSV = useDataStore((state) => state.importFromCSV);
+  const downloadCSVTemplate = useDataStore(
     (state) => state.downloadCSVTemplate,
   );
 
@@ -130,7 +130,7 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
   };
 
   const handleDuplicate = async (entryId: string) => {
-    const entry = getEntryById(entryId);
+    const entry = await getEntryById(entryId);
     if (entry) {
       onDuplicate(entryId);
     }

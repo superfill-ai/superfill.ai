@@ -6,7 +6,7 @@ import {
 } from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
+import { storage } from "@/lib/storage";
 import type {
   AutofillProgress,
   DetectedField,
@@ -106,7 +106,8 @@ export class AutopilotManager {
 
   private async applyTheme(shadow: ShadowRoot): Promise<void> {
     try {
-      const theme = await store.theme.getValue();
+      const settings = await storage.uiSettings.getValue();
+      const theme = settings.theme;
 
       const host = shadow.host as HTMLElement;
       host.classList.remove("light", "dark");
@@ -368,7 +369,7 @@ export class AutopilotManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await store.memories.getValue();
+      const memories = await storage.memories.getValue();
       const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();

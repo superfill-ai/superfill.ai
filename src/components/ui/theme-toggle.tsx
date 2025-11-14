@@ -1,5 +1,5 @@
 import { TooltipTrigger } from "@radix-ui/react-tooltip";
-import { Moon, Sun } from "lucide-react";
+import { MonitorIcon, Moon, Sun } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,10 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ className }: ThemeToggleProps) {
-  const { setTheme, theme } = useTheme();
-
-  const themeToSet = theme === "light" ? "dark" : "light";
+  const { toggleTheme, theme } = useTheme();
 
   useHotkeys("d", () => {
-    setTheme(themeToSet);
+    toggleTheme();
   });
 
   return (
@@ -25,12 +23,17 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
           variant="ghost"
           size="icon"
           className={className}
-          onClick={() => setTheme(themeToSet)}
+          onClick={toggleTheme}
           aria-pressed={theme === "dark"}
           aria-label="Toggle theme"
         >
-          <Sun className="size-4 dark:hidden text-primary" />
-          <Moon className="hidden size-4 dark:block text-primary" />
+          {theme === "light" ? (
+            <Sun className="size-4 text-primary" />
+          ) : theme === "dark" ? (
+            <Moon className="size-4 text-primary" />
+          ) : (
+            <MonitorIcon className="size-4 text-primary" />
+          )}
           <span className="sr-only">Toggle theme</span>
         </Button>
       </TooltipTrigger>

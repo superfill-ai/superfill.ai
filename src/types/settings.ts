@@ -15,8 +15,7 @@ export interface AISettings {
   confidenceThreshold: number;
 }
 
-export interface AllSettings {
+export interface UISettings {
   theme: Theme;
   trigger: Trigger;
-  aiSettings: AISettings;
 }

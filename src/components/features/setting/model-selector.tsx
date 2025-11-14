@@ -5,7 +5,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDefaultModel, useProviderModels } from "@/hooks/use-models";
 import type { AIProvider } from "@/lib/providers/registry";
-import { useSettingsStore } from "@/stores/settings";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
 
 interface ModelSelectorProps {
   provider: AIProvider;
@@ -22,8 +22,10 @@ export const ModelSelector = ({
   const { data: models, isLoading } = useProviderModels(provider);
   const defaultModel = useDefaultModel(provider);
 
-  const selectedModels = useSettingsStore((state) => state.selectedModels);
-  const setSelectedModel = useSettingsStore((state) => state.setSelectedModel);
+  const selectedModels = useAISettingsStore((state) => state.selectedModels);
+  const setSelectedModel = useAISettingsStore(
+    (state) => state.setSelectedModel,
+  );
 
   const selectedModel = selectedModels[provider] || defaultModel;
 

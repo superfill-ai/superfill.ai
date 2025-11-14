@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
@@ -21,14 +19,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
-import { useInitializeMemory } from "@/hooks/use-memory";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useMemoryStore } from "@/stores/memory";
+import { useDataStore } from "@/lib/stores/data";
+import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 
 export const App = () => {
-  useInitializeMemory();
   const isMobile = useIsMobile();
-  const entries = useMemoryStore((state) => state.entries);
+  const entries = useDataStore((state) => state.entries);
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
@@ -108,9 +106,9 @@ export const App = () => {
 
           <TabsContent value="settings" className="flex-1 overflow-auto p-6">
             <div className="max-w-3xl mx-auto space-y-6">
-              <TriggerSettings />
               <AutofillSettings />
               <AiProviderSettings />
+              <TriggerSettings />
             </div>
           </TabsContent>
 

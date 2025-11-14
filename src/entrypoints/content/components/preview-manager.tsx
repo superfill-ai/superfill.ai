@@ -6,8 +6,8 @@ import {
 } from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
+import { useUISettingsStore } from "@/lib/stores/ui-settings";
 import type { AutofillProgress } from "@/types/autofill";
 import type { FormField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
@@ -277,7 +277,7 @@ export class PreviewSidebarManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await store.memories.getValue();
+      const memories = await storage.memories.getValue();
       const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
@@ -468,7 +468,7 @@ export class PreviewSidebarManager {
 
         this.reactRoot = root;
 
-        const currentTheme = useSettingsStore.getState().theme;
+        const currentTheme = useUISettingsStore.getState().theme;
 
         uiContainer.classList.add(
           currentTheme === Theme.DARK ? "dark" : "light",

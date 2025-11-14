@@ -1,12 +1,3 @@
-import {
-  SettingsIcon,
-  SparklesIcon,
-  TargetIcon,
-  TrophyIcon,
-} from "lucide-react";
-import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
-import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { Badge } from "@/components/ui/badge";
@@ -41,11 +32,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { APP_NAME } from "@/constants";
-import {
-  useInitializeMemory,
-  useMemoryStats,
-  useTopMemories,
-} from "@/hooks/use-memory";
+import { useMemoryStats, useTopMemories } from "@/hooks/use-memory";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
 import {
   ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
@@ -53,27 +40,38 @@ import {
 } from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
-import { store } from "@/lib/storage";
-import { useMemoryStore } from "@/stores/memory";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
+import { useDataStore } from "@/lib/stores/data";
+import {
+  SettingsIcon,
+  SparklesIcon,
+  TargetIcon,
+  TrophyIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { toast } from "sonner";
 
 const logger = createLogger("popup");
 
 export const App = () => {
-  useInitializeMemory();
-  const entries = useMemoryStore((state) => state.entries);
-  const loading = useMemoryStore((state) => state.loading);
-  const deleteEntry = useMemoryStore((state) => state.deleteEntry);
-  const initialized = useMemoryStore((state) => state.initialized);
-  const error = useMemoryStore((state) => state.error);
-  const selectedModels = useSettingsStore((state) => state.selectedModels);
-  const selectedProvider = useSettingsStore((state) => state.selectedProvider);
+  const entries = useDataStore((state) => state.entries);
+  const loading = useDataStore((state) => state.loading);
+  const deleteEntry = useDataStore((state) => state.deleteEntry);
+  const error = useDataStore((state) => state.error);
+  const selectedModels = useAISettingsStore((state) => state.selectedModels);
+  const selectedProvider = useAISettingsStore(
+    (state) => state.selectedProvider,
+  );
   const stats = useMemoryStats();
   const topMemories = useTopMemories(10);
   const [activeTab, setActiveTab] = useState<
     "autofill" | "memories" | "add-memory"
   >("autofill");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+
+  console.log(selectedProvider);
 
   const hasMemories = entries.length > 0;
 
@@ -107,7 +105,7 @@ export const App = () => {
 
   const handleAutofill = async () => {
     try {
-      const aiSettings = await store.aiSettings.getValue();
+      const aiSettings = await storage.aiSettings.getValue();
       if (!aiSettings.selectedProvider) {
         toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
@@ -184,7 +182,7 @@ export const App = () => {
     setEditingEntryId(null);
   };
 
-  if (!initialized && loading) {
+  if (loading) {
     return (
       <section
         className="relative w-full h-[600px] flex items-center justify-center"
@@ -198,7 +196,7 @@ export const App = () => {
     );
   }
 
-  if (error && !initialized) {
+  if (error) {
     return (
       <section
         className="relative w-full h-[600px] flex items-center justify-center p-4"
@@ -252,7 +250,7 @@ export const App = () => {
         </div>
       </header>
 
-      {error && initialized && (
+      {error && (
         <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
           <p className="text-sm text-destructive">{error}</p>
         </div>
