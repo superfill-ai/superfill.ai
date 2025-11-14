@@ -15,7 +15,6 @@ const CLASSIFICATION_RULES: { type: WebsiteType; keywords: string[] }[] = [
       "linkedin.com/jobs",
       "opportunities",
       "professional",
-      "workday",
     ],
   },
   {
