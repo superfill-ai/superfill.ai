@@ -15,14 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSettingsStore } from "@/stores/settings";
+import { useUISettingsStore } from "@/lib/stores/ui-settings";
 import { Trigger } from "@/types/trigger";
 
 export const TriggerSettings = () => {
   const triggerId = useId();
 
-  const trigger = useSettingsStore((state) => state.trigger);
-  const setTrigger = useSettingsStore((state) => state.setTrigger);
+  const trigger = useUISettingsStore((state) => state.trigger);
+  const setTrigger = useUISettingsStore((state) => state.setTrigger);
 
   return (
     <Card>

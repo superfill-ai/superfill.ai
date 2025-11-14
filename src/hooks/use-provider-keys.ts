@@ -6,12 +6,12 @@ import {
   getProviderConfig,
   validateProviderKey,
 } from "@/lib/providers/registry";
-import { useSettingsStore } from "@/stores/settings";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
 
 export const PROVIDER_KEYS_QUERY_KEY = ["provider-keys"] as const;
 
 export function useProviderKeyStatuses() {
-  const getApiKey = useSettingsStore((state) => state.getApiKey);
+  const getApiKey = useAISettingsStore((state) => state.getApiKey);
 
   return useQuery({
     queryKey: PROVIDER_KEYS_QUERY_KEY,
@@ -33,11 +33,13 @@ export function useProviderKeyStatuses() {
 
 export function useSaveApiKeyWithModel() {
   const queryClient = useQueryClient();
-  const setApiKey = useSettingsStore((state) => state.setApiKey);
-  const setSelectedProvider = useSettingsStore(
+  const setApiKey = useAISettingsStore((state) => state.setApiKey);
+  const setSelectedProvider = useAISettingsStore(
     (state) => state.setSelectedProvider,
   );
-  const setSelectedModel = useSettingsStore((state) => state.setSelectedModel);
+  const setSelectedModel = useAISettingsStore(
+    (state) => state.setSelectedModel,
+  );
 
   return useMutation({
     mutationFn: async ({
@@ -80,7 +82,7 @@ export function useSaveApiKeyWithModel() {
 
 export function useDeleteApiKey() {
   const queryClient = useQueryClient();
-  const deleteApiKey = useSettingsStore((state) => state.deleteApiKey);
+  const deleteApiKey = useAISettingsStore((state) => state.deleteApiKey);
 
   return useMutation({
     mutationFn: async (provider: AIProvider) => {

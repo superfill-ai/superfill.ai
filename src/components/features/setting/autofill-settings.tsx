@@ -15,24 +15,26 @@ import {
 } from "@/components/ui/field";
 import { SliderWithInput } from "@/components/ui/slider-with-input";
 import { Switch } from "@/components/ui/switch";
-import { useSettingsStore } from "@/stores/settings";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
 
 export const AutofillSettings = () => {
   const autofillEnabledId = useId();
   const autopilotModeId = useId();
   const confidenceThresholdId = useId();
 
-  const autoFillEnabled = useSettingsStore((state) => state.autoFillEnabled);
-  const autopilotMode = useSettingsStore((state) => state.autopilotMode);
-  const confidenceThreshold = useSettingsStore(
+  const autoFillEnabled = useAISettingsStore((state) => state.autoFillEnabled);
+  const autopilotMode = useAISettingsStore((state) => state.autopilotMode);
+  const confidenceThreshold = useAISettingsStore(
     (state) => state.confidenceThreshold,
   );
 
-  const setAutoFillEnabled = useSettingsStore(
+  const setAutoFillEnabled = useAISettingsStore(
     (state) => state.setAutoFillEnabled,
   );
-  const setAutopilotMode = useSettingsStore((state) => state.setAutopilotMode);
-  const setConfidenceThreshold = useSettingsStore(
+  const setAutopilotMode = useAISettingsStore(
+    (state) => state.setAutopilotMode,
+  );
+  const setConfidenceThreshold = useAISettingsStore(
     (state) => state.setConfidenceThreshold,
   );
 

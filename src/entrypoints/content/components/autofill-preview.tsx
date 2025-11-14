@@ -1,3 +1,5 @@
+import { Redo2Icon, SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -18,8 +20,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import type { FieldOpId, PreviewFieldData } from "@/types/autofill";
-import { Redo2Icon, SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import type { PreviewRenderData } from "./preview-manager";
 
 type AutofillPreviewProps = {

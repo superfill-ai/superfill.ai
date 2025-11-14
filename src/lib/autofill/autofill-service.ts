@@ -2,8 +2,8 @@ import { defineProxyService } from "@webext-core/proxy-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
 import type {
   AutofillResult,
   CompressedFieldData,
@@ -233,7 +233,7 @@ class AutofillService {
         );
       }
 
-      const allMemories = await store.memories.getValue();
+      const allMemories = await storage.memories.getValue();
 
       if (allMemories.length === 0) {
         return {
@@ -291,7 +291,7 @@ class AutofillService {
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
     try {
-      const settingStore = useSettingsStore.getState();
+      const settingStore = useAISettingsStore.getState();
       const provider = settingStore.selectedProvider;
 
       if (!provider) {
@@ -398,7 +398,7 @@ class AutofillService {
     processingResult: AutofillResult,
     sessionId: string,
   ): PreviewSidebarPayload {
-    const aiSettings = useSettingsStore.getState();
+    const aiSettings = useAISettingsStore.getState();
     const confidenceThreshold = aiSettings.confidenceThreshold;
 
     logger.info(

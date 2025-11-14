@@ -27,7 +27,7 @@ import {
   type AIProvider,
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
-import { useSettingsStore } from "@/stores/settings";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
 import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 
@@ -38,8 +38,10 @@ export const AiProviderSettings = () => {
     ReturnType<typeof getProviderOptions> extends Promise<infer T> ? T : never
   >([]);
   const providerComboboxId = useId();
-  const selectedProvider = useSettingsStore((state) => state.selectedProvider);
-  const setSelectedProvider = useSettingsStore(
+  const selectedProvider = useAISettingsStore(
+    (state) => state.selectedProvider,
+  );
+  const setSelectedProvider = useAISettingsStore(
     (state) => state.setSelectedProvider,
   );
   const { data: keyStatuses } = useProviderKeyStatuses();

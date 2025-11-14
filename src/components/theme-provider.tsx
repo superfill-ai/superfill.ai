@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { APP_NAME } from "@/constants";
-import { store } from "@/lib/storage";
+import { useUISettingsStore } from "@/lib/stores/ui-settings";
 import { Theme } from "@/types/theme";
 
 type ThemeProviderProps = {
@@ -9,24 +9,19 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme;
-  setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;
 };
 
 const initialState: ThemeProviderState = {
   theme: Theme.DEFAULT,
-  setTheme: () => null,
+  toggleTheme: () => null,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => Theme.DEFAULT);
-
-  useEffect(() => {
-    store.theme.getValue().then(setTheme);
-    const unwatch = store.theme.watch(setTheme);
-    return () => unwatch();
-  }, []);
+  const theme = useUISettingsStore((state) => state.theme);
+  const toggleTheme = useUISettingsStore((state) => state.toggleTheme);
 
   useEffect(() => {
     const host = document.querySelector(APP_NAME);
@@ -53,9 +48,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      store.theme.setValue(theme);
-    },
+    toggleTheme,
   };
 
   return (

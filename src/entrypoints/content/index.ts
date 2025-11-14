@@ -4,8 +4,7 @@ import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { createLogger } from "@/lib/logger";
-import { settingsStorage } from "@/lib/storage";
-import { useSettingsStore } from "@/stores/settings";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
 import type {
   AutofillProgress,
   DetectedField,
@@ -200,9 +199,7 @@ export default defineContentScript({
       "updateProgress",
       async ({ data: progress }: { data: AutofillProgress }) => {
         try {
-          const settingStore = useSettingsStore.getState();
-
-          logger.info(settingsStorage);
+          const settingStore = useAISettingsStore.getState();
 
           if (settingStore.autopilotMode) {
             if (
@@ -238,8 +235,7 @@ export default defineContentScript({
           payload: data,
         });
 
-        const settingStore = useSettingsStore.getState();
-        logger.info(settingsStorage);
+        const settingStore = useAISettingsStore.getState();
         let manager: PreviewSidebarManager | AutopilotManager;
 
         if (settingStore.autopilotMode) {

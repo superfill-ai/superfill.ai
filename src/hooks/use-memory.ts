@@ -1,11 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useMemoryStore } from "@/stores/memory";
+import { useDataStore } from "@/lib/stores/data";
 
 export const useMemoryActions = () => {
-  return useMemoryStore(
+  return useDataStore(
     useShallow((state) => ({
-      initialize: state.initialize,
       addEntry: state.addEntry,
       updateEntry: state.updateEntry,
       deleteEntry: state.deleteEntry,
@@ -20,21 +19,13 @@ export const useMemoryActions = () => {
   );
 };
 
-export const useInitializeMemory = () => {
-  const initialize = useMemoryStore((state) => state.initialize);
-
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-};
-
 export const useMemoryEntry = (id: string | null) =>
-  useMemoryStore((state) =>
+  useDataStore((state) =>
     id ? state.entries.find((e) => e.id === id) : undefined,
   );
 
 export const useSearchMemory = (query: string) => {
-  const entries = useMemoryStore((state) => state.entries);
+  const entries = useDataStore((state) => state.entries);
 
   return useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
@@ -50,7 +41,7 @@ export const useSearchMemory = (query: string) => {
 };
 
 export const useMemoryStats = () => {
-  return useMemoryStore(
+  return useDataStore(
     useShallow((state) => {
       const memoryCount = state.entries.length;
       const totalAutofills = state.entries.reduce(
@@ -63,7 +54,7 @@ export const useMemoryStats = () => {
 };
 
 export const useTopMemories = (limit = 10) => {
-  const entries = useMemoryStore((state) => state.entries);
+  const entries = useDataStore((state) => state.entries);
 
   return useMemo(() => {
     return [...entries]

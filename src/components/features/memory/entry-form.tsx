@@ -24,8 +24,8 @@ import {
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
-import { store } from "@/lib/storage";
-import { useMemoryStore } from "@/stores/memory";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
+import { useDataStore } from "@/lib/stores/data";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
@@ -52,8 +52,11 @@ export function EntryForm({
   onSuccess,
   onCancel,
 }: EntryFormProps) {
-  const { addEntry, updateEntry } = useMemoryStore();
-  const top10Tags = useMemoryStore().getTopUsedTags(10);
+  const selectedProvider = useAISettingsStore(
+    (settings) => settings.selectedProvider,
+  );
+  const { addEntry, updateEntry } = useDataStore();
+  const top10Tags = useDataStore().getTopUsedTags(10);
 
   const categorizationService = getCategorizationService();
 
@@ -117,8 +120,7 @@ export function EntryForm({
       currentQuestion: string;
       currentAnswer: string;
     }) => {
-      const aiSettings = await store.aiSettings.getValue();
-      if (!aiSettings.selectedProvider) {
+      if (!selectedProvider) {
         toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use rephrasing.",
@@ -131,7 +133,7 @@ export function EntryForm({
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
-      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
+      const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
@@ -162,8 +164,7 @@ export function EntryForm({
 
   const categorizeAndTaggingMutation = useMutation({
     mutationFn: async () => {
-      const aiSettings = await store.aiSettings.getValue();
-      if (!aiSettings.selectedProvider) {
+      if (!selectedProvider) {
         toast.warning(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
@@ -174,9 +175,7 @@ export function EntryForm({
           dismissible: true,
         });
       }
-      const apiKey = await keyVault.getKey(
-        aiSettings.selectedProvider ?? "openai",
-      );
+      const apiKey = await keyVault.getKey(selectedProvider ?? "openai");
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {

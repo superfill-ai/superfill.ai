@@ -41,11 +41,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { APP_NAME } from "@/constants";
-import {
-  useInitializeMemory,
-  useMemoryStats,
-  useTopMemories,
-} from "@/hooks/use-memory";
+import { useMemoryStats, useTopMemories } from "@/hooks/use-memory";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
 import {
   ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
@@ -53,21 +49,20 @@ import {
 } from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
-import { store } from "@/lib/storage";
-import { useMemoryStore } from "@/stores/memory";
-import { useSettingsStore } from "@/stores/settings";
+import { useAISettingsStore } from "@/lib/stores/ai-settings";
+import { useDataStore } from "@/lib/stores/data";
 
 const logger = createLogger("popup");
 
 export const App = () => {
-  useInitializeMemory();
-  const entries = useMemoryStore((state) => state.entries);
-  const loading = useMemoryStore((state) => state.loading);
-  const deleteEntry = useMemoryStore((state) => state.deleteEntry);
-  const initialized = useMemoryStore((state) => state.initialized);
-  const error = useMemoryStore((state) => state.error);
-  const selectedModels = useSettingsStore((state) => state.selectedModels);
-  const selectedProvider = useSettingsStore((state) => state.selectedProvider);
+  const entries = useDataStore((state) => state.entries);
+  const loading = useDataStore((state) => state.loading);
+  const deleteEntry = useDataStore((state) => state.deleteEntry);
+  const error = useDataStore((state) => state.error);
+  const selectedModels = useAISettingsStore((state) => state.selectedModels);
+  const selectedProvider = useAISettingsStore(
+    (state) => state.selectedProvider,
+  );
   const stats = useMemoryStats();
   const topMemories = useTopMemories(10);
   const [activeTab, setActiveTab] = useState<
@@ -107,8 +102,7 @@ export const App = () => {
 
   const handleAutofill = async () => {
     try {
-      const aiSettings = await store.aiSettings.getValue();
-      if (!aiSettings.selectedProvider) {
+      if (!selectedProvider) {
         toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use autofill",
@@ -120,7 +114,7 @@ export const App = () => {
         });
         return;
       }
-      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
+      const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
@@ -184,7 +178,7 @@ export const App = () => {
     setEditingEntryId(null);
   };
 
-  if (!initialized && loading) {
+  if (loading) {
     return (
       <section
         className="relative w-full h-[600px] flex items-center justify-center"
@@ -198,7 +192,7 @@ export const App = () => {
     );
   }
 
-  if (error && !initialized) {
+  if (error) {
     return (
       <section
         className="relative w-full h-[600px] flex items-center justify-center p-4"
@@ -252,7 +246,7 @@ export const App = () => {
         </div>
       </header>
 
-      {error && initialized && (
+      {error && (
         <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
           <p className="text-sm text-destructive">{error}</p>
         </div>
