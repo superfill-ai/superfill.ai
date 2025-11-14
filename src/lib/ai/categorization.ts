@@ -36,6 +36,7 @@ export const RephrasedAnswerSchema = z.object({
       "The rephrased answer, tailored to the specific context of the form field and website.",
     ),
 });
+export type RephrasedAnswer = z.infer<typeof RephrasedAnswerSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 export const RephraseResultSchema = z.object({
