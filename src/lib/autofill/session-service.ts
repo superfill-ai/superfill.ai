@@ -1,7 +1,7 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { useDataStore } from "@/lib/stores/data";
 import type { FillSession, FormMapping } from "@/types/memory";
-import { defineProxyService } from "@webext-core/proxy-service";
 
 const logger = createLogger("session-service");
 

@@ -1,10 +1,10 @@
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type { UISettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
 import { Trigger } from "@/types/trigger";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:ui-settings");
 

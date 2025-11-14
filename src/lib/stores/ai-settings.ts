@@ -1,10 +1,10 @@
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:ai-settings");
 

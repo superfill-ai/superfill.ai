@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
@@ -21,8 +23,6 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDataStore } from "@/lib/stores/data";
-import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 export const App = () => {
   const isMobile = useIsMobile();

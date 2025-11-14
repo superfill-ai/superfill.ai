@@ -1,11 +1,11 @@
+import { v7 as uuidv7 } from "uuid";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { allowedCategories } from "@/lib/copies";
 import { downloadCSV, parseCSV, stringifyToCSV } from "@/lib/csv";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type { FillSession, FormMapping, MemoryEntry } from "@/types/memory";
-import { v7 as uuidv7 } from "uuid";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 type DataState = {
   entries: MemoryEntry[];
@@ -236,16 +236,16 @@ export const useDataStore = create<DataState & DataActions>()(
             | "createdAt"
             | "updatedAt"
           > = [
-              "question",
-              "answer",
-              "category",
-              "tags",
-              "confidence",
-              "usageCount",
-              "lastUsed",
-              "createdAt",
-              "updatedAt",
-            ];
+            "question",
+            "answer",
+            "category",
+            "tags",
+            "confidence",
+            "usageCount",
+            "lastUsed",
+            "createdAt",
+            "updatedAt",
+          ];
 
           const csvData = entries.map((entry) => ({
             question: entry.question || "",
@@ -295,9 +295,9 @@ export const useDataStore = create<DataState & DataActions>()(
             const tags = Array.isArray(row.tags)
               ? row.tags
               : row.tags
-                .split(";")
-                .map((t) => t.trim())
-                .filter(Boolean);
+                  .split(";")
+                  .map((t) => t.trim())
+                  .filter(Boolean);
             const category = allowedCategories.includes(row.category)
               ? row.category
               : "general";
@@ -353,16 +353,16 @@ export const useDataStore = create<DataState & DataActions>()(
           | "createdAt"
           | "updatedAt"
         > = [
-            "question",
-            "answer",
-            "category",
-            "tags",
-            "confidence",
-            "usageCount",
-            "lastUsed",
-            "createdAt",
-            "updatedAt",
-          ];
+          "question",
+          "answer",
+          "category",
+          "tags",
+          "confidence",
+          "usageCount",
+          "lastUsed",
+          "createdAt",
+          "updatedAt",
+        ];
 
         const csv = stringifyToCSV([], headers);
         const filename = "superfill-template.csv";

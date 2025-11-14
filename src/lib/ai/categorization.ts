@@ -5,6 +5,8 @@ import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
+import type { CompressedFieldData } from "@/types/autofill";
+import type { WebsiteContext } from "@/types/context";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 
 const logger = createLogger("ai:categorization");
@@ -27,6 +29,14 @@ export const AnalysisResultSchema = z.object({
   reasoning: z.string().optional(),
 });
 
+export const RephrasedAnswerSchema = z.object({
+  rephrasedAnswer: z
+    .string()
+    .describe(
+      "The rephrased answer, tailored to the specific context of the form field and website.",
+    ),
+});
+export type RephrasedAnswer = z.infer<typeof RephrasedAnswerSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 export const RephraseResultSchema = z.object({
@@ -185,6 +195,68 @@ Be precise and consider context. For example:
     return fallbackCategorization(answer, question);
   } finally {
     (async () => await langfuseSpanProcessor.forceFlush())();
+  }
+};
+
+export const rephraseAnswerForContextAgent = async (
+  field: CompressedFieldData,
+  originalAnswer: string,
+  websiteContext: WebsiteContext,
+  provider: AIProvider,
+  apiKey: string,
+  modelName?: string,
+): Promise<string> => {
+  try {
+    const model = getAIModel(provider, apiKey, modelName);
+
+    const systemPrompt = `You are an expert assistant that rephrases text to fit a specific context.
+Your task is to take a user's stored answer and adapt it for a specific form field on a specific website.
+
+**CRUCIAL RULES**:
+1.  **Analyze the Context**: Use the Website and Field context to understand the required tone (professional, casual), length, and format.
+2.  **Preserve Core Meaning**: The rephrased answer MUST retain the original answer's core information. Do not invent new facts.
+3.  **Be Subtle**: If the original answer already fits well, make minimal or no changes. Only rephrase when the context clearly demands it. For example, a simple name or email address rarely needs rephrasing.
+4.  **Focus on Tone and Format**: A long-form answer for a "Bio" on a professional site (job_portal) should be formal. The same answer for a "Bio" on a 'dating' site should be more casual and personal.
+
+Example:
+- Original Answer: "I am a skilled software engineer with 5 years of experience in React and Node.js."
+- Field: "Short Bio" on a 'social' network.
+- Rephrased Answer: "Software engineer, 5 years with React & Node.js."
+`;
+
+    const userPrompt = `
+Rephrase the following answer based on the provided context.
+
+**Original Answer**:
+"${originalAnswer}"
+
+**Website Context**:
+- Website Type: ${websiteContext.websiteType}
+- Form Purpose: ${websiteContext.formPurpose}
+- Page Title: ${websiteContext.metadata.title}
+
+**Field Context**:
+- Field Labels: ${field.labels.join(", ")}
+- Field Purpose: ${field.purpose}
+- Field Type: ${field.type}
+`;
+
+    const { object } = await generateObject({
+      model,
+      system: systemPrompt,
+      prompt: userPrompt,
+      schema: RephrasedAnswerSchema,
+      temperature: 0.4,
+    });
+
+    return object.rephrasedAnswer;
+  } catch (error) {
+    logger.error(
+      "Contextual rephrasing failed, returning original answer:",
+      error,
+    );
+    // If rephrasing fails for any reason, it's safer to return the original answer.
+    return originalAnswer;
   }
 };
 

@@ -88,6 +88,7 @@ const buildPreviewFields = (
           fieldOpid: field.opid,
           memoryId: null,
           value: null,
+          rephrasedValue: null,
           confidence: 0,
           reasoning: "No suggestion generated",
           alternativeMatches: [],
@@ -162,7 +163,7 @@ export class PreviewSidebarManager {
       <AutofillPreview
         data={renderData}
         onClose={() => this.destroy()}
-        onFill={(selected: FieldOpId[]) => this.handleFill(selected)}
+        onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
         onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
         onUnhighlight={() => this.clearHighlight()}
       />,
@@ -196,25 +197,24 @@ export class PreviewSidebarManager {
     this.mappingLookup.clear();
   }
 
-  private async handleFill(selectedFieldOpids: FieldOpId[]) {
+  private async handleFill(
+    fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
+  ) {
     const memoryIds: string[] = [];
+    const filledFieldOpids: FieldOpId[] = [];
 
-    for (const fieldOpid of selectedFieldOpids) {
+    for (const { fieldOpid, value } of fieldsToFill) {
       const detected = this.options.getFieldMetadata(fieldOpid);
 
       if (!detected) {
         continue;
       }
 
+      this.applyValueToElement(detected.element, value);
+      filledFieldOpids.push(fieldOpid);
+
       const mapping = this.mappingLookup.get(fieldOpid);
-
-      if (!mapping || !mapping.value) {
-        continue;
-      }
-
-      this.applyValueToElement(detected.element, mapping.value);
-
-      if (mapping.memoryId) {
+      if (mapping && mapping.memoryId) {
         memoryIds.push(mapping.memoryId);
       }
     }
@@ -238,7 +238,7 @@ export class PreviewSidebarManager {
           status: "filling",
         });
 
-        const formMappings = await this.buildFormMappings(selectedFieldOpids);
+        const formMappings = await this.buildFormMappings(filledFieldOpids);
 
         if (formMappings.length > 0) {
           await contentAutofillMessaging.sendMessage("saveFormMappings", {
@@ -254,7 +254,7 @@ export class PreviewSidebarManager {
         await this.showProgress({
           state: "completed",
           message: "Auto-fill completed successfully",
-          fieldsDetected: selectedFieldOpids.length,
+          fieldsDetected: filledFieldOpids.length,
           fieldsMatched: memoryIds.length,
         });
         await contentAutofillMessaging.sendMessage("updateSessionStatus", {

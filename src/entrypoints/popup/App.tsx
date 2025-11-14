@@ -1,3 +1,12 @@
+import {
+  SettingsIcon,
+  SparklesIcon,
+  TargetIcon,
+  TrophyIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { Badge } from "@/components/ui/badge";
@@ -43,15 +52,6 @@ import { keyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import { useAISettingsStore } from "@/lib/stores/ai-settings";
 import { useDataStore } from "@/lib/stores/data";
-import {
-  SettingsIcon,
-  SparklesIcon,
-  TargetIcon,
-  TrophyIcon,
-} from "lucide-react";
-import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
-import { toast } from "sonner";
 
 const logger = createLogger("popup");
 
