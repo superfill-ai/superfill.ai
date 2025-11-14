@@ -51,10 +51,6 @@ export const useUISettingsStore = create<SettingsState & SettingsActions>()(
       setTrigger: async (trigger: Trigger) => {
         try {
           set({ loading: true, error: null });
-          await storage.uiSettings.setValue({
-            ...(await storage.uiSettings.getValue()),
-            trigger,
-          });
           set({ trigger, loading: false });
         } catch (error) {
           const errorMessage =

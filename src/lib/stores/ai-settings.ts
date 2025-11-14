@@ -42,12 +42,6 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
       setSelectedProvider: async (provider: AIProvider) => {
         try {
           set({ loading: true, error: null });
-
-          await storage.aiSettings.setValue({
-            ...get(),
-            selectedProvider: provider,
-          });
-
           set({ selectedProvider: provider, loading: false });
         } catch (error) {
           const errorMessage =
@@ -61,10 +55,6 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         try {
           set({ loading: true, error: null });
           const updatedModels = { ...get().selectedModels, [provider]: model };
-          await storage.aiSettings.setValue({
-            ...get(),
-            selectedModels: updatedModels,
-          });
           set({ selectedModels: updatedModels, loading: false });
         } catch (error) {
           const errorMessage =
@@ -77,10 +67,6 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
       setAutoFillEnabled: async (enabled: boolean) => {
         try {
           set({ loading: true, error: null });
-          await storage.aiSettings.setValue({
-            ...get(),
-            autoFillEnabled: enabled,
-          });
           set({ autoFillEnabled: enabled, loading: false });
         } catch (error) {
           const errorMessage =
@@ -93,10 +79,6 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
       setAutopilotMode: async (enabled: boolean) => {
         try {
           set({ loading: true, error: null });
-          await storage.aiSettings.setValue({
-            ...get(),
-            autopilotMode: enabled,
-          });
           set({ autopilotMode: enabled, loading: false });
         } catch (error) {
           const errorMessage =
@@ -111,10 +93,6 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
       setConfidenceThreshold: async (threshold: number) => {
         try {
           set({ loading: true, error: null });
-          await storage.aiSettings.setValue({
-            ...get(),
-            confidenceThreshold: threshold,
-          });
           set({ confidenceThreshold: threshold, loading: false });
         } catch (error) {
           const errorMessage =

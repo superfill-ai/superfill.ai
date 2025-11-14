@@ -49,7 +49,6 @@ import {
 } from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
-import { storage } from "@/lib/storage";
 import { useAISettingsStore } from "@/lib/stores/ai-settings";
 import { useDataStore } from "@/lib/stores/data";
 
@@ -105,8 +104,7 @@ export const App = () => {
 
   const handleAutofill = async () => {
     try {
-      const aiSettings = await storage.aiSettings.getValue();
-      if (!aiSettings.selectedProvider) {
+      if (!selectedProvider) {
         toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use autofill",
@@ -118,7 +116,7 @@ export const App = () => {
         });
         return;
       }
-      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
+      const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
