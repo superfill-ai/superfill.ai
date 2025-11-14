@@ -19,11 +19,11 @@ type AISettingsState = {
 };
 
 type AISettingsActions = {
-  setSelectedProvider: (provider: AIProvider) => Promise<void>;
-  setSelectedModel: (provider: AIProvider, model: string) => Promise<void>;
-  setAutoFillEnabled: (enabled: boolean) => Promise<void>;
-  setAutopilotMode: (enabled: boolean) => Promise<void>;
-  setConfidenceThreshold: (threshold: number) => Promise<void>;
+  setSelectedProvider: (provider: AIProvider) => void;
+  setSelectedModel: (provider: AIProvider, model: string) => void;
+  setAutoFillEnabled: (enabled: boolean) => void;
+  setAutopilotMode: (enabled: boolean) => void;
+  setConfidenceThreshold: (threshold: number) => void;
   setApiKey: (provider: AIProvider, key: string) => Promise<void>;
   getApiKey: (provider: AIProvider) => Promise<string | null>;
   deleteApiKey: (provider: AIProvider) => Promise<void>;
@@ -39,7 +39,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
       loading: false,
       error: null,
 
-      setSelectedProvider: async (provider: AIProvider) => {
+      setSelectedProvider: (provider: AIProvider) => {
         try {
           set({ loading: true, error: null });
           set({ selectedProvider: provider, loading: false });
@@ -51,7 +51,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         }
       },
 
-      setSelectedModel: async (provider: AIProvider, model: string) => {
+      setSelectedModel: (provider: AIProvider, model: string) => {
         try {
           set({ loading: true, error: null });
           const updatedModels = { ...get().selectedModels, [provider]: model };
@@ -64,7 +64,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         }
       },
 
-      setAutoFillEnabled: async (enabled: boolean) => {
+      setAutoFillEnabled: (enabled: boolean) => {
         try {
           set({ loading: true, error: null });
           set({ autoFillEnabled: enabled, loading: false });
@@ -76,7 +76,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         }
       },
 
-      setAutopilotMode: async (enabled: boolean) => {
+      setAutopilotMode: (enabled: boolean) => {
         try {
           set({ loading: true, error: null });
           set({ autopilotMode: enabled, loading: false });
@@ -90,7 +90,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         }
       },
 
-      setConfidenceThreshold: async (threshold: number) => {
+      setConfidenceThreshold: (threshold: number) => {
         try {
           set({ loading: true, error: null });
           set({ confidenceThreshold: threshold, loading: false });
@@ -164,14 +164,14 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
             const parsed = JSON.parse(value);
 
             if (!parsed || typeof parsed !== "object" || !("state" in parsed)) {
-              logger.warn("Invalid form data structure, skipping save");
+              logger.warn("Invalid AI settings data structure, skipping save");
               return;
             }
 
             const { state } = parsed as { state: AISettings };
 
             if (!state) {
-              logger.warn("No state in parsed form data, skipping save");
+              logger.warn("No state in parsed AI settings data, skipping save");
               return;
             }
 

@@ -16,8 +16,8 @@ type SettingsState = {
 };
 
 type SettingsActions = {
-  toggleTheme: () => Promise<void>;
-  setTrigger: (trigger: Trigger) => Promise<void>;
+  toggleTheme: () => void;
+  setTrigger: (trigger: Trigger) => void;
 };
 
 export const useUISettingsStore = create<SettingsState & SettingsActions>()(
@@ -28,7 +28,7 @@ export const useUISettingsStore = create<SettingsState & SettingsActions>()(
       loading: false,
       error: null,
 
-      toggleTheme: async () => {
+      toggleTheme: () => {
         try {
           set({ loading: true, error: null });
           const currentTheme = get().theme;
@@ -48,7 +48,7 @@ export const useUISettingsStore = create<SettingsState & SettingsActions>()(
         }
       },
 
-      setTrigger: async (trigger: Trigger) => {
+      setTrigger: (trigger: Trigger) => {
         try {
           set({ loading: true, error: null });
           set({ trigger, loading: false });
@@ -76,7 +76,7 @@ export const useUISettingsStore = create<SettingsState & SettingsActions>()(
               },
             });
           } catch (error) {
-            logger.error("Failed to load form data:", error);
+            logger.error("Failed to load UI settings data:", error);
             return null;
           }
         },
@@ -85,20 +85,20 @@ export const useUISettingsStore = create<SettingsState & SettingsActions>()(
             const parsed = JSON.parse(value);
 
             if (!parsed || typeof parsed !== "object" || !("state" in parsed)) {
-              logger.warn("Invalid form data structure, skipping save");
+              logger.warn("Invalid UI settings data structure, skipping save");
               return;
             }
 
             const { state } = parsed as { state: UISettings };
 
             if (!state) {
-              logger.warn("No state in parsed form data, skipping save");
+              logger.warn("No state in parsed UI settings data, skipping save");
               return;
             }
 
             await storage.uiSettings.setValue(state);
           } catch (error) {
-            logger.error("Failed to save form data:", error);
+            logger.error("Failed to save UI settings data:", error);
           }
         },
         removeItem: async () => {

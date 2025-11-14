@@ -22,35 +22,32 @@ type CreateMemoryEntry = Omit<MemoryEntry, "id" | "metadata">;
 type UpdateMemoryEntry = Partial<Omit<MemoryEntry, "id" | "metadata">>;
 
 type DataActions = {
-  addEntry: (entry: CreateMemoryEntry) => Promise<MemoryEntry>;
-  updateEntry: (id: string, updates: UpdateMemoryEntry) => Promise<void>;
-  deleteEntry: (id: string) => Promise<void>;
-  getEntryById: (id: string) => Promise<MemoryEntry | undefined>;
-  searchEntries: (query: string) => Promise<MemoryEntry[]>;
-  getEntriesByCategory: (category: string) => Promise<MemoryEntry[]>;
-  getEntriesByTags: (tags: string[]) => Promise<MemoryEntry[]>;
-  incrementUsageCount: (id: string) => Promise<void>;
+  addEntry: (entry: CreateMemoryEntry) => MemoryEntry;
+  updateEntry: (id: string, updates: UpdateMemoryEntry) => void;
+  deleteEntry: (id: string) => void;
+  getEntryById: (id: string) => MemoryEntry | undefined;
+  searchEntries: (query: string) => MemoryEntry[];
+  getEntriesByCategory: (category: string) => MemoryEntry[];
+  getEntriesByTags: (tags: string[]) => MemoryEntry[];
+  incrementUsageCount: (id: string) => void;
   getTopUsedTags: (topN: number) => Array<{ tag: string; count: number }>;
   exportToCSV: () => void;
-  importFromCSV: (csvContent: string) => Promise<number>;
+  importFromCSV: (csvContent: string) => number;
   downloadCSVTemplate: () => void;
 
-  addFormMapping: (mapping: FormMapping) => Promise<void>;
-  updateFormMapping: (
-    url: string,
-    updates: Partial<FormMapping>,
-  ) => Promise<void>;
-  deleteFormMapping: (url: string) => Promise<void>;
+  addFormMapping: (mapping: FormMapping) => void;
+  updateFormMapping: (url: string, updates: Partial<FormMapping>) => void;
+  deleteFormMapping: (url: string) => void;
   getFormMappingByUrl: (url: string) => FormMapping | undefined;
-  clearFormMappings: () => Promise<void>;
+  clearFormMappings: () => void;
 
-  startSession: () => Promise<FillSession>;
-  updateSession: (id: string, updates: Partial<FillSession>) => Promise<void>;
-  completeSession: (id: string) => Promise<void>;
-  failSession: (id: string, error: string) => Promise<void>;
+  startSession: () => FillSession;
+  updateSession: (id: string, updates: Partial<FillSession>) => void;
+  completeSession: (id: string) => void;
+  failSession: (id: string, error: string) => void;
   getSessionById: (id: string) => FillSession | undefined;
   getRecentSessions: (limit?: number) => FillSession[];
-  clearSessions: () => Promise<void>;
+  clearSessions: () => void;
 };
 
 const logger = createLogger("store:data");
@@ -67,7 +64,7 @@ export const useDataStore = create<DataState & DataActions>()(
       loading: false,
       error: null,
 
-      addEntry: async (entry: CreateMemoryEntry) => {
+      addEntry: (entry: CreateMemoryEntry) => {
         try {
           set({ loading: true, error: null });
 
@@ -97,7 +94,7 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      updateEntry: async (id: string, updates: UpdateMemoryEntry) => {
+      updateEntry: (id: string, updates: UpdateMemoryEntry) => {
         try {
           set({ loading: true, error: null });
 
@@ -130,7 +127,7 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      deleteEntry: async (id: string) => {
+      deleteEntry: (id: string) => {
         try {
           set({ loading: true, error: null });
 
@@ -148,11 +145,11 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      getEntryById: async (id: string) => {
+      getEntryById: (id: string) => {
         return get().entries.find((e) => e.id === id);
       },
 
-      searchEntries: async (query: string) => {
+      searchEntries: (query: string) => {
         const normalizedQuery = query.toLowerCase().trim();
         return get().entries.filter((entry) => {
           return (
@@ -166,17 +163,17 @@ export const useDataStore = create<DataState & DataActions>()(
         });
       },
 
-      getEntriesByCategory: async (category: string) => {
+      getEntriesByCategory: (category: string) => {
         return get().entries.filter((entry) => entry.category === category);
       },
 
-      getEntriesByTags: async (tags: string[]) => {
+      getEntriesByTags: (tags: string[]) => {
         return get().entries.filter((entry) =>
           tags.some((tag) => entry.tags.includes(tag)),
         );
       },
 
-      incrementUsageCount: async (id: string) => {
+      incrementUsageCount: (id: string) => {
         try {
           const entry = get().entries.find((e) => e.id === id);
           if (!entry) {
@@ -271,7 +268,7 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      importFromCSV: async (csvContent: string) => {
+      importFromCSV: (csvContent: string) => {
         try {
           set({ loading: true, error: null });
 
@@ -370,7 +367,7 @@ export const useDataStore = create<DataState & DataActions>()(
         downloadCSV(csv, filename);
       },
 
-      addFormMapping: async (mapping: FormMapping) => {
+      addFormMapping: (mapping: FormMapping) => {
         try {
           set({ loading: true, error: null });
 
@@ -406,7 +403,7 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      updateFormMapping: async (url: string, updates: Partial<FormMapping>) => {
+      updateFormMapping: (url: string, updates: Partial<FormMapping>) => {
         try {
           set({ loading: true, error: null });
 
@@ -438,7 +435,7 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      deleteFormMapping: async (url: string) => {
+      deleteFormMapping: (url: string) => {
         try {
           set({ loading: true, error: null });
           set((state) => ({
@@ -459,7 +456,7 @@ export const useDataStore = create<DataState & DataActions>()(
         return get().formMappings.find((m) => m.url === url);
       },
 
-      clearFormMappings: async () => {
+      clearFormMappings: () => {
         try {
           set({ loading: true, error: null });
           set({ formMappings: [], loading: false });
@@ -473,7 +470,7 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      startSession: async () => {
+      startSession: () => {
         try {
           set({ loading: true, error: null });
 
@@ -499,7 +496,7 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      updateSession: async (id: string, updates: Partial<FillSession>) => {
+      updateSession: (id: string, updates: Partial<FillSession>) => {
         try {
           set({ loading: true, error: null });
 
@@ -532,11 +529,12 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      completeSession: async (id: string) => {
+      completeSession: (id: string) => {
         try {
           set({ loading: true, error: null });
 
           const session = get().fillSessions.find((s) => s.id === id);
+
           if (!session) {
             throw new Error(`Session with id ${id} not found`);
           }
@@ -565,11 +563,12 @@ export const useDataStore = create<DataState & DataActions>()(
         }
       },
 
-      failSession: async (id: string, errorMsg: string) => {
+      failSession: (id: string, errorMsg: string) => {
         try {
           set({ loading: true, error: null });
 
           const session = get().fillSessions.find((s) => s.id === id);
+
           if (!session) {
             throw new Error(`Session with id ${id} not found`);
           }
@@ -613,7 +612,7 @@ export const useDataStore = create<DataState & DataActions>()(
           .slice(0, limit);
       },
 
-      clearSessions: async () => {
+      clearSessions: () => {
         try {
           set({ loading: true, error: null });
           set({ fillSessions: [], currentSession: null, loading: false });

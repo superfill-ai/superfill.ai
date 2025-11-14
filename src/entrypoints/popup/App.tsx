@@ -70,8 +70,6 @@ export const App = () => {
   >("autofill");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
-  console.log(selectedProvider);
-
   const hasMemories = entries.length > 0;
 
   useHotkeys("c", () => {
