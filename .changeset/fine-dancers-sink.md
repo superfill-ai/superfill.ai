@@ -11,4 +11,3 @@ This commit enhances the autofill preview by allowing users to choose between th
 - **Manual Fill**: The manual "Fill Selected" action now respects the user's choice. The `preview-manager` has been updated to fill the form with the value selected in the UI (original or rephrased).
 
 - **Autopilot Logic**: The `autopilot-manager` is updated to consistently use the `rephrasedValue` when available, ensuring predictable behavior in automated mode.
-  ur changes.
