@@ -15,6 +15,7 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import { AutopilotManager } from "./components/autopilot-manager";
+import { FillTriggerManager } from "./components/fill-trigger-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { FormDetector } from "./lib/form-detector";
@@ -26,6 +27,7 @@ const fieldCache = new Map<FieldOpId, DetectedField>();
 let serializedFormCache: DetectedFormSnapshot[] = [];
 let previewManager: PreviewSidebarManager | null = null;
 let autopilotManager: AutopilotManager | null = null;
+let fillTriggerManager: FillTriggerManager | null = null;
 
 const cacheDetectedForms = (forms: DetectedForm[]) => {
   formCache.clear();
@@ -103,6 +105,10 @@ export default defineContentScript({
 
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
+
+    // Initialize fill trigger manager
+    fillTriggerManager = new FillTriggerManager();
+    fillTriggerManager.initialize();
 
     contentAutofillMessaging.onMessage("detectForms", async () => {
       try {
@@ -219,7 +225,7 @@ export default defineContentScript({
     contentAutofillMessaging.onMessage(
       "showPreview",
       async ({ data }: { data: PreviewSidebarPayload }) => {
-        logger.info("Received preview payload from background", {
+        logger.info("🟡 showPreview handler called - WILL SHOW SIDEBAR", {
           mappings: data.mappings.length,
           forms: data.forms.length,
         });
@@ -285,6 +291,10 @@ export default defineContentScript({
 
       if (autopilotManager) {
         autopilotManager.hide();
+      }
+
+      if (fillTriggerManager) {
+        fillTriggerManager.destroy();
       }
 
       return true;
