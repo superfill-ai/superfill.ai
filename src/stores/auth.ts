@@ -1,138 +1,121 @@
+import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
 import { autoSyncManager } from "@/lib/sync/auto-sync-manager";
 import { getSyncService } from "@/lib/sync/sync-service";
+import type { Provider, Session } from "@supabase/supabase-js";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 const logger = createLogger("store:auth");
 
 type AuthStoreState = {
-  token: string | null;
+  session: Session | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  signingIn: boolean;
+  selectedProvider: Provider | null;
 };
 
 type AuthActions = {
-  setAuthToken: (token: string) => Promise<void>;
-  getAuthToken: () => Promise<string | null>;
-  clearAuthToken: () => Promise<void>;
+  signIn: (provider: Provider) => Promise<void>;
+  signOut: () => Promise<void>;
   checkAuthStatus: () => Promise<boolean>;
+  loadSession: () => Promise<void>;
 };
 
-const AUTH_STORAGE_KEY = "superfill:auth:token";
+export const useAuthStore = create<AuthStoreState & AuthActions>(
+  (set, get) => ({
+    session: null,
+    isAuthenticated: false,
+    loading: false,
+    error: null,
+    signingIn: false,
+    selectedProvider: null,
 
-export const useAuthStore = create<AuthStoreState & AuthActions>()(
-  persist(
-    (set, get) => ({
-      token: null,
-      isAuthenticated: false,
-      loading: false,
-      error: null,
+    signIn: async (provider: Provider) => {
+      try {
+        set({ signingIn: true, selectedProvider: provider, error: null });
 
-      setAuthToken: async (token: string) => {
-        try {
-          set({ loading: true, error: null });
+        const authService = getAuthService();
+        await authService.initiateOAuth(provider);
 
-          set({
-            token,
-            isAuthenticated: true,
-            loading: false,
-          });
+        logger.info(`OAuth flow initiated for ${provider}`);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to sign in";
+        logger.error("Failed to sign in", { error });
+        set({ signingIn: false, error: errorMessage, selectedProvider: null });
+        throw error;
+      }
+    },
 
-          logger.info("Auth token stored successfully");
+    signOut: async () => {
+      try {
+        set({ loading: true, error: null });
 
+        const authService = getAuthService();
+        await authService.clearSession();
+
+        set({
+          session: null,
+          isAuthenticated: false,
+          loading: false,
+          selectedProvider: null,
+        });
+
+        logger.info("Signed out successfully");
+
+        const syncService = getSyncService();
+        syncService.clearAuth();
+        logger.info("Sync service auth cleared");
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to sign out";
+        logger.error("Failed to sign out", { error });
+        set({ error: errorMessage, loading: false });
+        throw error;
+      }
+    },
+
+    checkAuthStatus: async () => {
+      try {
+        const authService = getAuthService();
+        const session = await authService.getSession();
+        const isAuthenticated = session !== null;
+
+        set({
+          session,
+          isAuthenticated,
+          signingIn: false,
+          selectedProvider: null,
+        });
+
+        if (isAuthenticated && session) {
           try {
             const syncService = getSyncService();
-            await syncService.setAuthToken(token);
+            await syncService.setAuthToken(session.access_token);
             logger.info("Sync service authenticated");
 
-            await autoSyncManager.triggerSync("full", { silent: false });
+            await autoSyncManager.triggerSync("full", { silent: true });
           } catch (error) {
             logger.error("Failed to initialize sync service", { error });
           }
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error
-              ? error.message
-              : "Failed to store auth token";
-          logger.error("Failed to store auth token", { error });
-          set({ loading: false, error: errorMessage, isAuthenticated: false });
-          throw error;
         }
-      },
 
-      getAuthToken: async () => {
-        return get().token;
-      },
-
-      clearAuthToken: async () => {
-        try {
-          set({
-            token: null,
-            isAuthenticated: false,
-            loading: false,
-            error: null,
-          });
-
-          logger.info("Auth token cleared successfully");
-
-          const syncService = getSyncService();
-          syncService.clearAuth();
-          logger.info("Sync service auth cleared");
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error
-              ? error.message
-              : "Failed to clear auth token";
-          logger.error("Failed to clear auth token", { error });
-          set({ error: errorMessage });
-          throw error;
-        }
-      },
-
-      checkAuthStatus: async () => {
-        try {
-          const { token } = get();
-          const isAuthenticated = !!token;
-
-          set({ isAuthenticated });
-
-          return isAuthenticated;
-        } catch (error) {
-          logger.error("Failed to check auth status", { error });
-          set({ isAuthenticated: false });
-          return false;
-        }
-      },
-    }),
-    {
-      name: AUTH_STORAGE_KEY,
-      storage: createJSONStorage(() => ({
-        getItem: async (name: string) => {
-          try {
-            const value = await browser.storage.local.get(name);
-            return value[name] || null;
-          } catch (error) {
-            logger.error("Failed to get auth state from storage", { error });
-            return null;
-          }
-        },
-        setItem: async (name: string, value: string) => {
-          try {
-            await browser.storage.local.set({ [name]: value });
-          } catch (error) {
-            logger.error("Failed to set auth state in storage", { error });
-          }
-        },
-        removeItem: async (name: string) => {
-          try {
-            await browser.storage.local.remove(name);
-          } catch (error) {
-            logger.error("Failed to remove auth state from storage", { error });
-          }
-        },
-      })),
+        return isAuthenticated;
+      } catch (error) {
+        logger.error("Failed to check auth status", { error });
+        set({
+          isAuthenticated: false,
+          signingIn: false,
+          selectedProvider: null,
+        });
+        return false;
+      }
     },
-  ),
+
+    loadSession: async () => {
+      await get().checkAuthStatus();
+    },
+  }),
 );

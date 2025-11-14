@@ -9,7 +9,11 @@ export default defineConfig({
     name: APP_NAME,
     version: "0.0.8",
     description: "AI-powered form filling browser extension",
-    permissions: ["activeTab", "storage", "identity"],
+    permissions: ["activeTab", "storage", "identity", "tabs"],
+    oauth2: {
+      client_id: "superfill-extension-client",
+      scopes: ["openid", "email", "profile", "offline_access"],
+    },
     host_permissions: [
       "https://api.openai.com/*",
       "https://api.anthropic.com/*",

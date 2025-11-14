@@ -1,3 +1,4 @@
+import { LoginDialog } from "@/components/features/auth/login-dialog";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
@@ -22,9 +23,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
 import { useInitializeMemory } from "@/hooks/use-memory";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
-import { getSyncService } from "@/lib/sync/sync-service";
 import { useAuthStore } from "@/stores/auth";
 import { useMemoryStore } from "@/stores/memory";
 import { useEffect, useState } from "react";
@@ -36,53 +35,22 @@ export const App = () => {
   useInitializeMemory();
   const isMobile = useIsMobile();
   const entries = useMemoryStore((state) => state.entries);
-  const { isAuthenticated, setAuthToken, clearAuthToken, checkAuthStatus } =
-    useAuthStore();
+  const { isAuthenticated, signOut, checkAuthStatus } = useAuthStore();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: not needed
   useEffect(() => {
     checkAuthStatus().catch(logger.error);
   }, []);
 
-  const handleSignIn = async () => {
-    try {
-      const authService = getAuthService();
-      const result = await authService.initiateAuth();
-
-      if (result) {
-        await setAuthToken(result.token);
-        logger.info("Auth successful, token stored");
-      }
-    } catch (error) {
-      logger.error("Sign-in failed", error);
-    }
-  };
-
   const handleSignOut = async () => {
     try {
-      await clearAuthToken();
+      await signOut();
       logger.info("Signed out successfully");
     } catch (error) {
       logger.error("Sign-out failed", error);
-    }
-  };
-
-  const handleSync = async () => {
-    try {
-      const syncService = getSyncService();
-      const result = await syncService.performFullSync();
-
-      if (result.success) {
-        logger.info("Data sync completed successfully");
-      } else {
-        logger.error("Data sync encountered errors", {
-          errors: result.errors,
-        });
-      }
-    } catch (error) {
-      logger.error("Data sync failed", error);
     }
   };
 
@@ -139,22 +107,23 @@ export const App = () => {
         </div>
         <div className="flex items-center gap-2">
           {!isAuthenticated ? (
-            <Button onClick={handleSignIn} variant="outline" size="sm">
+            <Button
+              onClick={() => setLoginDialogOpen(true)}
+              variant="outline"
+              size="sm"
+            >
               Sign in to sync
             </Button>
           ) : (
-            <>
-              <Button onClick={handleSync} variant="outline" size="sm">
-                Initiate Data sync
-              </Button>
-              <Button onClick={handleSignOut} variant="destructive" size="sm">
-                Sign out
-              </Button>
-            </>
+            <Button onClick={handleSignOut} variant="destructive" size="sm">
+              Sign out
+            </Button>
           )}
           <ThemeToggle />
         </div>
       </header>
+
+      <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
 
       <main className="flex-1 overflow-hidden">
         <Tabs

@@ -1,150 +1,95 @@
 import { createLogger } from "@/lib/logger";
+import { supabase } from "@/lib/supabase/client";
+import type { Provider, Session } from "@supabase/supabase-js";
 import { defineProxyService } from "@webext-core/proxy-service";
-import { generatePKCE, generateState } from "./crypto-utils";
 
 const logger = createLogger("auth-service");
 
-interface PendingAuth {
-  verifier: string;
-  state: string;
-  timestamp: number;
-}
-
 class AuthService {
   private redirectUrl = browser.identity.getRedirectURL();
-  private pendingAuth: Map<string, PendingAuth> = new Map();
-  private readonly AUTH_TIMEOUT = 5 * 60 * 1000;
 
-  constructor() {
-    setInterval(() => this.cleanupExpiredAuth(), 60 * 1000);
-  }
-
-  private cleanupExpiredAuth(): void {
-    const now = Date.now();
-    for (const [state, pending] of this.pendingAuth.entries()) {
-      if (now - pending.timestamp > this.AUTH_TIMEOUT) {
-        this.pendingAuth.delete(state);
-        logger.debug(`Cleaned up expired auth state: ${state}`);
-      }
-    }
-  }
-
-  async initiateAuth(): Promise<{ token: string; userId: string } | null> {
-    const { verifier, challenge } = await generatePKCE();
-    const state = generateState();
-
-    this.pendingAuth.set(state, {
-      verifier,
-      state,
-      timestamp: Date.now(),
-    });
-
-    const authUrl = new URL(`${import.meta.env.WXT_WEBSITE_URL}/login`);
-    authUrl.searchParams.set("source", "extension");
-    authUrl.searchParams.set("redirect_uri", this.redirectUrl);
-    authUrl.searchParams.set("code_challenge", challenge);
-    authUrl.searchParams.set("code_challenge_method", "S256");
-    authUrl.searchParams.set("state", state);
-
-    logger.info("Initiating secure OAuth flow with PKCE");
-
-    return new Promise((resolve, reject) => {
-      browser.identity.launchWebAuthFlow(
-        {
-          url: authUrl.toString(),
-          interactive: true,
-        },
-        async (responseUrl) => {
-          if (browser.runtime.lastError || !responseUrl) {
-            logger.error("Auth failed:", browser.runtime.lastError);
-            reject(browser.runtime.lastError);
-            return;
-          }
-
-          try {
-            const url = new URL(responseUrl);
-            const code = url.searchParams.get("code");
-            const returnedState = url.searchParams.get("state");
-
-            if (!code || !returnedState) {
-              logger.error("Missing code or state in OAuth response");
-              reject(new Error("Missing code or state parameter"));
-              return;
-            }
-
-            const pending = this.pendingAuth.get(returnedState);
-
-            if (!pending || pending.state !== returnedState) {
-              logger.error("State mismatch - possible CSRF attack");
-              reject(new Error("Invalid state parameter - CSRF detected"));
-              return;
-            }
-
-            logger.info("Authorization code received, exchanging for token");
-
-            const tokens = await this.exchangeCodeForToken(
-              code,
-              pending.verifier,
-            );
-
-            this.pendingAuth.delete(returnedState);
-
-            logger.info("Successfully authenticated with PKCE flow");
-            resolve(tokens);
-          } catch (error) {
-            logger.error("Error processing auth response:", error);
-            reject(error);
-          }
-        },
-      );
-    });
-  }
-
-  private async exchangeCodeForToken(
-    code: string,
-    verifier: string,
-  ): Promise<{ token: string; userId: string }> {
-    const apiUrl =
-      import.meta.env.WXT_API_URL || import.meta.env.WXT_WEBSITE_URL;
-
+  async initiateOAuth(provider: Provider): Promise<void> {
     try {
-      const extensionId = browser.runtime.id;
-      const manifest = browser.runtime.getManifest();
+      logger.info(
+        `Initiating OAuth flow with ${provider} with redirect URL: ${this.redirectUrl}`,
+      );
 
-      const response = await fetch(`${apiUrl}/api/auth/exchange`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Extension-ID": extensionId,
-          "X-Extension-Version": manifest.version,
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: this.redirectUrl,
+          skipBrowserRedirect: true,
         },
-        body: JSON.stringify({
-          code,
-          code_verifier: verifier,
-          redirect_uri: this.redirectUrl,
-        }),
       });
 
-      if (!response.ok) {
-        const error = await response.text();
-        logger.error("Token exchange failed:", error);
-        throw new Error(`Token exchange failed: ${response.status}`);
-      }
+      if (error) throw error;
+      if (!data.url) throw new Error("No OAuth URL returned");
 
-      const data = await response.json();
+      await browser.tabs.create({ url: data.url });
 
-      if (!data.access_token || !data.userId) {
-        throw new Error("Invalid token response from server");
-      }
-
-      return {
-        token: data.access_token,
-        userId: data.userId,
-      };
+      logger.info("OAuth flow initiated, waiting for callback");
     } catch (error) {
-      logger.error("Token exchange request failed:", error);
-      throw new Error("Failed to exchange authorization code for token");
+      logger.error("Failed to initiate OAuth:", error);
+      throw error;
     }
+  }
+
+  async getSession(): Promise<Session | null> {
+    try {
+      const result = await browser.storage.local.get("superfill:auth:session");
+      const session = result["superfill:auth:session"] as Session | undefined;
+
+      if (!session) return null;
+
+      const { data, error } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+
+      if (error) {
+        logger.error("Session validation failed:", error);
+        await this.clearSession();
+        return null;
+      }
+
+      return data.session;
+    } catch (error) {
+      logger.error("Failed to get session:", error);
+      return null;
+    }
+  }
+
+  async clearSession(): Promise<void> {
+    try {
+      await browser.storage.local.remove("superfill:auth:session");
+      await supabase.auth.signOut();
+      logger.info("Session cleared successfully");
+    } catch (error) {
+      logger.error("Failed to clear session:", error);
+      throw error;
+    }
+  }
+
+  async isAuthenticated(): Promise<boolean> {
+    const session = await this.getSession();
+    return session !== null;
+  }
+
+  async getCurrentUser() {
+    const session = await this.getSession();
+    if (!session) return null;
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) {
+      logger.error("Failed to get user:", error);
+      return null;
+    }
+
+    return user;
   }
 }
 
