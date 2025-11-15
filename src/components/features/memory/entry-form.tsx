@@ -82,7 +82,7 @@ export function EntryForm({
                 category: value.category,
               });
             } else {
-              await addEntry({
+              addEntry({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
