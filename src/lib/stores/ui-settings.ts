@@ -22,45 +22,63 @@ type SettingsActions = {
 
 export const useUISettingsStore = create<SettingsState & SettingsActions>()(
   persist(
-    (set, get) => ({
-      theme: Theme.DEFAULT,
-      trigger: Trigger.POPUP,
-      loading: false,
-      error: null,
-
-      toggleTheme: () => {
-        try {
-          set({ loading: true, error: null });
-          const currentTheme = get().theme;
-          const newTheme =
-            currentTheme === Theme.LIGHT
-              ? Theme.DARK
-              : currentTheme === Theme.DARK
-                ? Theme.DEFAULT
-                : Theme.LIGHT;
-          set({ theme: newTheme, loading: false });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to toggle theme";
-          logger.error("Toggle theme error:", error);
-          set({ loading: false, error: errorMessage });
-          throw error;
+    (set, get) => {
+      const unwatchUISettings = storage.uiSettings.watch((newSettings) => {
+        if (newSettings !== null) {
+          logger.info("UI settings updated from storage:", newSettings);
+          set({
+            theme: newSettings.theme,
+            trigger: newSettings.trigger,
+          });
         }
-      },
+      });
 
-      setTrigger: (trigger: Trigger) => {
-        try {
-          set({ loading: true, error: null });
-          set({ trigger, loading: false });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to set trigger";
-          logger.error("Set trigger error:", error);
-          set({ loading: false, error: errorMessage });
-          throw error;
-        }
-      },
-    }),
+      if (typeof window !== "undefined") {
+        (window as any).__uiSettingsStoreCleanup = () => {
+          unwatchUISettings();
+        };
+      }
+
+      return {
+        theme: Theme.DEFAULT,
+        trigger: Trigger.POPUP,
+        loading: false,
+        error: null,
+
+        toggleTheme: () => {
+          try {
+            set({ loading: true, error: null });
+            const currentTheme = get().theme;
+            const newTheme =
+              currentTheme === Theme.LIGHT
+                ? Theme.DARK
+                : currentTheme === Theme.DARK
+                  ? Theme.DEFAULT
+                  : Theme.LIGHT;
+            set({ theme: newTheme, loading: false });
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : "Failed to toggle theme";
+            logger.error("Toggle theme error:", error);
+            set({ loading: false, error: errorMessage });
+            throw error;
+          }
+        },
+
+        setTrigger: (trigger: Trigger) => {
+          try {
+            set({ loading: true, error: null });
+            set({ trigger, loading: false });
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : "Failed to set trigger";
+            logger.error("Set trigger error:", error);
+            set({ loading: false, error: errorMessage });
+            throw error;
+          }
+        },
+      };
+    },
     {
       name: "ui-settings-storage",
       storage: createJSONStorage(() => ({
