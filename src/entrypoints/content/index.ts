@@ -4,6 +4,7 @@ import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
 import type {
   AutofillProgress,
   DetectedField,
@@ -18,7 +19,6 @@ import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { FormDetector } from "./lib/form-detector";
-import { storage } from "@/lib/storage";
 
 const logger = createLogger("content");
 

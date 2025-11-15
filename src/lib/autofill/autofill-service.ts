@@ -14,13 +14,13 @@ import type {
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
 import type { MemoryEntry } from "@/types/memory";
+import type { AISettings } from "@/types/settings";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
+import { aiSettings } from "../storage/ai-settings";
 import { AIMatcher } from "./ai-matcher";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping } from "./mapping-utils";
-import type { AISettings } from "@/types/settings";
-import { aiSettings } from "../storage/ai-settings";
 
 const logger = createLogger("autofill-service");
 
@@ -28,7 +28,6 @@ class AutofillService {
   private aiMatcher: AIMatcher;
   private fallbackMatcher: FallbackMatcher;
   private currentAiSettings: AISettings | null = null;
-
 
   constructor() {
     this.aiMatcher = new AIMatcher();
@@ -415,7 +414,8 @@ class AutofillService {
     processingResult: AutofillResult,
     sessionId: string,
   ): PreviewSidebarPayload {
-    const confidenceThreshold = this.currentAiSettings?.confidenceThreshold ?? 0.6;
+    const confidenceThreshold =
+      this.currentAiSettings?.confidenceThreshold ?? 0.6;
 
     logger.info(
       `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,
