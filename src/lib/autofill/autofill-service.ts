@@ -248,8 +248,6 @@ class AutofillService {
 
       const allMemories = await storage.memories.getValue();
 
-      console.log("Total memories available for matching:", allMemories);
-
       if (allMemories.length === 0) {
         return {
           success: true,
@@ -312,8 +310,6 @@ class AutofillService {
       }
 
       const provider = settings.selectedProvider;
-
-      console.log("Current AI Settings in matchFields:", settings);
 
       if (!provider) {
         throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
