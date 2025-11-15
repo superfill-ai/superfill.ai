@@ -1,5 +1,36 @@
 # superfill.ai
 
+## 0.1.0
+
+### Minor Changes
+
+- [#7](https://github.com/superfill-ai/superfill.ai/pull/7) [`8614481`](https://github.com/superfill-ai/superfill.ai/commit/861448159196c3cee5d83f1ae1114962abb07d31) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - Added feature to fetch website context
+  - Website context is used in ai matching stage to improve the field mapping
+  - Website context is used to rephrase the answers if required
+  - AI prompts have been enhanced with specific rules and instructions for contextual rephrasing
+
+### Patch Changes
+
+- [#10](https://github.com/superfill-ai/superfill.ai/pull/10) [`f1ff97b`](https://github.com/superfill-ai/superfill.ai/commit/f1ff97bb5ef73fd95e2a5580d3960d0b599c65d8) Thanks [@mikr13](https://github.com/mikr13)! - refactor: state management refac of zustand & storage
+
+- [`e00c23f`](https://github.com/superfill-ai/superfill.ai/commit/e00c23fdfca0db5fd95c262530015ec28d116a04) Thanks [@mikr13](https://github.com/mikr13)! - feat: update Tailwind CSS dependencies and integrate Vite plugin
+
+- [#7](https://github.com/superfill-ai/superfill.ai/pull/7) [`8614481`](https://github.com/superfill-ai/superfill.ai/commit/861448159196c3cee5d83f1ae1114962abb07d31) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - feat(autofill): Implement user choice for AI-rephrased memories
+
+  This commit enhances the autofill preview by allowing users to choose between the AI-rephrased suggestion and their original stored memory.
+
+  - **UI Toggle**: The preview component now includes a toggle button to switch between the "AI Rephrased Memory" and "Original Memory" views. The UI dynamically updates labels and styles to reflect the current selection.
+
+  - **Manual Fill**: The manual "Fill Selected" action now respects the user's choice. The `preview-manager` has been updated to fill the form with the value selected in the UI (original or rephrased).
+
+  - **Autopilot Logic**: The `autopilot-manager` is updated to consistently use the `rephrasedValue` when available, ensuring predictable behavior in automated mode.
+
+- [#6](https://github.com/superfill-ai/superfill.ai/pull/6) [`cc999d9`](https://github.com/superfill-ai/superfill.ai/commit/cc999d942c4faac3143f6906227dfd5015733674) Thanks [@sweta-tw](https://github.com/sweta-tw)! - refactor: remove simple field mapping logic for autofill
+
+- [`381837d`](https://github.com/superfill-ai/superfill.ai/commit/381837d4945111b2922c5825b14238d105d6258d) Thanks [@mikr13](https://github.com/mikr13)! - fix: firefox csp issue fixed
+
+- [#8](https://github.com/superfill-ai/superfill.ai/pull/8) [`67f5a7e`](https://github.com/superfill-ai/superfill.ai/commit/67f5a7e726f207b9cb89a4b9de71f923ba65c638) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - Automatically Refresh model list on API key add/change
+
 ## 0.0.8
 
 ### Patch Changes
