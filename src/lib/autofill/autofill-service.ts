@@ -3,7 +3,6 @@ import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messag
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
-import { useAISettingsStore } from "@/lib/stores/ai-settings";
 import type {
   AutofillResult,
   CompressedFieldData,
@@ -20,16 +19,30 @@ import { AIMatcher } from "./ai-matcher";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping } from "./mapping-utils";
+import type { AISettings } from "@/types/settings";
+import { aiSettings } from "../storage/ai-settings";
 
 const logger = createLogger("autofill-service");
 
 class AutofillService {
   private aiMatcher: AIMatcher;
   private fallbackMatcher: FallbackMatcher;
+  private currentAiSettings: AISettings | null = null;
+
 
   constructor() {
     this.aiMatcher = new AIMatcher();
     this.fallbackMatcher = new FallbackMatcher();
+
+    aiSettings.watch((newSettings) => {
+      this.currentAiSettings = newSettings;
+      logger.info("AI settings updated:", newSettings);
+    });
+
+    aiSettings.getValue().then((settings) => {
+      this.currentAiSettings = settings;
+      logger.info("AI settings initialized:", settings);
+    });
   }
 
   async startAutofillOnActiveTab(apiKey?: string): Promise<{
@@ -291,14 +304,18 @@ class AutofillService {
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
     try {
-      const settingStore = useAISettingsStore.getState();
-      const provider = settingStore.selectedProvider;
+      const settings = this.currentAiSettings;
+      if (!settings) {
+        throw new Error("AI settings not loaded");
+      }
+
+      const provider = settings.selectedProvider;
 
       if (!provider) {
         throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
       }
 
-      const selectedModel = settingStore.selectedModels?.[provider];
+      const selectedModel = settings.selectedModels?.[provider];
 
       logger.info(
         "AutofillService: Using AI provider",
@@ -398,8 +415,7 @@ class AutofillService {
     processingResult: AutofillResult,
     sessionId: string,
   ): PreviewSidebarPayload {
-    const aiSettings = useAISettingsStore.getState();
-    const confidenceThreshold = aiSettings.confidenceThreshold;
+    const confidenceThreshold = this.currentAiSettings?.confidenceThreshold ?? 0.6;
 
     logger.info(
       `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,
