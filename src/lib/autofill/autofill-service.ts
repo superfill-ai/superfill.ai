@@ -28,12 +28,13 @@ class AutofillService {
   private aiMatcher: AIMatcher;
   private fallbackMatcher: FallbackMatcher;
   private currentAiSettings: AISettings | null = null;
+  private unwatchAiSettings?: () => void;
 
   constructor() {
     this.aiMatcher = new AIMatcher();
     this.fallbackMatcher = new FallbackMatcher();
 
-    aiSettings.watch((newSettings) => {
+    this.unwatchAiSettings = aiSettings.watch((newSettings) => {
       this.currentAiSettings = newSettings;
       logger.info("AI settings updated:", newSettings);
     });
@@ -42,6 +43,12 @@ class AutofillService {
       this.currentAiSettings = settings;
       logger.info("AI settings initialized:", settings);
     });
+  }
+
+  dispose() {
+    this.unwatchAiSettings?.();
+    this.unwatchAiSettings = undefined;
+    logger.info("AutofillService disposed");
   }
 
   async startAutofillOnActiveTab(apiKey?: string): Promise<{

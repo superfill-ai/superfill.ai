@@ -20,23 +20,20 @@ type SettingsActions = {
   setTrigger: (trigger: Trigger) => void;
 };
 
+let unwatchUiSettings: (() => void) | undefined;
+
 export const useUISettingsStore = create<SettingsState & SettingsActions>()(
   persist(
     (set, get) => {
-      const unwatchUISettings = storage.uiSettings.watch((newSettings) => {
-        if (newSettings !== null) {
-          logger.info("UI settings updated from storage:", newSettings);
-          set({
-            theme: newSettings.theme,
-            trigger: newSettings.trigger,
-          });
-        }
-      });
-
-      if (typeof window !== "undefined") {
-        (window as any).__uiSettingsStoreCleanup = () => {
-          unwatchUISettings();
-        };
+      if (!unwatchUiSettings) {
+        unwatchUiSettings = storage.uiSettings.watch((newSettings) => {
+          if (newSettings !== null) {
+            set({
+              theme: newSettings.theme,
+              trigger: newSettings.trigger,
+            });
+          }
+        });
       }
 
       return {
@@ -129,3 +126,12 @@ export const useUISettingsStore = create<SettingsState & SettingsActions>()(
     },
   ),
 );
+
+export const cleanupUISettingsWatchers = () => {
+  unwatchUiSettings?.();
+  unwatchUiSettings = undefined;
+};
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(cleanupUISettingsWatchers);
+}

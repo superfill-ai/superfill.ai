@@ -29,26 +29,23 @@ type AISettingsActions = {
   deleteApiKey: (provider: AIProvider) => Promise<void>;
 };
 
+let unwatchAiSettings: (() => void) | undefined;
+
 export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
   persist(
     (set, get) => {
-      const unwatchAISettings = storage.aiSettings.watch((newSettings) => {
-        if (newSettings !== null) {
-          logger.info("AI settings updated from storage:", newSettings);
-          set({
-            selectedProvider: newSettings.selectedProvider,
-            selectedModels: newSettings.selectedModels || {},
-            autoFillEnabled: newSettings.autoFillEnabled,
-            autopilotMode: newSettings.autopilotMode,
-            confidenceThreshold: newSettings.confidenceThreshold,
-          });
-        }
-      });
-
-      if (typeof window !== "undefined") {
-        (window as any).__aiSettingsStoreCleanup = () => {
-          unwatchAISettings();
-        };
+      if (!unwatchAiSettings) {
+        unwatchAiSettings = storage.aiSettings.watch((newSettings) => {
+          if (newSettings !== null) {
+            set({
+              selectedProvider: newSettings.selectedProvider,
+              selectedModels: newSettings.selectedModels || {},
+              autoFillEnabled: newSettings.autoFillEnabled,
+              autopilotMode: newSettings.autopilotMode,
+              confidenceThreshold: newSettings.confidenceThreshold,
+            });
+          }
+        });
       }
 
       return {
@@ -220,3 +217,12 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
     },
   ),
 );
+
+export const cleanupAISettingsWatchers = () => {
+  unwatchAiSettings?.();
+  unwatchAiSettings = undefined;
+};
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(cleanupAISettingsWatchers);
+}

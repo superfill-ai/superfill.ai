@@ -19,7 +19,7 @@ export default defineBackground({
     registerCategorizationService();
     registerKeyValidationService();
     registerModelService();
-    registerAutofillService();
+    const autofillService = registerAutofillService();
     registerSessionService();
 
     const sessionService = getSessionService();
@@ -58,5 +58,12 @@ export default defineBackground({
     });
 
     logger.info("Background script initialized with all services");
+
+    if (import.meta.hot) {
+      import.meta.hot.dispose(() => {
+        autofillService.dispose();
+        logger.info("Background script HMR cleanup completed");
+      });
+    }
   },
 });

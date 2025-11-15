@@ -50,36 +50,35 @@ type DataActions = {
 
 const logger = createLogger("store:data");
 
+let unwatchMemories: (() => void) | undefined;
+let unwatchFormMappings: (() => void) | undefined;
+let unwatchFillSessions: (() => void) | undefined;
+
 export const useDataStore = create<DataState & DataActions>()(
   persist(
     (set, get) => {
-      const unwatchMemories = storage.memories.watch((newMemories) => {
-        if (newMemories !== null) {
-          logger.info("Memories updated from storage:", newMemories);
-          set({ entries: newMemories });
-        }
-      });
+      if (!unwatchMemories) {
+        unwatchMemories = storage.memories.watch((newMemories) => {
+          if (newMemories !== null) {
+            set({ entries: newMemories });
+          }
+        });
+      }
 
-      const unwatchFormMappings = storage.formMappings.watch((newMappings) => {
-        if (newMappings !== null) {
-          logger.info("Form mappings updated from storage:", newMappings);
-          set({ formMappings: newMappings });
-        }
-      });
+      if (!unwatchFormMappings) {
+        unwatchFormMappings = storage.formMappings.watch((newMappings) => {
+          if (newMappings !== null) {
+            set({ formMappings: newMappings });
+          }
+        });
+      }
 
-      const unwatchFillSessions = storage.fillSessions.watch((newSessions) => {
-        if (newSessions !== null) {
-          logger.info("Fill sessions updated from storage:", newSessions);
-          set({ fillSessions: newSessions });
-        }
-      });
-
-      if (typeof window !== "undefined") {
-        (window as any).__dataStoreCleanup = () => {
-          unwatchMemories();
-          unwatchFormMappings();
-          unwatchFillSessions();
-        };
+      if (!unwatchFillSessions) {
+        unwatchFillSessions = storage.fillSessions.watch((newSessions) => {
+          if (newSessions !== null) {
+            set({ fillSessions: newSessions });
+          }
+        });
       }
 
       return {
@@ -686,8 +685,6 @@ export const useDataStore = create<DataState & DataActions>()(
               return;
             }
 
-            logger.info("Saving form data to storage:", state);
-
             await Promise.all([
               storage.formMappings.setValue(state.formMappings),
               storage.fillSessions.setValue(state.fillSessions),
@@ -708,3 +705,16 @@ export const useDataStore = create<DataState & DataActions>()(
     },
   ),
 );
+
+export const cleanupDataWatchers = () => {
+  unwatchMemories?.();
+  unwatchMemories = undefined;
+  unwatchFormMappings?.();
+  unwatchFormMappings = undefined;
+  unwatchFillSessions?.();
+  unwatchFillSessions = undefined;
+};
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(cleanupDataWatchers);
+}
