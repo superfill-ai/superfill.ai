@@ -117,9 +117,9 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
     onEdit(entryId);
   };
 
-  const handleDelete = async (entryId: string) => {
+  const handleDelete = (entryId: string) => {
     try {
-      await deleteEntry(entryId);
+      deleteEntry(entryId);
       onDelete(entryId);
     } catch (error) {
       toast.error(
@@ -129,8 +129,9 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
     }
   };
 
-  const handleDuplicate = async (entryId: string) => {
-    const entry = await getEntryById(entryId);
+  const handleDuplicate = (entryId: string) => {
+    const entry = getEntryById(entryId);
+
     if (entry) {
       onDuplicate(entryId);
     }

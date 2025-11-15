@@ -39,7 +39,6 @@ type DataActions = {
   updateFormMapping: (url: string, updates: Partial<FormMapping>) => void;
   deleteFormMapping: (url: string) => void;
   getFormMappingByUrl: (url: string) => FormMapping | undefined;
-  clearFormMappings: () => void;
 
   startSession: () => FillSession;
   updateSession: (id: string, updates: Partial<FillSession>) => void;
@@ -47,7 +46,6 @@ type DataActions = {
   failSession: (id: string, error: string) => void;
   getSessionById: (id: string) => FillSession | undefined;
   getRecentSessions: (limit?: number) => FillSession[];
-  clearSessions: () => void;
 };
 
 const logger = createLogger("store:data");
@@ -456,20 +454,6 @@ export const useDataStore = create<DataState & DataActions>()(
         return get().formMappings.find((m) => m.url === url);
       },
 
-      clearFormMappings: () => {
-        try {
-          set({ loading: true, error: null });
-          set({ formMappings: [], loading: false });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error
-              ? error.message
-              : "Failed to clear form mappings";
-          set({ loading: false, error: errorMessage });
-          throw error;
-        }
-      },
-
       startSession: () => {
         try {
           set({ loading: true, error: null });
@@ -610,18 +594,6 @@ export const useDataStore = create<DataState & DataActions>()(
               new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
           )
           .slice(0, limit);
-      },
-
-      clearSessions: () => {
-        try {
-          set({ loading: true, error: null });
-          set({ fillSessions: [], currentSession: null, loading: false });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to clear sessions";
-          set({ loading: false, error: errorMessage });
-          throw error;
-        }
       },
     }),
     {

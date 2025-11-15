@@ -161,12 +161,12 @@ export const App = () => {
     setActiveTab("add-memory");
   };
 
-  const handleDelete = async (entryId: string) => {
-    await deleteEntry(entryId);
+  const handleDelete = (entryId: string) => {
+    deleteEntry(entryId);
     toast.warning("Memory deleted successfully");
   };
 
-  const handleDuplicate = async (entryId: string) => {
+  const handleDuplicate = (entryId: string) => {
     const entryToDuplicate = entries.find((e) => e.id === entryId);
     if (entryToDuplicate) {
       setEditingEntryId(entryToDuplicate.id);

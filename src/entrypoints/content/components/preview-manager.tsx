@@ -214,7 +214,8 @@ export class PreviewSidebarManager {
       filledFieldOpids.push(fieldOpid);
 
       const mapping = this.mappingLookup.get(fieldOpid);
-      if (mapping && mapping.memoryId) {
+
+      if (mapping?.memoryId) {
         memoryIds.push(mapping.memoryId);
       }
     }

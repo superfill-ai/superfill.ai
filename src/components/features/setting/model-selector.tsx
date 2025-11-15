@@ -59,9 +59,7 @@ export const ModelSelector = ({
       <Combobox
         id={comboboxId}
         value={selectedModel}
-        onValueChange={async (value) => {
-          await setSelectedModel(provider, value);
-        }}
+        onValueChange={(value) => setSelectedModel(provider, value)}
         options={modelOptions}
         placeholder="Select model..."
         searchPlaceholder="Search models..."
