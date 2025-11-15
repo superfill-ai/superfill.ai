@@ -3,6 +3,7 @@ import { MonitorIcon, Moon, Sun } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "./kbd";
 import { Tooltip, TooltipContent } from "./tooltip";
 
 interface ThemeToggleProps {
@@ -12,7 +13,7 @@ interface ThemeToggleProps {
 export function ThemeToggle({ className }: ThemeToggleProps) {
   const { toggleTheme, theme } = useTheme();
 
-  useHotkeys("d", () => {
+  useHotkeys("t", () => {
     toggleTheme();
   });
 
@@ -38,7 +39,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        Toggle Theme <kbd>D</kbd>
+        Toggle Theme <Kbd>t</Kbd>
       </TooltipContent>
     </Tooltip>
   );

@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 import { APP_NAME } from "./src/constants";
 
@@ -5,6 +6,11 @@ import { APP_NAME } from "./src/constants";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   srcDir: "./src",
+  vite: () => {
+    return {
+      plugins: [tailwindcss()],
+    };
+  },
   react: {
     vite: {
       babel: {

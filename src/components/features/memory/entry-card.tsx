@@ -171,7 +171,7 @@ export function EntryCard({
           <div className="flex items-center gap-2">
             {isHovered && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Kbd>E</Kbd> to edit
+                <Kbd>e</Kbd> to edit
               </span>
             )}
             <DropdownMenu>
@@ -306,7 +306,7 @@ export function EntryCard({
             <div className="flex items-center gap-2">
               {isHovered && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Kbd>E</Kbd> to edit
+                  <Kbd>e</Kbd> to edit
                 </span>
               )}
               <DropdownMenu>
