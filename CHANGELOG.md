@@ -1,5 +1,16 @@
 # superfill.ai
 
+## 0.1.1
+
+### Patch Changes
+
+- [#12](https://github.com/superfill-ai/superfill.ai/pull/12) [`204b538`](https://github.com/superfill-ai/superfill.ai/commit/204b5386bb9a48e40de9e9f6188e7dab52835292) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement form mappings, memories, sessions, and UI settings stores with zustand
+
+- [`f000856`](https://github.com/superfill-ai/superfill.ai/commit/f000856459704b5cf3e585c1c35f6d5b4518bd32) Thanks [@mikr13](https://github.com/mikr13)! - feat: enhance state management in AI, data, and UI settings stores with storage synchronization
+
+- [#11](https://github.com/superfill-ai/superfill.ai/pull/11) [`408c2bf`](https://github.com/superfill-ai/superfill.ai/commit/408c2bfb6ec1be35c95418bbd0ca6514e820d309) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - Resolved the issue of state mamnagent for autofill service and content index
+  - Updated autofill-services.ts, content/index.tsUpdated autofill-services.ts to read the state directly from local storage
+
 ## 0.1.0
 
 ### Minor Changes
