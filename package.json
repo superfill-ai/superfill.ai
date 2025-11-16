@@ -9,7 +9,7 @@
     "name": "Mihir Kumar"
   },
   "scripts": {
-    "dev": "wxt --debug",
+    "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
