@@ -25,7 +25,7 @@ import {
 import { createLogger } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { useAISettingsStore } from "@/lib/stores/ai-settings";
-import { useDataStore } from "@/lib/stores/data";
+import { useMemoriesStore } from "@/lib/stores/memories";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
@@ -55,8 +55,8 @@ export function EntryForm({
   const selectedProvider = useAISettingsStore(
     (settings) => settings.selectedProvider,
   );
-  const { addEntry, updateEntry } = useDataStore();
-  const top10Tags = useDataStore().getTopUsedTags(10);
+  const { addEntry, updateEntry } = useMemoriesStore();
+  const top10Tags = useMemoriesStore().getTopUsedTags(10);
 
   const categorizationService = getCategorizationService();
 
@@ -82,7 +82,7 @@ export function EntryForm({
                 category: value.category,
               });
             } else {
-              addEntry({
+              await addEntry({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,

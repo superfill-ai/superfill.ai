@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { readCSVFile } from "@/lib/csv";
 import { createLogger } from "@/lib/logger";
-import { useDataStore } from "@/lib/stores/data";
+import { useMemoriesStore } from "@/lib/stores/memories";
 
 const logger = createLogger("component:entry-list");
 
@@ -49,13 +49,13 @@ interface EntryListProps {
 }
 
 export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
-  const entries = useDataStore((state) => state.entries);
-  const loading = useDataStore((state) => state.loading);
-  const deleteEntry = useDataStore((state) => state.deleteEntry);
-  const getEntryById = useDataStore((state) => state.getEntryById);
-  const exportToCSV = useDataStore((state) => state.exportToCSV);
-  const importFromCSV = useDataStore((state) => state.importFromCSV);
-  const downloadCSVTemplate = useDataStore(
+  const entries = useMemoriesStore((state) => state.entries);
+  const loading = useMemoriesStore((state) => state.loading);
+  const deleteEntry = useMemoriesStore((state) => state.deleteEntry);
+  const getEntryById = useMemoriesStore((state) => state.getEntryById);
+  const exportToCSV = useMemoriesStore((state) => state.exportToCSV);
+  const importFromCSV = useMemoriesStore((state) => state.importFromCSV);
+  const downloadCSVTemplate = useMemoriesStore(
     (state) => state.downloadCSVTemplate,
   );
 
@@ -117,9 +117,9 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
     onEdit(entryId);
   };
 
-  const handleDelete = (entryId: string) => {
+  const handleDelete = async (entryId: string) => {
     try {
-      deleteEntry(entryId);
+      await deleteEntry(entryId);
       onDelete(entryId);
     } catch (error) {
       toast.error(
