@@ -16,10 +16,24 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Get version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Zip extensions
         run: |
           bun zip
           bun zip:firefox
+
+      - name: Create Release
+        run: gh release create v${{ steps.version.outputs.version }} --title "v${{ steps.version.outputs.version }}" --notes "Release v${{ steps.version.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload artifacts to release
+        run: gh release upload v${{ steps.version.outputs.version }} .output/*-chrome.zip .output/*-firefox.zip .output/*-sources.zip
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Submit to stores
         run: |
