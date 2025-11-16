@@ -36,6 +36,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Submit to stores
+        continue-on-error: true
         run: |
           bun wxt submit \
             --chrome-zip .output/*-chrome.zip \
