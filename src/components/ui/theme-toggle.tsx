@@ -13,8 +13,8 @@ interface ThemeToggleProps {
 export function ThemeToggle({ className }: ThemeToggleProps) {
   const { toggleTheme, theme } = useTheme();
 
-  useHotkeys("t", () => {
-    toggleTheme();
+  useHotkeys("t", async () => {
+    await toggleTheme();
   });
 
   return (
@@ -24,7 +24,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
           variant="ghost"
           size="icon"
           className={className}
-          onClick={toggleTheme}
+          onClick={() => toggleTheme()}
           aria-pressed={theme === "dark"}
           aria-label="Toggle theme"
         >

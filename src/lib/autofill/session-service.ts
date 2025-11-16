@@ -1,6 +1,8 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { useDataStore } from "@/lib/stores/data";
+import { useFormMappingsStore } from "@/lib/stores/form-mappings";
+import { useMemoriesStore } from "@/lib/stores/memories";
+import { useSessionsStore } from "@/lib/stores/sessions";
 import type { FillSession, FormMapping } from "@/types/memory";
 
 const logger = createLogger("session-service");
@@ -8,7 +10,7 @@ const logger = createLogger("session-service");
 class SessionService {
   async startSession(): Promise<FillSession> {
     try {
-      const session = await useDataStore.getState().startSession();
+      const session = await useSessionsStore.getState().startSession();
       logger.info("Session started:", session.id);
       return session;
     } catch (error) {
@@ -22,7 +24,7 @@ class SessionService {
     status: FillSession["status"],
   ): Promise<boolean> {
     try {
-      await useDataStore.getState().updateSession(sessionId, { status });
+      await useSessionsStore.getState().updateSession(sessionId, { status });
       logger.info("Session status updated:", sessionId, status);
       return true;
     } catch (error) {
@@ -33,7 +35,7 @@ class SessionService {
 
   async completeSession(sessionId: string): Promise<boolean> {
     try {
-      await useDataStore.getState().completeSession(sessionId);
+      await useSessionsStore.getState().completeSession(sessionId);
       logger.info("Session completed:", sessionId);
       return true;
     } catch (error) {
@@ -44,7 +46,7 @@ class SessionService {
 
   async incrementMemoryUsage(memoryIds: string[]): Promise<boolean> {
     try {
-      const store = useDataStore.getState();
+      const store = useMemoriesStore.getState();
 
       for (const memoryId of memoryIds) {
         await store.incrementUsageCount(memoryId);
@@ -62,13 +64,14 @@ class SessionService {
     formMappings: FormMapping[],
   ): Promise<boolean> {
     try {
-      const store = useDataStore.getState();
+      const formMappingsStore = useFormMappingsStore.getState();
+      const sessionsStore = useSessionsStore.getState();
 
       for (const formMapping of formMappings) {
-        await store.addFormMapping(formMapping);
+        await formMappingsStore.addFormMapping(formMapping);
       }
 
-      await store.updateSession(sessionId, {
+      await sessionsStore.updateSession(sessionId, {
         formMappings,
       });
 

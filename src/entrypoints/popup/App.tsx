@@ -50,15 +50,15 @@ import {
 import { createLogger, DEBUG } from "@/lib/logger";
 import { keyVault } from "@/lib/security/key-vault";
 import { useAISettingsStore } from "@/lib/stores/ai-settings";
-import { useDataStore } from "@/lib/stores/data";
+import { useMemoriesStore } from "@/lib/stores/memories";
 
 const logger = createLogger("popup");
 
 export const App = () => {
-  const entries = useDataStore((state) => state.entries);
-  const loading = useDataStore((state) => state.loading);
-  const deleteEntry = useDataStore((state) => state.deleteEntry);
-  const error = useDataStore((state) => state.error);
+  const entries = useMemoriesStore((state) => state.entries);
+  const loading = useMemoriesStore((state) => state.loading);
+  const deleteEntry = useMemoriesStore((state) => state.deleteEntry);
+  const error = useMemoriesStore((state) => state.error);
   const selectedModels = useAISettingsStore((state) => state.selectedModels);
   const selectedProvider = useAISettingsStore(
     (state) => state.selectedProvider,
@@ -161,8 +161,8 @@ export const App = () => {
     setActiveTab("add-memory");
   };
 
-  const handleDelete = (entryId: string) => {
-    deleteEntry(entryId);
+  const handleDelete = async (entryId: string) => {
+    await deleteEntry(entryId);
     toast.warning("Memory deleted successfully");
   };
 

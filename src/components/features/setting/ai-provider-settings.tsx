@@ -88,7 +88,13 @@ export const AiProviderSettings = () => {
     <Card>
       <CardHeader>
         <CardTitle>AI Provider</CardTitle>
-        <CardDescription>Configure your AI provider API keys</CardDescription>
+        <CardDescription>
+          Configure your AI provider API keys. Quality of autofill matches
+          depends on the AI model used.{" "}
+          <strong className="underline">
+            Recommended to use the latest models available.
+          </strong>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
