@@ -214,6 +214,7 @@ export const ProviderKeyInput = ({
             size="icon"
             className="h-full"
             onClick={onToggleShow}
+            onMouseDown={(e) => e.preventDefault()}
           >
             {showKey ? (
               <EyeOffIcon className="size-4" />
