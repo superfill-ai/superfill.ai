@@ -7,10 +7,8 @@ import {
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
-import { useUISettingsStore } from "@/lib/stores/ui-settings";
 import type { AutofillProgress } from "@/types/autofill";
 import type { FormField, FormMapping } from "@/types/memory";
-import { Theme } from "@/types/theme";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -465,11 +463,11 @@ export class PreviewSidebarManager {
 
         this.reactRoot = root;
 
-        const currentTheme = useUISettingsStore.getState().theme;
+        (async () => {
+          const uiSettings = await storage.uiSettings.getValue();
 
-        uiContainer.classList.add(
-          currentTheme === Theme.DARK ? "dark" : "light",
-        );
+          uiContainer.classList.add(uiSettings.theme);
+        })();
 
         return root;
       },

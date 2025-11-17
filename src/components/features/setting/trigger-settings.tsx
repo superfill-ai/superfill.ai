@@ -15,14 +15,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useUISettingsStore } from "@/lib/stores/ui-settings";
+import { storage } from "@/lib/storage";
 import { Trigger } from "@/types/trigger";
 
 export const TriggerSettings = () => {
   const triggerId = useId();
+  const [trigger, setTrigger] = useState<Trigger>("popup");
 
-  const trigger = useUISettingsStore((state) => state.trigger);
-  const setTrigger = useUISettingsStore((state) => state.setTrigger);
+  const fetchTriggerFromStorage = async () => {
+    const ui = await storage.uiSettings.getValue();
+    setTrigger(ui.trigger || "popup");
+  };
+
+  useEffect(() => {
+    fetchTriggerFromStorage();
+
+    const unsubscribe = storage.uiSettings.watch((newSettings, oldSettings) => {
+      if (newSettings?.trigger !== oldSettings?.trigger) {
+        setTrigger(newSettings?.trigger || Trigger.POPUP);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <Card>

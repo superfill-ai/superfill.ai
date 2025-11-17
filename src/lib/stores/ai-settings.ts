@@ -31,8 +31,7 @@ type AISettingsActions = {
 let unwatchAiSettings: (() => void) | undefined;
 
 export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
-  (set, get) => {
-    // Initialize from storage
+  (set) => {
     storage.aiSettings.getValue().then((settings) => {
       set({
         selectedProvider: settings.selectedProvider,
@@ -43,7 +42,6 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
       });
     });
 
-    // Watch for external changes
     if (!unwatchAiSettings) {
       unwatchAiSettings = storage.aiSettings.watch((newSettings) => {
         if (newSettings !== null) {
@@ -81,6 +79,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set provider";
+          logger.error("Failed to set provider:", error);
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -105,6 +104,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set model";
+          logger.error("Failed to set model:", error);
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -125,6 +125,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set auto-fill";
+          logger.error("Failed to set auto-fill:", error);
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -147,6 +148,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
             error instanceof Error
               ? error.message
               : "Failed to set autopilot mode";
+          logger.error("Failed to set autopilot mode:", error);
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -169,6 +171,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
             error instanceof Error
               ? error.message
               : "Failed to set confidence threshold";
+          logger.error("Failed to set confidence threshold:", error);
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -196,6 +199,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to set API key";
+          logger.error("Failed to set API key:", error);
           set({ loading: false, error: errorMessage });
           throw error;
         }
@@ -213,6 +217,7 @@ export const useAISettingsStore = create<AISettingsState & AISettingsActions>()(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to delete API key";
+          logger.error("Failed to delete API key:", error);
           set({ loading: false, error: errorMessage });
           throw error;
         }

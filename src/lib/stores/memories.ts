@@ -36,12 +36,10 @@ let unwatchMemories: (() => void) | undefined;
 
 export const useMemoriesStore = create<MemoriesState & MemoriesActions>()(
   (set, get) => {
-    // Initialize from storage
     storage.memories.getValue().then((entries) => {
       set({ entries });
     });
 
-    // Watch for external changes (from other tabs/contexts)
     if (!unwatchMemories) {
       unwatchMemories = storage.memories.watch((newMemories) => {
         if (newMemories !== null) {
@@ -232,16 +230,16 @@ export const useMemoriesStore = create<MemoriesState & MemoriesActions>()(
             | "createdAt"
             | "updatedAt"
           > = [
-            "question",
-            "answer",
-            "category",
-            "tags",
-            "confidence",
-            "usageCount",
-            "lastUsed",
-            "createdAt",
-            "updatedAt",
-          ];
+              "question",
+              "answer",
+              "category",
+              "tags",
+              "confidence",
+              "usageCount",
+              "lastUsed",
+              "createdAt",
+              "updatedAt",
+            ];
 
           const csvData = entries.map((entry) => ({
             question: entry.question || "",
@@ -291,9 +289,9 @@ export const useMemoriesStore = create<MemoriesState & MemoriesActions>()(
             const tags = Array.isArray(row.tags)
               ? row.tags
               : row.tags
-                  .split(";")
-                  .map((t) => t.trim())
-                  .filter(Boolean);
+                .split(";")
+                .map((t) => t.trim())
+                .filter(Boolean);
             const category = allowedCategories.includes(row.category)
               ? row.category
               : "general";
@@ -350,16 +348,16 @@ export const useMemoriesStore = create<MemoriesState & MemoriesActions>()(
           | "createdAt"
           | "updatedAt"
         > = [
-          "question",
-          "answer",
-          "category",
-          "tags",
-          "confidence",
-          "usageCount",
-          "lastUsed",
-          "createdAt",
-          "updatedAt",
-        ];
+            "question",
+            "answer",
+            "category",
+            "tags",
+            "confidence",
+            "usageCount",
+            "lastUsed",
+            "createdAt",
+            "updatedAt",
+          ];
 
         const csv = stringifyToCSV([], headers);
         const filename = "superfill-template.csv";
