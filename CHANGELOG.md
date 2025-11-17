@@ -1,5 +1,17 @@
 # superfill.ai
 
+## 0.1.2
+
+### Patch Changes
+
+- [`851bd03`](https://github.com/superfill-ai/superfill.ai/commit/851bd03517d6a872b12a58d1e2fa12bf4e0f3227) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate AI settings management to storage and remove zustand store
+
+- [`3f58a93`](https://github.com/superfill-ai/superfill.ai/commit/3f58a93d311c7d8c0652cd36a49f17369eaf518a) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate session and form mappings management to storage and remove zustand stores
+
+- [`24d5fcd`](https://github.com/superfill-ai/superfill.ai/commit/24d5fcdfbf45adc6b64c0bb3b5c2a4814f55715a) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate memory management to hooks and remove zustand store
+
+- [`ab49f4b`](https://github.com/superfill-ai/superfill.ai/commit/ab49f4b55f7adadb268eab009f120c31cf65c817) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate UI settings management to storage and remove unused store
+
 ## 0.1.1
 
 ### Patch Changes

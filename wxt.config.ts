@@ -24,7 +24,7 @@ export default defineConfig({
 
     const baseManifest = {
       name: APP_NAME,
-      version: "0.1.1",
+      version: "0.1.2",
       description: "AI-powered form filling browser extension",
       permissions: ["activeTab", "storage"],
       host_permissions: [
