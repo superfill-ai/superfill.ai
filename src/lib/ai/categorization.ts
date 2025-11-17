@@ -3,7 +3,7 @@ import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
-import { createLogger } from "@/lib/logger";
+import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import type { CompressedFieldData } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
@@ -144,13 +144,15 @@ Be precise and consider context. For example:
       ? `Question: ${question}\nAnswer: ${answer}`
       : `Information: ${answer}`;
 
-    updateActiveObservation({
-      input: { answer, question },
-    });
-    updateActiveTrace({
-      name: "superfill:memory-categorization",
-      input: { answer, question },
-    });
+    if (DEBUG) {
+      updateActiveObservation({
+        input: { answer, question },
+      });
+      updateActiveTrace({
+        name: "superfill:memory-categorization",
+        input: { answer, question },
+      });
+    }
 
     const result = await generateObject({
       model,
@@ -161,7 +163,7 @@ Be precise and consider context. For example:
       schemaDescription: "Categorization and tagging result for user data",
       temperature: 0.3,
       experimental_telemetry: {
-        isEnabled: true,
+        isEnabled: DEBUG,
         functionId: "memory-categorization",
         metadata: {
           hasQuestion: !!question,
@@ -171,30 +173,36 @@ Be precise and consider context. For example:
       },
     });
 
-    updateActiveObservation({
-      output: result.object,
-    });
-    updateActiveTrace({
-      output: result.object,
-    });
-    trace.getActiveSpan()?.end();
+    if (DEBUG) {
+      updateActiveObservation({
+        output: result.object,
+      });
+      updateActiveTrace({
+        output: result.object,
+      });
+      trace.getActiveSpan()?.end();
+    }
 
     return result.object;
   } catch (error) {
     logger.error("AI categorization failed:", error);
 
-    updateActiveObservation({
-      output: error,
-      level: "ERROR",
-    });
-    updateActiveTrace({
-      output: error,
-    });
-    trace.getActiveSpan()?.end();
+    if (DEBUG) {
+      updateActiveObservation({
+        output: error,
+        level: "ERROR",
+      });
+      updateActiveTrace({
+        output: error,
+      });
+      trace.getActiveSpan()?.end();
+    }
 
     return fallbackCategorization(answer, question);
   } finally {
-    (async () => await langfuseSpanProcessor.forceFlush())();
+    if (DEBUG) {
+      (async () => await langfuseSpanProcessor.forceFlush())();
+    }
   }
 };
 
@@ -267,6 +275,22 @@ export const rephraseAgent = async (
   apiKey: string,
   modelName?: string,
 ): Promise<RephraseResult> => {
+  let updateActiveObservation: typeof import("@langfuse/tracing").updateActiveObservation | undefined;
+  let updateActiveTrace: typeof import("@langfuse/tracing").updateActiveTrace | undefined;
+  let trace: typeof import("@opentelemetry/api").trace | undefined;
+  let langfuseSpanProcessor: typeof import("../observability/langfuse").langfuseSpanProcessor | undefined;
+
+  if (DEBUG) {
+    const langfuseTracing = await import("@langfuse/tracing");
+    const opentelemetry = await import("@opentelemetry/api");
+    const langfuseObservability = await import("../observability/langfuse");
+
+    updateActiveObservation = langfuseTracing.updateActiveObservation;
+    updateActiveTrace = langfuseTracing.updateActiveTrace;
+    trace = opentelemetry.trace;
+    langfuseSpanProcessor = langfuseObservability.langfuseSpanProcessor;
+  }
+
   try {
     const model = getAIModel(provider, apiKey, modelName);
 
@@ -277,13 +301,15 @@ export const rephraseAgent = async (
 
     const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
 
-    updateActiveObservation({
-      input: { answer, question },
-    });
-    updateActiveTrace({
-      name: "superfill:memory-rephrase",
-      input: { answer, question },
-    });
+    if (DEBUG && updateActiveObservation && updateActiveTrace) {
+      updateActiveObservation({
+        input: { answer, question },
+      });
+      updateActiveTrace({
+        name: "superfill:memory-rephrase",
+        input: { answer, question },
+      });
+    }
 
     const { object } = await generateObject({
       model,
@@ -295,55 +321,35 @@ export const rephraseAgent = async (
       temperature: 0.5,
     });
 
-    updateActiveObservation({
-      output: object,
-    });
-    updateActiveTrace({
-      output: object,
-    });
-    trace.getActiveSpan()?.end();
+    if (DEBUG && updateActiveObservation && updateActiveTrace && trace) {
+      updateActiveObservation({
+        output: object,
+      });
+      updateActiveTrace({
+        output: object,
+      });
+      trace.getActiveSpan()?.end();
+    }
 
     return object;
   } catch (error) {
     logger.error("AI rephrasing failed:", error);
 
-    updateActiveObservation({
-      output: error,
-      level: "ERROR",
-    });
-    updateActiveTrace({
-      output: error,
-    });
-    trace.getActiveSpan()?.end();
+    if (DEBUG && updateActiveObservation && updateActiveTrace && trace) {
+      updateActiveObservation({
+        output: error,
+        level: "ERROR",
+      });
+      updateActiveTrace({
+        output: error,
+      });
+      trace.getActiveSpan()?.end();
+    }
 
     throw new Error("Failed to rephrase content with AI.");
   } finally {
-    (async () => await langfuseSpanProcessor.forceFlush())();
-  }
-};
-
-export const batchCategorization = async (
-  entries: Array<{ answer: string; question?: string }>,
-  provider: "openai" | "anthropic" | "groq" | "deepseek" | "gemini",
-  apiKey: string,
-): Promise<AnalysisResult[]> => {
-  // For now, process sequentially. Future: implement proper batching
-  const results: AnalysisResult[] = [];
-
-  for (const entry of entries) {
-    try {
-      const result = await categorizationAgent(
-        entry.answer,
-        entry.question,
-        provider,
-        apiKey,
-      );
-      results.push(result);
-    } catch (error) {
-      logger.error("Batch categorization error:", error);
-      results.push(await fallbackCategorization(entry.answer, entry.question));
+    if (DEBUG && langfuseSpanProcessor) {
+      (async () => await langfuseSpanProcessor.forceFlush())();
     }
   }
-
-  return results;
 };

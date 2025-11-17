@@ -3,7 +3,7 @@ import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
-import { createLogger } from "@/lib/logger";
+import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CompressedFieldData,
@@ -131,13 +131,15 @@ export class AIMatcher {
         websiteContext,
       });
 
-      updateActiveObservation({
-        input: { fields, memories, provider },
-      });
-      updateActiveTrace({
-        name: "superfill:memory-categorization",
-        input: { fields, memories, provider },
-      });
+      if (DEBUG) {
+        updateActiveObservation({
+          input: { fields, memories, provider },
+        });
+        updateActiveTrace({
+          name: "superfill:memory-categorization",
+          input: { fields, memories, provider },
+        });
+      }
 
       const result = await generateObject({
         model,
@@ -149,7 +151,7 @@ export class AIMatcher {
         prompt: userPrompt,
         temperature: 0.3,
         experimental_telemetry: {
-          isEnabled: true,
+          isEnabled: DEBUG,
           functionId: "field-matching",
           metadata: {
             fieldCount: fields.length,
@@ -161,30 +163,36 @@ export class AIMatcher {
         },
       });
 
-      updateActiveObservation({
-        output: result.object,
-      });
-      updateActiveTrace({
-        output: result.object,
-      });
-      trace.getActiveSpan()?.end();
+      if (DEBUG) {
+        updateActiveObservation({
+          output: result.object,
+        });
+        updateActiveTrace({
+          output: result.object,
+        });
+        trace.getActiveSpan()?.end();
+      }
 
       return result.object;
     } catch (error) {
       logger.error("AI matching failed:", error);
 
-      updateActiveObservation({
-        output: error,
-        level: "ERROR",
-      });
-      updateActiveTrace({
-        output: error,
-      });
-      trace.getActiveSpan()?.end();
+      if (DEBUG) {
+        updateActiveObservation({
+          output: error,
+          level: "ERROR",
+        });
+        updateActiveTrace({
+          output: error,
+        });
+        trace.getActiveSpan()?.end();
+      }
 
       throw error;
     } finally {
-      (async () => await langfuseSpanProcessor.forceFlush())();
+      if (DEBUG) {
+        (async () => await langfuseSpanProcessor.forceFlush())();
+      }
     }
   }
 

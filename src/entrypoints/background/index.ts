@@ -5,7 +5,7 @@ import {
   getSessionService,
   registerSessionService,
 } from "@/lib/autofill/session-service";
-import { createLogger } from "@/lib/logger";
+import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
@@ -15,7 +15,9 @@ const logger = createLogger("background");
 export default defineBackground({
   type: "module",
   main: () => {
-    tracerProvider.register();
+    if (DEBUG) {
+      tracerProvider.register();
+    }
     registerCategorizationService();
     registerKeyValidationService();
     registerModelService();
