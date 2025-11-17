@@ -222,14 +222,36 @@ Your task is to take a user's stored answer and adapt it for a specific form fie
 
 **CRUCIAL RULES**:
 1.  **Analyze the Context**: Use the Website and Field context to understand the required tone (professional, casual), length, and format.
-2.  **Preserve Core Meaning**: The rephrased answer MUST retain the original answer's core information. Do not invent new facts.
+2.  **Preserve Core Meaning**: The rephrased answer MUST retain the original answer's core information. DO NOT invent new facts or hallucinate information not present in the original answer.
 3.  **Be Subtle**: If the original answer already fits well, make minimal or no changes. Only rephrase when the context clearly demands it. For example, a simple name or email address rarely needs rephrasing.
 4.  **Focus on Tone and Format**: A long-form answer for a "Bio" on a professional site (job_portal) should be formal. The same answer for a "Bio" on a 'dating' site should be more casual and personal.
+5.  **Handle Compound Data**: For data like names, analyze the field's purpose. If the original answer is a full name and the field asks for a specific part (e.g., 'First Name'), extract only that part. Do not return the full answer.
 
-Example:
+**Complex Field Examples**:
+
+*Example 1: Tone & Brevity*
 - Original Answer: "I am a skilled software engineer with 5 years of experience in React and Node.js."
 - Field: "Short Bio" on a 'social' network.
 - Rephrased Answer: "Software engineer, 5 years with React & Node.js."
+
+*Example 2: Splitting Name Data*
+- Original Answer: "John Fitzgerald Doe"
+- Field Context: Field Purpose is 'name.first', Field Label is 'First Name'
+- Rephrased Answer: "John"
+
+- Original Answer: "John Fitzgerald Doe"
+- Field Context: Field Purpose is 'name.last', Field Label is 'Last Name'
+- Rephrased Answer: "Doe"
+
+*Example 3: Splitting Address Data*
+- Original Answer: "123 Main St, Anytown, CA 94105, USA"
+- Field Context: Field Purpose is 'address.street', Field Label is 'Street Address'
+- Rephrased Answer: "123 Main St"
+
+- Original Answer: "123 Main St, Anytown, CA 94105, USA"
+- Field Context: Field Purpose is 'address.city', Field Label is 'City'
+- Rephrased Answer: "Anytown"
+
 `;
 
     const userPrompt = `
