@@ -219,16 +219,20 @@ bun run lint
 - [x] Top used tags & click-to-add functionality
 - [x] Ollama AI provider support
 - [x] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
-- [ ] Firefox support (in-progress, submission made to Firefox Add-ons store)
-- [ ] Semantic search across stored data
+- [ ] Firefox support (in-testing)
 
-### 📋 In Progress (Phase 2, Nov 15th)
+### 📋 In Progress (Phase 2, Nov 25th)
 
 #### Free features
 
+- [ ] Cache Previous fill results for faster fill on similar form fields/urls
+- [ ] Store unfilled questions along with user filled answers as memories automatically
+- [ ] Semantic search across stored data
 - [ ] Browser native autofill integration (bypass extension popup)
-- [ ] [Improvement] Cache Previous fill results for faster fill on similar form fields/urls
 - [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
+- [ ] Explore alternate modes:
+  - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
+  - [ ] Copilot mode (Sidebar with memory suggestions as you type)
 - [ ] Auto adding memories from filled forms based on user confirmation
 - [ ] MCP support
 - [ ] Upvote/downvote memory suggestions
