@@ -109,7 +109,7 @@ export const AiProviderSettings = () => {
           Configure your AI provider API keys. Quality of autofill matches
           depends on the AI model used.{" "}
           <strong className="underline">
-            Recommended to use the latest models available.
+            Recommended to use the latest models available
           </strong>
         </CardDescription>
       </CardHeader>

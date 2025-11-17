@@ -92,7 +92,8 @@ export const AutofillSettings = () => {
                 Enable Autofill
               </FieldLabel>
               <FieldDescription>
-                Automatically fill forms with your stored memories
+                Automatically suggest or fill (in autopilot mode) forms with
+                your stored memories
               </FieldDescription>
             </FieldContent>
             <Switch
