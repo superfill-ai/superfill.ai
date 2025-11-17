@@ -27,7 +27,8 @@ import {
   type AIProvider,
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
-import { useAISettingsStore } from "@/lib/stores/ai-settings";
+import { storage } from "@/lib/storage";
+import type { AISettings } from "@/types/settings";
 import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 
@@ -37,17 +38,33 @@ export const AiProviderSettings = () => {
   const [providerOptions, setProviderOptions] = useState<
     ReturnType<typeof getProviderOptions> extends Promise<infer T> ? T : never
   >([]);
+  const [selectedProvider, setSelectedProvider] = useState<
+    AIProvider | undefined
+  >();
   const providerComboboxId = useId();
-  const selectedProvider = useAISettingsStore(
-    (state) => state.selectedProvider,
-  );
-  const setSelectedProvider = useAISettingsStore(
-    (state) => state.setSelectedProvider,
-  );
   const { data: keyStatuses } = useProviderKeyStatuses();
   const saveKeyWithModelMutation = useSaveApiKeyWithModel();
   const deleteKeyMutation = useDeleteApiKey();
   const allConfigs = getAllProviderConfigs();
+
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+      setSelectedProvider(settings.selectedProvider);
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setSelectedProvider(newSettings.selectedProvider);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: need to run when keyStatuses change
   useEffect(() => {
@@ -129,7 +146,12 @@ export const AiProviderSettings = () => {
               id={providerComboboxId}
               value={selectedProvider}
               onValueChange={async (value) => {
-                await setSelectedProvider(value as AIProvider);
+                const currentSettings = await storage.aiSettings.getValue();
+                const updatedSettings: AISettings = {
+                  ...currentSettings,
+                  selectedProvider: value as AIProvider,
+                };
+                await storage.aiSettings.setValue(updatedSettings);
               }}
               options={providerOptions.map((p) => ({
                 value: p.value,

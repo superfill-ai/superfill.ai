@@ -4,7 +4,7 @@ import {
   TargetIcon,
   TrophyIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
@@ -48,8 +48,9 @@ import {
   ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
 } from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
+import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
-import { useAISettingsStore } from "@/lib/stores/ai-settings";
+import { storage } from "@/lib/storage";
 import { useMemoriesStore } from "@/lib/stores/memories";
 
 const logger = createLogger("popup");
@@ -59,10 +60,12 @@ export const App = () => {
   const loading = useMemoriesStore((state) => state.loading);
   const deleteEntry = useMemoriesStore((state) => state.deleteEntry);
   const error = useMemoriesStore((state) => state.error);
-  const selectedModels = useAISettingsStore((state) => state.selectedModels);
-  const selectedProvider = useAISettingsStore(
-    (state) => state.selectedProvider,
-  );
+  const [selectedModels, setSelectedModels] = useState<
+    Partial<Record<AIProvider, string>>
+  >({});
+  const [selectedProvider, setSelectedProvider] = useState<
+    AIProvider | undefined
+  >();
   const stats = useMemoryStats();
   const topMemories = useTopMemories(10);
   const [activeTab, setActiveTab] = useState<
@@ -71,6 +74,27 @@ export const App = () => {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   const hasMemories = entries.length > 0;
+
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+      setSelectedProvider(settings.selectedProvider);
+      setSelectedModels(settings.selectedModels || {});
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setSelectedProvider(newSettings.selectedProvider);
+        setSelectedModels(newSettings.selectedModels || {});
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useHotkeys("c", () => {
     setActiveTab("add-memory");

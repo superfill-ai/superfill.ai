@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   Card,
   CardContent,
@@ -15,28 +15,68 @@ import {
 } from "@/components/ui/field";
 import { SliderWithInput } from "@/components/ui/slider-with-input";
 import { Switch } from "@/components/ui/switch";
-import { useAISettingsStore } from "@/lib/stores/ai-settings";
+import { storage } from "@/lib/storage";
+import type { AISettings } from "@/types/settings";
 
 export const AutofillSettings = () => {
   const autofillEnabledId = useId();
   const autopilotModeId = useId();
   const confidenceThresholdId = useId();
 
-  const autoFillEnabled = useAISettingsStore((state) => state.autoFillEnabled);
-  const autopilotMode = useAISettingsStore((state) => state.autopilotMode);
-  const confidenceThreshold = useAISettingsStore(
-    (state) => state.confidenceThreshold,
-  );
+  const [autoFillEnabled, setAutoFillEnabled] = useState(true);
+  const [autopilotMode, setAutopilotMode] = useState(false);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
 
-  const setAutoFillEnabled = useAISettingsStore(
-    (state) => state.setAutoFillEnabled,
-  );
-  const setAutopilotMode = useAISettingsStore(
-    (state) => state.setAutopilotMode,
-  );
-  const setConfidenceThreshold = useAISettingsStore(
-    (state) => state.setConfidenceThreshold,
-  );
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+
+      setAutoFillEnabled(settings.autoFillEnabled);
+      setAutopilotMode(settings.autopilotMode);
+      setConfidenceThreshold(settings.confidenceThreshold);
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setAutoFillEnabled(newSettings.autoFillEnabled);
+        setAutopilotMode(newSettings.autopilotMode);
+        setConfidenceThreshold(newSettings.confidenceThreshold);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const handleSetAutoFillEnabled = async (enabled: boolean) => {
+    const currentSettings = await storage.aiSettings.getValue();
+    const updatedSettings: AISettings = {
+      ...currentSettings,
+      autoFillEnabled: enabled,
+    };
+    await storage.aiSettings.setValue(updatedSettings);
+  };
+
+  const handleSetAutopilotMode = async (enabled: boolean) => {
+    const currentSettings = await storage.aiSettings.getValue();
+    const updatedSettings: AISettings = {
+      ...currentSettings,
+      autopilotMode: enabled,
+    };
+    await storage.aiSettings.setValue(updatedSettings);
+  };
+
+  const handleSetConfidenceThreshold = async (threshold: number) => {
+    const currentSettings = await storage.aiSettings.getValue();
+    const updatedSettings: AISettings = {
+      ...currentSettings,
+      confidenceThreshold: threshold,
+    };
+    await storage.aiSettings.setValue(updatedSettings);
+  };
 
   return (
     <Card>
@@ -58,7 +98,7 @@ export const AutofillSettings = () => {
             <Switch
               id={autofillEnabledId}
               checked={autoFillEnabled}
-              onCheckedChange={setAutoFillEnabled}
+              onCheckedChange={handleSetAutoFillEnabled}
             />
           </Field>
 
@@ -73,7 +113,7 @@ export const AutofillSettings = () => {
             <Switch
               id={autopilotModeId}
               checked={autopilotMode}
-              onCheckedChange={setAutopilotMode}
+              onCheckedChange={handleSetAutopilotMode}
               disabled={!autoFillEnabled}
             />
           </Field>
@@ -86,7 +126,7 @@ export const AutofillSettings = () => {
               max={1}
               step={0.05}
               value={confidenceThreshold}
-              onChange={setConfidenceThreshold}
+              onChange={handleSetConfidenceThreshold}
             />
             <FieldDescription>
               Minimum confidence score required for autofill suggestions

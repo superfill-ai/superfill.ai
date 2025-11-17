@@ -22,13 +22,13 @@ export const TriggerSettings = () => {
   const triggerId = useId();
   const [trigger, setTrigger] = useState<Trigger>("popup");
 
-  const fetchTriggerFromStorage = async () => {
-    const ui = await storage.uiSettings.getValue();
-    setTrigger(ui.trigger || "popup");
-  };
-
   useEffect(() => {
-    fetchTriggerFromStorage();
+    const fetchAndWatch = async () => {
+      const ui = await storage.uiSettings.getValue();
+      setTrigger(ui.trigger || "popup");
+    };
+
+    fetchAndWatch();
 
     const unsubscribe = storage.uiSettings.watch((newSettings, oldSettings) => {
       if (newSettings?.trigger !== oldSettings?.trigger) {

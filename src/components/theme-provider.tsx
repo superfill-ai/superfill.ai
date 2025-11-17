@@ -23,11 +23,6 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>("system");
 
-  const fetchThemeFromStorage = async () => {
-    const ui = await storage.uiSettings.getValue();
-    setTheme(ui.theme || "system");
-  };
-
   const toggleTheme = async () => {
     const newTheme =
       theme === Theme.LIGHT
@@ -70,7 +65,12 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: fine here
   useEffect(() => {
-    fetchThemeFromStorage();
+    const fetchAndWatch = async () => {
+      const ui = await storage.uiSettings.getValue();
+      setTheme(ui.theme || "system");
+    };
+
+    fetchAndWatch();
 
     const unsubscribe = storage.uiSettings.watch((newSettings, oldSettings) => {
       if (newSettings?.theme !== oldSettings?.theme) {

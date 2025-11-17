@@ -1,7 +1,7 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +23,9 @@ import {
   ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
+import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
-import { useAISettingsStore } from "@/lib/stores/ai-settings";
+import { storage } from "@/lib/storage";
 import { useMemoriesStore } from "@/lib/stores/memories";
 import type { MemoryEntry } from "@/types/memory";
 
@@ -52,9 +53,10 @@ export function EntryForm({
   onSuccess,
   onCancel,
 }: EntryFormProps) {
-  const selectedProvider = useAISettingsStore(
-    (settings) => settings.selectedProvider,
-  );
+  const [selectedProvider, setSelectedProvider] = useState<
+    AIProvider | undefined
+  >();
+
   const { addEntry, updateEntry } = useMemoriesStore();
   const top10Tags = useMemoriesStore().getTopUsedTags(10);
 
@@ -211,6 +213,25 @@ export function EntryForm({
 
   const isAiCategorizing = categorizeAndTaggingMutation.isPending;
   const isAiRephrasing = rephraseMutation.isPending;
+
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+      setSelectedProvider(settings.selectedProvider);
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setSelectedProvider(newSettings.selectedProvider);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
