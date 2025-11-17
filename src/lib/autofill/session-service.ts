@@ -1,8 +1,12 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { useFormMappingsStore } from "@/lib/stores/form-mappings";
+import { addFormMapping } from "@/lib/storage/form-mappings";
+import {
+  completeSession,
+  startSession,
+  updateSession,
+} from "@/lib/storage/sessions";
 import { useMemoriesStore } from "@/lib/stores/memories";
-import { useSessionsStore } from "@/lib/stores/sessions";
 import type { FillSession, FormMapping } from "@/types/memory";
 
 const logger = createLogger("session-service");
@@ -10,7 +14,7 @@ const logger = createLogger("session-service");
 class SessionService {
   async startSession(): Promise<FillSession> {
     try {
-      const session = await useSessionsStore.getState().startSession();
+      const session = await startSession();
       logger.info("Session started:", session.id);
       return session;
     } catch (error) {
@@ -24,7 +28,7 @@ class SessionService {
     status: FillSession["status"],
   ): Promise<boolean> {
     try {
-      await useSessionsStore.getState().updateSession(sessionId, { status });
+      await updateSession(sessionId, { status });
       logger.info("Session status updated:", sessionId, status);
       return true;
     } catch (error) {
@@ -35,7 +39,7 @@ class SessionService {
 
   async completeSession(sessionId: string): Promise<boolean> {
     try {
-      await useSessionsStore.getState().completeSession(sessionId);
+      await completeSession(sessionId);
       logger.info("Session completed:", sessionId);
       return true;
     } catch (error) {
@@ -64,14 +68,11 @@ class SessionService {
     formMappings: FormMapping[],
   ): Promise<boolean> {
     try {
-      const formMappingsStore = useFormMappingsStore.getState();
-      const sessionsStore = useSessionsStore.getState();
-
       for (const formMapping of formMappings) {
-        await formMappingsStore.addFormMapping(formMapping);
+        await addFormMapping(formMapping);
       }
 
-      await sessionsStore.updateSession(sessionId, {
+      await updateSession(sessionId, {
         formMappings,
       });
 
