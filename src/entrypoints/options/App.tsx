@@ -21,12 +21,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
+import { useMemories } from "@/hooks/use-memories";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useMemoriesStore } from "@/lib/stores/memories";
 
 export const App = () => {
   const isMobile = useIsMobile();
-  const entries = useMemoriesStore((state) => state.entries);
+  const { entries } = useMemories();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 

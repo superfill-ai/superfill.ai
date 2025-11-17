@@ -52,44 +52,6 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - **shadcn/ui Components**: Beautiful, accessible UI components
 - **Real-time Updates**: Instant feedback with optimistic updates
 
----
-
-## 🛠️ Tech Stack
-
-### Core Framework
-
-- **WXT** - Next-gen browser extension framework with Vite
-- **React 19** - Latest React with concurrent features
-- **TypeScript 5.7+** - Strict type safety throughout
-- **Bun** - Ultra-fast runtime and package manager
-
-### UI & Styling
-
-- **shadcn/ui** - Copy-paste accessible components
-- **Tailwind CSS v4** - Utility-first styling
-- **Radix UI** - Headless UI primitives
-- **TanStack Form** - Type-safe form management
-
-### State & Storage
-
-- **Zustand** - Minimal state management (<1KB)
-- **WXT Storage API** - Cross-browser compatible storage
-- **@tanstack/react-virtual** - Virtual scrolling for performance
-
-### AI Integration
-
-- **Vercel AI SDK v5** - Unified LLM interface
-- **Zod** - Runtime type validation
-- **Structured Outputs** - Type-safe AI responses
-
-### Security
-
-- **Web Crypto API** - Native browser encryption
-- **AES-GCM** - Authenticated encryption
-- **PBKDF2** - Key derivation function
-
----
-
 ## 🚀 Quick Start
 
 ### Prerequisites

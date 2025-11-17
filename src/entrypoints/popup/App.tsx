@@ -41,7 +41,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { APP_NAME } from "@/constants";
-import { useMemoryStats, useTopMemories } from "@/hooks/use-memory";
+import {
+  useMemories,
+  useMemoryMutations,
+  useMemoryStats,
+  useTopMemories,
+} from "@/hooks/use-memories";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
 import {
   ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
@@ -51,15 +56,12 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
-import { useMemoriesStore } from "@/lib/stores/memories";
 
 const logger = createLogger("popup");
 
 export const App = () => {
-  const entries = useMemoriesStore((state) => state.entries);
-  const loading = useMemoriesStore((state) => state.loading);
-  const deleteEntry = useMemoriesStore((state) => state.deleteEntry);
-  const error = useMemoriesStore((state) => state.error);
+  const { entries, loading } = useMemories();
+  const { deleteEntry } = useMemoryMutations();
   const [selectedModels, setSelectedModels] = useState<
     Partial<Record<AIProvider, string>>
   >({});
@@ -186,8 +188,14 @@ export const App = () => {
   };
 
   const handleDelete = async (entryId: string) => {
-    await deleteEntry(entryId);
-    toast.warning("Memory deleted successfully");
+    try {
+      await deleteEntry.mutateAsync(entryId);
+      toast.success("Memory deleted successfully!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete memory",
+      );
+    }
   };
 
   const handleDuplicate = (entryId: string) => {
@@ -212,30 +220,6 @@ export const App = () => {
           <img src="/favicon.svg" alt="" className="size-6" />
           <p className="text-sm text-muted-foreground">Loading memories...</p>
         </div>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section
-        className="relative w-full h-[600px] flex items-center justify-center p-4"
-        aria-label="Error"
-      >
-        <Card className="w-full max-w-md border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive">Failed to Load</CardTitle>
-            <CardDescription>{error}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => logger.info("Try Again clicked")}
-              className="w-full"
-            >
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
       </section>
     );
   }
@@ -269,12 +253,6 @@ export const App = () => {
           </Tooltip>
         </div>
       </header>
-
-      {error && (
-        <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
-          <p className="text-sm text-destructive">{error}</p>
-        </div>
-      )}
 
       <main className="flex-1 overflow-hidden">
         <Tabs

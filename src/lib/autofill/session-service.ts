@@ -1,12 +1,12 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { addFormMapping } from "@/lib/storage/form-mappings";
+import { incrementUsageCount } from "@/lib/storage/memories";
 import {
   completeSession,
   startSession,
   updateSession,
 } from "@/lib/storage/sessions";
-import { useMemoriesStore } from "@/lib/stores/memories";
 import type { FillSession, FormMapping } from "@/types/memory";
 
 const logger = createLogger("session-service");
@@ -50,10 +50,8 @@ class SessionService {
 
   async incrementMemoryUsage(memoryIds: string[]): Promise<boolean> {
     try {
-      const store = useMemoriesStore.getState();
-
       for (const memoryId of memoryIds) {
-        await store.incrementUsageCount(memoryId);
+        await incrementUsageCount(memoryId);
       }
       logger.info("Memory usage incremented for:", memoryIds);
       return true;

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
 import { allowedCategories } from "@/lib/copies";
 import {
@@ -26,7 +27,6 @@ import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
-import { useMemoriesStore } from "@/lib/stores/memories";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
@@ -57,8 +57,8 @@ export function EntryForm({
     AIProvider | undefined
   >();
 
-  const { addEntry, updateEntry } = useMemoriesStore();
-  const top10Tags = useMemoriesStore().getTopUsedTags(10);
+  const { addEntry, updateEntry } = useMemoryMutations();
+  const top10Tags = useTopUsedTags(10);
 
   const categorizationService = getCategorizationService();
 
@@ -77,14 +77,17 @@ export function EntryForm({
         async () => {
           try {
             if (mode === "edit" && initialData) {
-              await updateEntry(initialData.id, {
-                question: value.question,
-                answer: value.answer,
-                tags: value.tags,
-                category: value.category,
+              await updateEntry.mutateAsync({
+                id: initialData.id,
+                updates: {
+                  question: value.question,
+                  answer: value.answer,
+                  tags: value.tags,
+                  category: value.category,
+                },
               });
             } else {
-              await addEntry({
+              await addEntry.mutateAsync({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
