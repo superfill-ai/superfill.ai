@@ -258,10 +258,6 @@ export class PreviewSidebarManager {
           fieldsDetected: filledFieldOpids.length,
           fieldsMatched: memoryIds.length,
         });
-        await contentAutofillMessaging.sendMessage("updateSessionStatus", {
-          sessionId: this.sessionId,
-          status: "completed",
-        });
 
         logger.info("Session completed:", this.sessionId);
       } catch (error) {
