@@ -52,6 +52,69 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - **shadcn/ui Components**: Beautiful, accessible UI components
 - **Real-time Updates**: Instant feedback with optimistic updates
 
+---
+
+## 📊 Current Progress
+
+### 🚧 In Progress (Phase 1)
+
+- [x] Memory CRUD operations
+- [x] AI-powered categorization & tagging
+- [x] Encrypted API key storage
+- [x] Extension popup & options UI
+- [x] Search, filter, sort functionality
+- [x] Import/Export (CSV)
+- [x] Theme support (light/dark)
+- [x] Settings management
+- [x] Form detection algorithm
+- [x] Field-to-memory matching
+- [x] Auto-fill engine with confidence scoring
+- [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
+- [x] Autofill directly without preview mode (autopilot mode)
+- [x] Let AI rephrase questions/answers on memory creation
+- [x] Top used tags & click-to-add functionality
+- [x] Ollama AI provider support
+- [x] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
+- [x] Firefox support
+
+### 📋 In Progress (Phase 2, Nov 25th)
+
+#### Free features
+
+- [ ] Cache Previous fill results for faster fill on similar form fields/urls
+- [ ] Store unfilled questions along with user filled answers as memories automatically
+- [ ] Parse pdf to extract content for memory creation
+- [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
+- [ ] Browser native autofill integration (bypass extension popup)
+- [ ] Explore alternate modes:
+  - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
+  - [ ] Copilot mode (Sidebar with memory suggestions as you type)
+- [ ] MCP support
+- [ ] Upvote/downvote memory suggestions
+- [ ] Multi page form support
+- [ ] Semantic search across stored data
+- [ ] Customizable autofill shortcuts
+- [ ] Customizable autofill templates (Industry-specific templates)
+- [ ] Custom AI prompts
+
+#### Premium features
+
+- [x] Cloud AI model integration
+- [x] Sign in & cloud sync
+- [ ] Multi-device support
+- [ ] Reinforcement learning for user corrections
+- [ ] AI model memory prediction improvement
+- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
+- [ ] Team features
+- [ ] Analytics dashboard
+- [ ] SOC 2 Type II certification
+- [ ] GDPR compliance
+- [ ] Data residency options
+- [ ] Audit logs
+- [ ] SSO integration
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -155,70 +218,8 @@ bun run lint
 |---------|--------|-------|
 | Chrome | ✅ Fully Supported | Manifest V3 |
 | Edge | ✅ Fully Supported | Chrome-compatible |
-| Firefox | 🚧 Planned | WXT supports MV2/MV3 |
+| Firefox | ✅ Planned | WXT supports MV2/MV3 |
 | Safari | 🚧 Planned | Requires adjustments |
-
----
-
-## 📊 Current Progress
-
-### 🚧 In Progress (Phase 1)
-
-- [x] Memory CRUD operations
-- [x] AI-powered categorization & tagging
-- [x] Encrypted API key storage
-- [x] Extension popup & options UI
-- [x] Search, filter, sort functionality
-- [x] Import/Export (CSV)
-- [x] Theme support (light/dark)
-- [x] Settings management
-- [x] Form detection algorithm
-- [x] Field-to-memory matching
-- [x] Auto-fill engine with confidence scoring
-- [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
-- [x] Autofill directly without preview mode (autopilot mode)
-- [x] Let AI rephrase questions/answers on memory creation
-- [x] Top used tags & click-to-add functionality
-- [x] Ollama AI provider support
-- [x] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
-- [ ] Firefox support (in-testing)
-
-### 📋 In Progress (Phase 2, Nov 25th)
-
-#### Free features
-
-- [ ] Cache Previous fill results for faster fill on similar form fields/urls
-- [ ] Store unfilled questions along with user filled answers as memories automatically
-- [ ] Semantic search across stored data
-- [ ] Browser native autofill integration (bypass extension popup)
-- [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
-- [ ] Explore alternate modes:
-  - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
-  - [ ] Copilot mode (Sidebar with memory suggestions as you type)
-- [ ] Auto adding memories from filled forms based on user confirmation
-- [ ] MCP support
-- [ ] Upvote/downvote memory suggestions
-- [ ] Multi page form support
-- [ ] Customizable autofill shortcuts
-- [ ] Customizable autofill templates (Industry-specific templates)
-- [ ] Custom AI prompts
-- [ ] Parse pdf to extract content for memory creation
-
-#### Premium features
-
-- [x] Cloud AI model integration
-- [x] Sign in & cloud sync
-- [ ] Multi-device support
-- [ ] Reinforcement learning for user corrections
-- [ ] AI model memory prediction improvement
-- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
-- [ ] Team features
-- [ ] Analytics dashboard
-- [ ] SOC 2 Type II certification
-- [ ] GDPR compliance
-- [ ] Data residency options
-- [ ] Audit logs
-- [ ] SSO integration
 
 ---
 

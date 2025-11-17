@@ -209,19 +209,21 @@ export const ProviderKeyInput = ({
               <Trash2 className="size-4" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-full"
-            onClick={onToggleShow}
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            {showKey ? (
-              <EyeOffIcon className="size-4" />
-            ) : (
-              <EyeIcon className="size-4" />
-            )}
-          </Button>
+          {value && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-full"
+              onClick={onToggleShow}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {showKey ? (
+                <EyeOffIcon className="size-4" />
+              ) : (
+                <EyeIcon className="size-4" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
       {hasExistingKey && !value ? (

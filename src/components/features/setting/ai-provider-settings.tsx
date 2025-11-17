@@ -27,7 +27,6 @@ import {
   type AIProvider,
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";
 import { ModelSelector } from "./model-selector";
@@ -91,30 +90,7 @@ export const AiProviderSettings = () => {
     setShowKeys((prev) => ({ ...prev, [provider]: false }));
   };
 
-  const handleToggleShowKey = async (provider: string) => {
-    const currentlyShowing = showKeys[provider];
-    const hasValueInInput = !!providerKeys[provider];
-    
-    // Only fetch stored key if:
-    // 1. We're about to show the key (not currently showing)
-    // 2. Input is empty (no value being typed)
-    // 3. A saved key exists in storage
-    if (!currentlyShowing && !hasValueInInput && keyStatuses?.[provider]) {
-      const storedKey = await keyVault.getKey(provider as AIProvider);
-      if (storedKey) {
-        setProviderKeys((prev) => ({ ...prev, [provider]: storedKey }));
-      }
-    }
-    
-    // Only clear input if hiding AND no saved key exists (user was typing new key)
-    // Don't clear if we just loaded a saved key
-    if (currentlyShowing && hasValueInInput && !keyStatuses?.[provider]) {
-      // User is typing a new key, don't clear it
-    } else if (currentlyShowing && hasValueInInput && keyStatuses?.[provider]) {
-      // User loaded saved key, clear it when hiding
-      setProviderKeys((prev) => ({ ...prev, [provider]: "" }));
-    }
-    
+  const handleToggleShowKey = (provider: string) => {
     setShowKeys((prev) => ({ ...prev, [provider]: !prev[provider] }));
   };
 
