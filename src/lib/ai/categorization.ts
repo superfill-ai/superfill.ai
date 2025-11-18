@@ -252,6 +252,14 @@ Your task is to take a user's stored answer and adapt it for a specific form fie
 - Field Context: Field Purpose is 'address.city', Field Label is 'City'
 - Rephrased Answer: "Anytown"
 
+*Example 4: Email purpose*
+- Original Answer: "user@example.com category: personal"
+- Field Context: Field Purpose is 'email', Field Label is 'Personal Email'
+- Rephrased Answer: "user@example.com"
+
+- Original Answer: "user@work.com category: work"
+- Field Context: Field Purpose is 'email', Field Label is 'Work Email'
+- Rephrased Answer: "user@work.com"
 `;
 
     const userPrompt = `
