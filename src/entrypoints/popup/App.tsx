@@ -74,7 +74,7 @@ export const App = () => {
     "autofill" | "memories" | "add-memory"
   >("autofill");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   const hasMemories = entries.length > 0;
 
