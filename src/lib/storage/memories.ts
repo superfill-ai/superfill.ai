@@ -37,6 +37,33 @@ export const addEntry = async (
   }
 };
 
+export const addEntries = async (
+  entries: CreateMemoryEntry[],
+): Promise<MemoryEntry[]> => {
+  try {
+    const newEntries: MemoryEntry[] = entries.map((entry) => ({
+      ...entry,
+      id: uuidv7(),
+      metadata: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        source: "manual",
+        usageCount: 0,
+      },
+    }));
+
+    const currentEntries = await storage.memories.getValue();
+    const updatedEntries = [...currentEntries, ...newEntries];
+
+    await storage.memories.setValue(updatedEntries);
+
+    return newEntries;
+  } catch (error) {
+    logger.error("Failed to add entries:", error);
+    throw error;
+  }
+};
+
 export const updateEntry = async (
   id: string,
   updates: UpdateMemoryEntry,

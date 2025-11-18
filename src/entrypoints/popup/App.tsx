@@ -74,8 +74,35 @@ export const App = () => {
     "autofill" | "memories" | "add-memory"
   >("autofill");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   const hasMemories = entries.length > 0;
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const SKIP_ONBOARDING = import.meta.env.VITE_SKIP_ONBOARDING === "true";
+
+      if (SKIP_ONBOARDING) {
+        setOnboardingCompleted(true);
+        return;
+      }
+
+      const uiSettings = await storage.uiSettings.getValue();
+      setOnboardingCompleted(uiSettings.onboardingCompleted);
+    };
+
+    checkOnboarding();
+
+    const unsubscribe = storage.uiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setOnboardingCompleted(newSettings.onboardingCompleted);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const fetchAndWatch = async () => {
@@ -220,6 +247,37 @@ export const App = () => {
           <img src="/favicon.svg" alt="" className="size-6" />
           <p className="text-sm text-muted-foreground">Loading memories...</p>
         </div>
+      </section>
+    );
+  }
+
+  if (!onboardingCompleted) {
+    return (
+      <section
+        className="relative w-full h-[600px] flex items-center justify-center p-6"
+        aria-label="Onboarding required"
+      >
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SparklesIcon className="size-5" />
+              Welcome to {APP_NAME}!
+            </CardTitle>
+            <CardDescription>
+              Please complete the initial setup to get started with autofilling
+              forms.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="default"
+              className="w-full"
+              onClick={handleOpenSettings}
+            >
+              Complete Setup
+            </Button>
+          </CardContent>
+        </Card>
       </section>
     );
   }

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
+import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
 import { TriggerSettings } from "@/components/features/setting/trigger-settings";
 import {
   Card,
@@ -23,12 +24,42 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
 import { useMemories } from "@/hooks/use-memories";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { storage } from "@/lib/storage";
 
 export const App = () => {
   const isMobile = useIsMobile();
   const { entries } = useMemories();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const SKIP_ONBOARDING = import.meta.env.VITE_SKIP_ONBOARDING === "true";
+
+      if (SKIP_ONBOARDING) {
+        return;
+      }
+
+      const uiSettings = await storage.uiSettings.getValue();
+
+      if (!uiSettings.onboardingCompleted) {
+        setShowOnboarding(true);
+      }
+    };
+
+    checkOnboarding();
+
+    const unsubscribe = storage.uiSettings.watch((newSettings) => {
+      if (newSettings?.onboardingCompleted) {
+        setShowOnboarding(false);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useHotkeys("c", () => {
     setActiveTab("memory");
@@ -161,6 +192,8 @@ export const App = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      <OnboardingDialog open={showOnboarding} />
     </section>
   );
 };

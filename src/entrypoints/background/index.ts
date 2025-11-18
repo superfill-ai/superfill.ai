@@ -9,6 +9,7 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
+import { storage } from "@/lib/storage";
 
 const logger = createLogger("background");
 
@@ -26,9 +27,18 @@ export default defineBackground({
 
     const sessionService = getSessionService();
 
-    browser.runtime.onInstalled.addListener((details) => {
+    browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
         logger.info("Extension installed for the first time, opening settings");
+
+        const currentSettings = await storage.uiSettings.getValue();
+        const storedMemories = await storage.memories.getValue();
+
+        await storage.uiSettings.setValue({
+          ...currentSettings,
+          onboardingCompleted: storedMemories.length !== 0,
+        });
+
         browser.runtime.openOptionsPage();
       }
     });
