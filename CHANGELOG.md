@@ -1,5 +1,17 @@
 # superfill.ai
 
+## 0.1.3
+
+### Patch Changes
+
+- [#15](https://github.com/superfill-ai/superfill.ai/pull/15) [`c5068d3`](https://github.com/superfill-ai/superfill.ai/commit/c5068d36240dbeb15d6af01cb406818046f95444) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement onboarding flow with user data collection and storage
+
+- [`ca23098`](https://github.com/superfill-ai/superfill.ai/commit/ca2309801d20b763f8aec10c4eb1e32bb9523b6b) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - fix: update descriptions for AI provider and autofill settings for clarity
+
+- [`ed5520a`](https://github.com/superfill-ai/superfill.ai/commit/ed5520a99db0e453da7cec9326024b8b354d0271) Thanks [@Andro-human](https://github.com/Andro-human)! - fix: API key visibility toggle in settings
+
+- [`fc95606`](https://github.com/superfill-ai/superfill.ai/commit/fc95606492b382cc6590745940e7add0e0f6f01b) Thanks [@mikr13](https://github.com/mikr13)! - refactor: enable debug logging in AI services and categorization
+
 ## 0.1.2
 
 ### Patch Changes
