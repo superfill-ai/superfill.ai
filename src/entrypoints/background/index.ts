@@ -34,17 +34,10 @@ export default defineBackground({
         const currentSettings = await storage.uiSettings.getValue();
         const storedMemories = await storage.memories.getValue();
 
-        if (storedMemories.length === 0) {
-          await storage.uiSettings.setValue({
-            ...currentSettings,
-            onboardingCompleted: false,
-          });
-        } else {
-          await storage.uiSettings.setValue({
-            ...currentSettings,
-            onboardingCompleted: true,
-          });
-        }
+        await storage.uiSettings.setValue({
+          ...currentSettings,
+          onboardingCompleted: storedMemories.length !== 0,
+        });
 
         browser.runtime.openOptionsPage();
       }
