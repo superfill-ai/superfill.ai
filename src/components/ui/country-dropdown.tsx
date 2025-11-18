@@ -42,8 +42,7 @@ interface CountryDropdownProps {
 }
 
 const filteredCountries = countries.all.filter(
-  (country: Country) =>
-    country.emoji && country.status !== "deleted",
+  (country: Country) => country.emoji && country.status !== "deleted",
 );
 
 const CountryDropdownComponent = (

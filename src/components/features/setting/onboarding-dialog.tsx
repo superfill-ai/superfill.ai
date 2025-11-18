@@ -24,6 +24,7 @@ import { APP_NAME } from "@/constants";
 import { useMemoryMutations } from "@/hooks/use-memories";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
+import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:onboarding-dialog");
 
@@ -31,7 +32,9 @@ const onboardingSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.email("Invalid email address"),
-  phoneNumber: z.e164("Invalid phone number. Please include country code, e.g., +1 555-123-4567"),
+  phoneNumber: z.e164(
+    "Invalid phone number. Please include country code, e.g., +1 555-123-4567",
+  ),
   address: z.string().min(1, "Address is required"),
   country: z.string().min(1, "Country is required"),
 });
@@ -57,47 +60,47 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
     },
     onSubmit: async ({ value }) => {
       try {
-        const entries = [
+        const entries: Omit<MemoryEntry, "id" | "metadata">[] = [
           {
             question: "What is your first name?",
             answer: value.firstName,
             tags: ["personal", "name"],
-            category: "Personal Information",
+            category: "personal",
             confidence: 1.0,
           },
           {
             question: "What is your last name?",
             answer: value.lastName,
             tags: ["personal", "name"],
-            category: "Personal Information",
+            category: "personal",
             confidence: 1.0,
           },
           {
             question: "What is your email?",
             answer: value.email,
             tags: ["personal", "email", "contact"],
-            category: "Contact Information",
+            category: "contact",
             confidence: 1.0,
           },
           {
             question: "What is your phone number?",
             answer: value.phoneNumber,
             tags: ["personal", "phone", "contact"],
-            category: "Contact Information",
+            category: "contact",
             confidence: 1.0,
           },
           {
             question: "What is your address?",
             answer: value.address,
             tags: ["personal", "address"],
-            category: "Personal Information",
+            category: "location",
             confidence: 1.0,
           },
           {
             question: "What is your country?",
             answer: value.country,
             tags: ["personal", "location"],
-            category: "Personal Information",
+            category: "location",
             confidence: 1.0,
           },
         ];
@@ -310,7 +313,7 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                       name={field.name}
                       defaultValue={field.state.value}
                       onChange={(country) => {
-                        field.handleChange(country.alpha3);
+                        field.handleChange(country.name);
                       }}
                       aria-invalid={isInvalid}
                       placeholder="Select your country"
