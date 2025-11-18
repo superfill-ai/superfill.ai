@@ -87,6 +87,7 @@ export const AiProviderSettings = () => {
       defaultModel,
     });
     setProviderKeys((prev) => ({ ...prev, [provider]: "" }));
+    setShowKeys((prev) => ({ ...prev, [provider]: false }));
   };
 
   const handleToggleShowKey = (provider: string) => {
