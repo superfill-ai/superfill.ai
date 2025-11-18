@@ -41,12 +41,13 @@ interface CountryDropdownProps {
   slim?: boolean;
 }
 
+const filteredCountries = countries.all.filter(
+  (country: Country) =>
+    country.emoji && country.status !== "deleted",
+);
+
 const CountryDropdownComponent = (
   {
-    options = countries.all.filter(
-      (country: Country) =>
-        country.emoji && country.status !== "deleted" && country.ioc !== "PRK",
-    ),
     onChange,
     defaultValue,
     disabled = false,
@@ -63,7 +64,7 @@ const CountryDropdownComponent = (
 
   useEffect(() => {
     if (defaultValue) {
-      const initialCountry = options.find(
+      const initialCountry = filteredCountries.find(
         (country) => country.alpha3 === defaultValue,
       );
       if (initialCountry) {
@@ -74,7 +75,7 @@ const CountryDropdownComponent = (
     } else {
       setSelectedCountry(undefined);
     }
-  }, [defaultValue, options]);
+  }, [defaultValue]);
 
   const handleSelect = useCallback(
     (country: Country) => {
@@ -129,7 +130,7 @@ const CountryDropdownComponent = (
             </div>
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
-              {options
+              {filteredCountries
                 .filter((x) => x.name)
                 .map((option, key: number) => (
                   <CommandItem
