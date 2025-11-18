@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { storage } from "@/lib/storage";
 import {
+  addEntries as addEntriesHelper,
   addEntry as addEntryHelper,
   deleteEntry as deleteEntryHelper,
   downloadCSVTemplate as downloadCSVTemplateHelper,
@@ -57,6 +58,15 @@ export const useMemoryMutations = () => {
     },
   });
 
+  const addEntries = useMutation({
+    mutationFn: async (entries: CreateMemoryEntry[]) => {
+      return await addEntriesHelper(entries);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MEMORIES_QUERY_KEY });
+    },
+  });
+
   const updateEntry = useMutation({
     mutationFn: async ({
       id,
@@ -92,6 +102,7 @@ export const useMemoryMutations = () => {
 
   return {
     addEntry,
+    addEntries,
     updateEntry,
     deleteEntry,
     importFromCSV,

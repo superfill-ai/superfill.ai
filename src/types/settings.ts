@@ -18,4 +18,5 @@ export interface AISettings {
 export interface UISettings {
   theme: Theme;
   trigger: Trigger;
+  onboardingCompleted: boolean;
 }

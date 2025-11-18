@@ -8,7 +8,8 @@ export const uiSettings = storage.defineItem<UISettings>(
     fallback: {
       theme: Theme.DEFAULT,
       trigger: Trigger.POPUP,
+      onboardingCompleted: false,
     },
-    version: 2,
+    version: 3,
   },
 );
