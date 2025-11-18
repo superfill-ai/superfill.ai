@@ -44,4 +44,5 @@ tsconfig.tsbuildinfo
 # Build outputs
 *.zip
 
+# Documentation
 docs/

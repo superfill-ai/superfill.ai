@@ -203,7 +203,7 @@ bun dev
 bun build
 
 # Build for specific browser
-bun build --browser firefox
+bun build:firefox
 
 # Type checking
 bun run typecheck
@@ -218,7 +218,7 @@ bun run lint
 |---------|--------|-------|
 | Chrome | ✅ Fully Supported | Manifest V3 |
 | Edge | ✅ Fully Supported | Chrome-compatible |
-| Firefox | ✅ Planned | WXT supports MV2/MV3 |
+| Firefox | ✅ Fully Supported | WXT supports MV2/MV3 |
 | Safari | 🚧 Planned | Requires adjustments |
 
 ---
@@ -250,12 +250,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **shadcn/ui** - Beautiful component library
 - **Vercel AI SDK** - Unified LLM interface
 - **Bun** - Lightning-fast runtime
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/mikr13/superfill.ai/issues)
 
 ---
 
