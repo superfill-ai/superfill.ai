@@ -34,7 +34,7 @@ export default defineBackground({
         const currentSettings = await storage.uiSettings.getValue();
         const storedMemories = await storage.memories.getValue();
 
-        if (storedMemories.entries.length === 0) {
+        if (storedMemories.length === 0) {
           await storage.uiSettings.setValue({
             ...currentSettings,
             onboardingCompleted: false,
