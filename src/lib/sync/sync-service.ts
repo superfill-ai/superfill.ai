@@ -1,6 +1,7 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
+import { storage } from "@/lib/storage";
+
 import type { MemoryEntry } from "@/types/memory";
 import type { SyncOperationResult } from "@/types/sync";
 import {
@@ -48,7 +49,7 @@ class SyncService {
     try {
       logger.info("Starting full sync");
 
-      const syncState = await store.syncState.getValue();
+      const syncState = await storage.syncStateAndSettings.getValue();
       const lastSyncTimestamp = syncState?.lastSync
         ? syncState.lastSync
         : undefined;
@@ -63,13 +64,14 @@ class SyncService {
       conflictsResolved += pushResult.conflictsResolved;
       errors.push(...pushResult.errors);
 
-      await store.syncState.setValue({
+      await storage.syncStateAndSettings.setValue({
         lastSync: new Date().toISOString(),
         conflictResolution: syncState?.conflictResolution || "newest",
         status: errors.length > 0 ? "error" : "synced",
       });
 
       await supabase.from("sync_logs").insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id || "",
         operation: "full_sync",
         status: errors.length > 0 ? "error" : "success",
         item_count: itemsSynced,
@@ -96,7 +98,7 @@ class SyncService {
       logger.error("Full sync failed", { error });
       errors.push(error instanceof Error ? error.message : "Unknown error");
 
-      await store.syncState.setValue({
+      await storage.syncStateAndSettings.setValue({
         lastSync: new Date().toISOString(),
         conflictResolution: "newest",
         status: "error",
@@ -128,7 +130,7 @@ class SyncService {
       const { data: remoteMemories, error: fetchError } = await supabase.rpc(
         "get_memories_since",
         {
-          since_timestamp: lastSyncTimestamp || null,
+          since_timestamp: lastSyncTimestamp,
         },
       );
 
@@ -136,8 +138,14 @@ class SyncService {
         throw new Error(`Failed to fetch memories: ${fetchError.message}`);
       }
 
-      const localMemories = (await store.memories.getValue()) || [];
-      const syncState = await store.syncState.getValue();
+      const user = (await supabase.auth.getUser()).data.user;
+
+      if (!user) {
+        throw new Error("No authenticated user found");
+      }
+
+      const localMemories = (await storage.memories.getValue()) || [];
+      const syncState = await storage.syncStateAndSettings.getValue();
       const conflictResolution = syncState?.conflictResolution || "newest";
 
       const memoryMap = new Map(localMemories.map((m) => [m.id, m]));
@@ -154,7 +162,12 @@ class SyncService {
             category: remoteMemory.category,
             tags: remoteMemory.tags,
             confidence: Number(remoteMemory.confidence),
-            embedding: remoteMemory.embedding || undefined,
+            embedding: remoteMemory.embedding
+              ? remoteMemory.embedding
+                  .replace(/[[\]]/g, "")
+                  .split(",")
+                  .map(Number)
+              : undefined,
             metadata: {
               createdAt: remoteMemory.created_at,
               updatedAt: remoteMemory.updated_at,
@@ -187,7 +200,12 @@ class SyncService {
                 category: remoteMemory.category,
                 tags: remoteMemory.tags,
                 confidence: Number(remoteMemory.confidence),
-                embedding: remoteMemory.embedding || undefined,
+                embedding: remoteMemory.embedding
+                  ? remoteMemory.embedding
+                      .replace(/[[\]]/g, "")
+                      .split(",")
+                      .map(Number)
+                  : undefined,
                 metadata: {
                   createdAt: remoteMemory.created_at,
                   updatedAt: remoteMemory.updated_at,
@@ -217,9 +235,10 @@ class SyncService {
         }
       }
 
-      await store.memories.setValue(localMemories);
+      await storage.memories.setValue(localMemories);
 
       await supabase.from("sync_logs").insert({
+        user_id: user.id,
         operation: "pull",
         status: "success",
         item_count: itemsSynced,
@@ -242,6 +261,7 @@ class SyncService {
       errors.push(error instanceof Error ? error.message : "Pull failed");
 
       await supabase.from("sync_logs").insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id || "",
         operation: "pull",
         status: "error",
         item_count: itemsSynced,
@@ -268,21 +288,28 @@ class SyncService {
     try {
       logger.info("Pushing data to remote");
 
-      const localMemories = (await store.memories.getValue()) || [];
+      const localMemories = (await storage.memories.getValue()) || [];
+      const user = (await supabase.auth.getUser()).data.user;
+
+      if (!user) {
+        throw new Error("No authenticated user found");
+      }
 
       for (const memory of localMemories) {
         try {
           const { error } = await supabase.rpc("upsert_memory", {
             p_local_id: memory.id,
-            p_question: memory.question || null,
+            p_question: memory.question || "",
             p_answer: memory.answer,
             p_category: memory.category,
             p_tags: memory.tags,
             p_confidence: memory.confidence,
-            p_embedding: memory.embedding || null,
+            p_embedding: memory.embedding
+              ? `[${memory.embedding.join(",")}]`
+              : "",
             p_source: memory.metadata.source,
             p_usage_count: memory.metadata.usageCount,
-            p_last_used: memory.metadata.lastUsed || null,
+            p_last_used: memory.metadata.lastUsed || "",
             p_created_at: memory.metadata.createdAt,
             p_updated_at: memory.metadata.updatedAt,
           });
@@ -302,6 +329,7 @@ class SyncService {
       }
 
       await supabase.from("sync_logs").insert({
+        user_id: user.id,
         operation: "push",
         status: errors.length > 0 ? "partial" : "success",
         item_count: itemsSynced,
@@ -328,6 +356,7 @@ class SyncService {
       errors.push(error instanceof Error ? error.message : "Push failed");
 
       await supabase.from("sync_logs").insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id || "",
         operation: "push",
         status: "error",
         item_count: itemsSynced,
@@ -350,7 +379,8 @@ class SyncService {
     try {
       logger.info("Syncing AI settings");
 
-      const aiSettings = await store.aiSettings.getValue();
+      const aiSettings = await storage.aiSettings.getValue();
+
       if (!aiSettings) {
         logger.warn("No AI settings to sync");
         return;
