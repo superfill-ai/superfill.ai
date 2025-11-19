@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect } from "react";
 import { APP_NAME } from "@/constants";
 import { storage } from "@/lib/storage";
 import type { UISettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
+import { createContext, useContext, useEffect, useState } from "react";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -63,7 +63,6 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
     root.classList.add(theme);
   }, [theme]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fine here
   useEffect(() => {
     const fetchAndWatch = async () => {
       const ui = await storage.uiSettings.getValue();

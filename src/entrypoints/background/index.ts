@@ -99,13 +99,6 @@ export default defineBackground({
       handleStartupSync();
     }, 5000);
 
-    browser.runtime.onInstalled.addListener((details) => {
-      if (details.reason === "install") {
-        logger.info("Extension installed for the first time, opening settings");
-        browser.runtime.openOptionsPage();
-      }
-    });
-
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
         logger.info("Extension installed for the first time, opening settings");
