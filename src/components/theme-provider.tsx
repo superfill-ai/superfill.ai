@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { APP_NAME } from "@/constants";
-import { store } from "@/lib/storage";
+import { storage } from "@/lib/storage";
+import type { UISettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
 
 type ThemeProviderProps = {
@@ -9,24 +10,35 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme;
-  setTheme: (theme: Theme) => void;
+  toggleTheme: () => Promise<void>;
 };
 
 const initialState: ThemeProviderState = {
   theme: Theme.DEFAULT,
-  setTheme: () => null,
+  toggleTheme: () => Promise.resolve(),
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => Theme.DEFAULT);
+  const [theme, setTheme] = useState<Theme>("system");
 
-  useEffect(() => {
-    store.theme.getValue().then(setTheme);
-    const unwatch = store.theme.watch(setTheme);
-    return () => unwatch();
-  }, []);
+  const toggleTheme = async () => {
+    const newTheme =
+      theme === Theme.LIGHT
+        ? Theme.DARK
+        : theme === Theme.DARK
+          ? Theme.DEFAULT
+          : Theme.LIGHT;
+
+    const currentSettings = await storage.uiSettings.getValue();
+    const updatedSettings: UISettings = {
+      ...currentSettings,
+      theme: newTheme,
+    };
+
+    await storage.uiSettings.setValue(updatedSettings);
+  };
 
   useEffect(() => {
     const host = document.querySelector(APP_NAME);
@@ -51,11 +63,29 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
     root.classList.add(theme);
   }, [theme]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fine here
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const ui = await storage.uiSettings.getValue();
+      setTheme(ui.theme || "system");
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.uiSettings.watch((newSettings, oldSettings) => {
+      if (newSettings?.theme !== oldSettings?.theme) {
+        setTheme(newSettings?.theme || Theme.DEFAULT);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      store.theme.setValue(theme);
-    },
+    toggleTheme,
   };
 
   return (

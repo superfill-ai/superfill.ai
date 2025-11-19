@@ -1,11 +1,12 @@
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDefaultModel, useProviderModels } from "@/hooks/use-models";
 import type { AIProvider } from "@/lib/providers/registry";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
+import type { AISettings } from "@/types/settings";
 
 interface ModelSelectorProps {
   provider: AIProvider;
@@ -21,11 +22,28 @@ export const ModelSelector = ({
   const comboboxId = useId();
   const { data: models, isLoading } = useProviderModels(provider);
   const defaultModel = useDefaultModel(provider);
+  const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
 
-  const selectedModels = useSettingsStore((state) => state.selectedModels);
-  const setSelectedModel = useSettingsStore((state) => state.setSelectedModel);
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+      const model = settings.selectedModels?.[provider] || defaultModel;
+      setSelectedModel(model);
+    };
 
-  const selectedModel = selectedModels[provider] || defaultModel;
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        const model = newSettings.selectedModels?.[provider] || defaultModel;
+        setSelectedModel(model);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [provider, defaultModel]);
 
   if (!hasApiKey) {
     return null;
@@ -58,7 +76,16 @@ export const ModelSelector = ({
         id={comboboxId}
         value={selectedModel}
         onValueChange={async (value) => {
-          await setSelectedModel(provider, value);
+          const currentSettings = await storage.aiSettings.getValue();
+          const updatedModels = {
+            ...currentSettings.selectedModels,
+            [provider]: value,
+          };
+          const updatedSettings: AISettings = {
+            ...currentSettings,
+            selectedModels: updatedModels,
+          };
+          await storage.aiSettings.setValue(updatedSettings);
         }}
         options={modelOptions}
         placeholder="Select model..."

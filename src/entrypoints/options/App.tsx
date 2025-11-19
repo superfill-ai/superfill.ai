@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { LoginDialog } from "@/components/features/auth/login-dialog";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
+import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
 import { TriggerSettings } from "@/components/features/setting/trigger-settings";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,24 +24,22 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
-import { useInitializeMemory } from "@/hooks/use-memory";
+import { useMemories } from "@/hooks/use-memories";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { createLogger } from "@/lib/logger";
-import { useAuthStore } from "@/stores/auth";
-import { useMemoryStore } from "@/stores/memory";
-import { useEffect, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { storage } from "@/lib/storage";
+import { useAuth } from "@/hooks/use-auth";
 
 const logger = createLogger("options:App");
 
 export const App = () => {
-  useInitializeMemory();
   const isMobile = useIsMobile();
-  const entries = useMemoryStore((state) => state.entries);
-  const { isAuthenticated, signOut, checkAuthStatus } = useAuthStore();
+  const { isAuthenticated, signOut, checkAuthStatus } = useAuth();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const { entries } = useMemories();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: not needed
   useEffect(() => {
@@ -53,6 +54,34 @@ export const App = () => {
       logger.error("Sign-out failed", error);
     }
   };
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const SKIP_ONBOARDING = import.meta.env.VITE_SKIP_ONBOARDING === "true";
+
+      if (SKIP_ONBOARDING) {
+        return;
+      }
+
+      const uiSettings = await storage.uiSettings.getValue();
+
+      if (!uiSettings.onboardingCompleted) {
+        setShowOnboarding(true);
+      }
+    };
+
+    checkOnboarding();
+
+    const unsubscribe = storage.uiSettings.watch((newSettings) => {
+      if (newSettings?.onboardingCompleted) {
+        setShowOnboarding(false);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useHotkeys("c", () => {
     setActiveTab("memory");
@@ -147,9 +176,9 @@ export const App = () => {
 
           <TabsContent value="settings" className="flex-1 overflow-auto p-6">
             <div className="max-w-3xl mx-auto space-y-6">
-              <TriggerSettings />
               <AutofillSettings />
               <AiProviderSettings />
+              <TriggerSettings />
             </div>
           </TabsContent>
 
@@ -202,6 +231,8 @@ export const App = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      <OnboardingDialog open={showOnboarding} />
     </section>
   );
 };

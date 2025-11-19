@@ -1,7 +1,12 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { useFormStore } from "@/stores/form";
-import { useMemoryStore } from "@/stores/memory";
+import { addFormMapping } from "@/lib/storage/form-mappings";
+import { incrementUsageCount } from "@/lib/storage/memories";
+import {
+  completeSession,
+  startSession,
+  updateSession,
+} from "@/lib/storage/sessions";
 import type { FillSession, FormMapping } from "@/types/memory";
 
 const logger = createLogger("session-service");
@@ -9,7 +14,7 @@ const logger = createLogger("session-service");
 class SessionService {
   async startSession(): Promise<FillSession> {
     try {
-      const session = await useFormStore.getState().startSession();
+      const session = await startSession();
       logger.info("Session started:", session.id);
       return session;
     } catch (error) {
@@ -23,7 +28,7 @@ class SessionService {
     status: FillSession["status"],
   ): Promise<boolean> {
     try {
-      await useFormStore.getState().updateSession(sessionId, { status });
+      await updateSession(sessionId, { status });
       logger.info("Session status updated:", sessionId, status);
       return true;
     } catch (error) {
@@ -34,7 +39,7 @@ class SessionService {
 
   async completeSession(sessionId: string): Promise<boolean> {
     try {
-      await useFormStore.getState().completeSession(sessionId);
+      await completeSession(sessionId);
       logger.info("Session completed:", sessionId);
       return true;
     } catch (error) {
@@ -45,14 +50,8 @@ class SessionService {
 
   async incrementMemoryUsage(memoryIds: string[]): Promise<boolean> {
     try {
-      const memoryStore = useMemoryStore.getState();
-
-      if (!memoryStore.initialized) {
-        await memoryStore.initialize();
-      }
-
       for (const memoryId of memoryIds) {
-        await memoryStore.incrementUsageCount(memoryId);
+        await incrementUsageCount(memoryId);
       }
       logger.info("Memory usage incremented for:", memoryIds);
       return true;
@@ -67,13 +66,11 @@ class SessionService {
     formMappings: FormMapping[],
   ): Promise<boolean> {
     try {
-      const formStore = useFormStore.getState();
-
       for (const formMapping of formMappings) {
-        await formStore.addFormMapping(formMapping);
+        await addFormMapping(formMapping);
       }
 
-      await formStore.updateSession(sessionId, {
+      await updateSession(sessionId, {
         formMappings,
       });
 

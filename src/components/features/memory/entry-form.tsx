@@ -1,7 +1,7 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
 import { allowedCategories } from "@/lib/copies";
 import {
@@ -23,9 +24,9 @@ import {
   ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
+import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
-import { store } from "@/lib/storage";
-import { useMemoryStore } from "@/stores/memory";
+import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
@@ -52,8 +53,12 @@ export function EntryForm({
   onSuccess,
   onCancel,
 }: EntryFormProps) {
-  const { addEntry, updateEntry } = useMemoryStore();
-  const top10Tags = useMemoryStore().getTopUsedTags(10);
+  const [selectedProvider, setSelectedProvider] = useState<
+    AIProvider | undefined
+  >();
+
+  const { addEntry, updateEntry } = useMemoryMutations();
+  const top10Tags = useTopUsedTags(10);
 
   const categorizationService = getCategorizationService();
 
@@ -72,14 +77,17 @@ export function EntryForm({
         async () => {
           try {
             if (mode === "edit" && initialData) {
-              await updateEntry(initialData.id, {
-                question: value.question,
-                answer: value.answer,
-                tags: value.tags,
-                category: value.category,
+              await updateEntry.mutateAsync({
+                id: initialData.id,
+                updates: {
+                  question: value.question,
+                  answer: value.answer,
+                  tags: value.tags,
+                  category: value.category,
+                },
               });
             } else {
-              await addEntry({
+              await addEntry.mutateAsync({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
@@ -117,8 +125,7 @@ export function EntryForm({
       currentQuestion: string;
       currentAnswer: string;
     }) => {
-      const aiSettings = await store.aiSettings.getValue();
-      if (!aiSettings.selectedProvider) {
+      if (!selectedProvider) {
         toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use rephrasing.",
@@ -131,7 +138,7 @@ export function EntryForm({
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
-      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
+      const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
@@ -162,8 +169,7 @@ export function EntryForm({
 
   const categorizeAndTaggingMutation = useMutation({
     mutationFn: async () => {
-      const aiSettings = await store.aiSettings.getValue();
-      if (!aiSettings.selectedProvider) {
+      if (!selectedProvider) {
         toast.warning(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
@@ -174,9 +180,7 @@ export function EntryForm({
           dismissible: true,
         });
       }
-      const apiKey = await keyVault.getKey(
-        aiSettings.selectedProvider ?? "openai",
-      );
+      const apiKey = await keyVault.getKey(selectedProvider ?? "openai");
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
@@ -212,6 +216,25 @@ export function EntryForm({
 
   const isAiCategorizing = categorizeAndTaggingMutation.isPending;
   const isAiRephrasing = rephraseMutation.isPending;
+
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+      setSelectedProvider(settings.selectedProvider);
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setSelectedProvider(newSettings.selectedProvider);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

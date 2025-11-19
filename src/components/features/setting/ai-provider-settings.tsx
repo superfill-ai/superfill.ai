@@ -27,7 +27,8 @@ import {
   type AIProvider,
   getAllProviderConfigs,
 } from "@/lib/providers/registry";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
+import type { AISettings } from "@/types/settings";
 import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 
@@ -37,15 +38,33 @@ export const AiProviderSettings = () => {
   const [providerOptions, setProviderOptions] = useState<
     ReturnType<typeof getProviderOptions> extends Promise<infer T> ? T : never
   >([]);
+  const [selectedProvider, setSelectedProvider] = useState<
+    AIProvider | undefined
+  >();
   const providerComboboxId = useId();
-  const selectedProvider = useSettingsStore((state) => state.selectedProvider);
-  const setSelectedProvider = useSettingsStore(
-    (state) => state.setSelectedProvider,
-  );
   const { data: keyStatuses } = useProviderKeyStatuses();
   const saveKeyWithModelMutation = useSaveApiKeyWithModel();
   const deleteKeyMutation = useDeleteApiKey();
   const allConfigs = getAllProviderConfigs();
+
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+      setSelectedProvider(settings.selectedProvider);
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setSelectedProvider(newSettings.selectedProvider);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: need to run when keyStatuses change
   useEffect(() => {
@@ -68,6 +87,7 @@ export const AiProviderSettings = () => {
       defaultModel,
     });
     setProviderKeys((prev) => ({ ...prev, [provider]: "" }));
+    setShowKeys((prev) => ({ ...prev, [provider]: false }));
   };
 
   const handleToggleShowKey = (provider: string) => {
@@ -86,7 +106,13 @@ export const AiProviderSettings = () => {
     <Card>
       <CardHeader>
         <CardTitle>AI Provider</CardTitle>
-        <CardDescription>Configure your AI provider API keys</CardDescription>
+        <CardDescription>
+          Configure your AI provider API keys. Quality of autofill matches
+          depends on the AI model used.{" "}
+          <strong className="underline">
+            Recommended to use the latest models available
+          </strong>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -121,7 +147,12 @@ export const AiProviderSettings = () => {
               id={providerComboboxId}
               value={selectedProvider}
               onValueChange={async (value) => {
-                await setSelectedProvider(value as AIProvider);
+                const currentSettings = await storage.aiSettings.getValue();
+                const updatedSettings: AISettings = {
+                  ...currentSettings,
+                  selectedProvider: value as AIProvider,
+                };
+                await storage.aiSettings.setValue(updatedSettings);
               }}
               options={providerOptions.map((p) => ({
                 value: p.value,

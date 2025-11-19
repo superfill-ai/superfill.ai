@@ -7,7 +7,7 @@ import type {
 import type { FillSession, FormMapping } from "@/types/memory";
 
 interface ContentAutofillProtocolMap {
-  detectForms: () => DetectFormsResult;
+  detectForms: () => Promise<DetectFormsResult>;
   showPreview: (data: PreviewSidebarPayload) => boolean;
   closePreview: () => boolean;
   updateProgress: (progress: AutofillProgress) => boolean;

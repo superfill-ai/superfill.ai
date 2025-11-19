@@ -33,9 +33,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  csvUtils,
+  useMemories,
+  useMemoryMutations,
+} from "@/hooks/use-memories";
 import { readCSVFile } from "@/lib/csv";
 import { createLogger } from "@/lib/logger";
-import { useMemoryStore } from "@/stores/memory";
 
 const logger = createLogger("component:entry-list");
 
@@ -49,15 +53,8 @@ interface EntryListProps {
 }
 
 export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
-  const entries = useMemoryStore((state) => state.entries);
-  const loading = useMemoryStore((state) => state.loading);
-  const deleteEntry = useMemoryStore((state) => state.deleteEntry);
-  const getEntryById = useMemoryStore((state) => state.getEntryById);
-  const exportToCSV = useMemoryStore((state) => state.exportToCSV);
-  const importFromCSV = useMemoryStore((state) => state.importFromCSV);
-  const downloadCSVTemplate = useMemoryStore(
-    (state) => state.downloadCSVTemplate,
-  );
+  const { entries, loading } = useMemories();
+  const { deleteEntry, importFromCSV } = useMemoryMutations();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -119,7 +116,7 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
 
   const handleDelete = async (entryId: string) => {
     try {
-      await deleteEntry(entryId);
+      await deleteEntry.mutateAsync(entryId);
       onDelete(entryId);
     } catch (error) {
       toast.error(
@@ -129,16 +126,17 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
     }
   };
 
-  const handleDuplicate = async (entryId: string) => {
-    const entry = getEntryById(entryId);
+  const handleDuplicate = (entryId: string) => {
+    const entry = entries.find((e) => e.id === entryId);
+
     if (entry) {
       onDuplicate(entryId);
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      exportToCSV();
+      await csvUtils.exportToCSV();
       toast.success("Memories exported successfully!");
     } catch (error) {
       toast.error(
@@ -155,7 +153,7 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
 
     try {
       const csvContent = await readCSVFile(file);
-      const count = await importFromCSV(csvContent);
+      const count = await importFromCSV.mutateAsync(csvContent);
       toast.success(`Successfully imported ${count} memories!`);
     } catch (error) {
       toast.error(
@@ -171,7 +169,7 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
 
   const handleDownloadTemplate = () => {
     try {
-      downloadCSVTemplate();
+      csvUtils.downloadCSVTemplate();
       toast.success("Template downloaded successfully!");
     } catch (error) {
       toast.error(

@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Get version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Zip extensions
+        run: |
+          bun zip
+          bun zip:firefox
+
+      - name: Create Release
+        run: gh release create v${{ steps.version.outputs.version }} --title "v${{ steps.version.outputs.version }}" --notes "Release v${{ steps.version.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload artifacts to release
+        run: gh release upload v${{ steps.version.outputs.version }} .output/*-chrome.zip .output/*-firefox.zip .output/*-sources.zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Submit to stores
+        continue-on-error: true
+        run: |
+          bun wxt submit \
+            --chrome-zip .output/*-chrome.zip \
+            --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}

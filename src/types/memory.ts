@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { allowedCategories } from "@/lib/copies";
 
 export const memoryEntrySchema = z.object({
   id: z.uuid({
@@ -11,7 +12,7 @@ export const memoryEntrySchema = z.object({
     .optional(),
   question: z.string().optional(),
   answer: z.string(),
-  category: z.string(),
+  category: z.enum(allowedCategories),
   tags: z.array(z.string()),
   confidence: z.number().min(0).max(1),
   metadata: z.object({

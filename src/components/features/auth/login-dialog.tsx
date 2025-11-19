@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { useAuthStore } from "@/stores/auth";
+import { useAuth } from "@/hooks/use-auth";
 import type { Provider } from "@supabase/supabase-js";
 import { FaGithub, FaGoogle, FaLinkedin } from "react-icons/fa";
 
@@ -17,7 +17,7 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
-  const { signIn, signingIn, selectedProvider } = useAuthStore();
+  const { signIn, signingIn, selectedProvider } = useAuth();
 
   const handleLogin = async (provider: Provider) => {
     try {

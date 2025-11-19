@@ -3,13 +3,14 @@ import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
-import { createLogger } from "@/lib/logger";
+import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CompressedFieldData,
   CompressedMemoryData,
   FieldMapping,
 } from "@/types/autofill";
+import type { WebsiteContext } from "@/types/context";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 import { MIN_MATCH_CONFIDENCE } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
@@ -35,6 +36,13 @@ const AIMatchSchema = z.object({
     .array(z.string())
     .max(3)
     .describe("Up to 3 alternative memory IDs that could also match"),
+  rephrasedAnswer: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      "The rephrased answer, if the context requires it. Otherwise, this should be null.",
+    ),
 });
 
 const AIBatchMatchSchema = z.object({
@@ -57,6 +65,7 @@ export class AIMatcher {
   async matchFields(
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
     provider: AIProvider,
     apiKey: string,
     modelName?: string,
@@ -78,10 +87,10 @@ export class AIMatcher {
 
     try {
       const startTime = performance.now();
-
       const aiResults = await this.performAIMatching(
         fields,
         memories,
+        websiteContext,
         provider,
         apiKey,
         modelName,
@@ -107,6 +116,7 @@ export class AIMatcher {
   private async performAIMatching(
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
     provider: AIProvider,
     apiKey: string,
     modelName?: string,
@@ -115,17 +125,21 @@ export class AIMatcher {
       const model = getAIModel(provider, apiKey, modelName);
 
       const systemPrompt = this.buildSystemPrompt();
-      const userPrompt = this.buildUserPrompt(fields, memories);
+      const userPrompt = this.buildUserPrompt(fields, memories, websiteContext);
 
-      logger.info(`AI matching with ${provider} for ${fields.length} fields`);
+      logger.info(`AI matching with ${provider} for ${fields.length} fields`, {
+        websiteContext,
+      });
 
-      updateActiveObservation({
-        input: { fields, memories, provider },
-      });
-      updateActiveTrace({
-        name: "superfill:memory-categorization",
-        input: { fields, memories, provider },
-      });
+      if (DEBUG) {
+        updateActiveObservation({
+          input: { fields, memories, provider },
+        });
+        updateActiveTrace({
+          name: "superfill:memory-categorization",
+          input: { fields, memories, provider },
+        });
+      }
 
       const result = await generateObject({
         model,
@@ -137,7 +151,7 @@ export class AIMatcher {
         prompt: userPrompt,
         temperature: 0.3,
         experimental_telemetry: {
-          isEnabled: true,
+          isEnabled: DEBUG,
           functionId: "field-matching",
           metadata: {
             fieldCount: fields.length,
@@ -149,30 +163,36 @@ export class AIMatcher {
         },
       });
 
-      updateActiveObservation({
-        output: result.object,
-      });
-      updateActiveTrace({
-        output: result.object,
-      });
-      trace.getActiveSpan()?.end();
+      if (DEBUG) {
+        updateActiveObservation({
+          output: result.object,
+        });
+        updateActiveTrace({
+          output: result.object,
+        });
+        trace.getActiveSpan()?.end();
+      }
 
       return result.object;
     } catch (error) {
       logger.error("AI matching failed:", error);
 
-      updateActiveObservation({
-        output: error,
-        level: "ERROR",
-      });
-      updateActiveTrace({
-        output: error,
-      });
-      trace.getActiveSpan()?.end();
+      if (DEBUG) {
+        updateActiveObservation({
+          output: error,
+          level: "ERROR",
+        });
+        updateActiveTrace({
+          output: error,
+        });
+        trace.getActiveSpan()?.end();
+      }
 
       throw error;
     } finally {
-      (async () => await langfuseSpanProcessor.forceFlush())();
+      if (DEBUG) {
+        (async () => await langfuseSpanProcessor.forceFlush())();
+      }
     }
   }
 
@@ -186,13 +206,18 @@ Matching Criteria:
 2. **Context Alignment**: Field labels, placeholders, and helper text should relate to the memory's question/category
 3. **Type Compatibility**: Email fields need email memories, phone fields need phone memories, etc.
 4. **Confidence Scoring**: Only suggest matches you're confident about (0.5+ confidence)
+5. **Website Context is KING**: The website's type and purpose heavily influence the meaning of a field.
+
+**CRUCIAL**: Use the provided Website Context to understand the form's purpose. A field labeled "Name" on a 'job_portal' is for a person's name, but on an 'e-commerce' site during checkout, it might be for a credit card name.
 
 Important Rules:
-- **NEVER** match password fields (they should have been filtered out already)
-- Set memoryId to null if no good match exists (confidence < 0.35)
-- Provide clear reasoning for each match or rejection
-- Include up to 3 alternative matches when applicable
-- Consider field purpose, labels, and context together
+1.  **Rephrasing**: If a stored answer is long or informal, and the website context requires a shorter or more professional tone, provide a 'rephrasedAnswer'. Otherwise, **leave 'rephrasedAnswer' as null**.
+    - DO NOT rephrase simple values like names, emails, or phone numbers.
+    - DO rephrase long "Bio" answers for shorter fields, or adjust the tone for professional vs. social sites.
+2.  **Matching**: Set 'memoryId' to null if no good match exists (confidence < 0.35).
+3.  **Reasoning**: Provide clear reasoning for each match, rejection, or rephrasing decision.
+4. **NEVER** match password fields (they should have been filtered out already)
+5. Consider field purpose, labels, and context together
 
 Output Format:
 - Return an array of matches, one per field
@@ -204,6 +229,7 @@ Output Format:
   private buildUserPrompt(
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
   ): string {
     const fieldsMarkdown = fields
       .map(
@@ -228,7 +254,17 @@ Output Format:
       )
       .join("\n");
 
-    return `Match these form fields to the best stored memories:
+    const contextMarkdown = `
+**Website Type**: ${websiteContext.websiteType}
+**Inferred Form Purpose**: ${websiteContext.formPurpose}
+**Page Title**: ${websiteContext.metadata.title}
+`;
+
+    return `Based on the following website context, match the form fields to the best stored memories.
+
+## Website Context
+${contextMarkdown}
+
 
 ## Form Fields
 ${fieldsMarkdown}
@@ -240,7 +276,8 @@ For each field, determine:
 1. Which memory (if any) is the best match
 2. Your confidence in that match (0-1)
 3. Why you chose that memory (or why no memory fits)
-4. Up to 3 alternative memories that could also work`;
+4. A 'rephrasedAnswer' ONLY if the context requires it, otherwise null.
+5. Up to 3 alternative memories that could also work.`;
   }
 
   private convertAIResultsToMappings(
@@ -279,13 +316,22 @@ For each field, determine:
 
       const confidence = roundConfidence(aiMatch.confidence);
       const meetsThreshold = confidence >= MIN_MATCH_CONFIDENCE;
+      const originalAnswer = meetsThreshold && memory ? memory.answer : null;
+      const rephrasedAnswer = aiMatch.rephrasedAnswer || null;
+      const useRephrased = !!rephrasedAnswer;
 
       return {
         fieldOpid: aiMatch.fieldOpid,
         memoryId: meetsThreshold && memory ? memory.id : null,
-        value: meetsThreshold && memory ? memory.answer : null,
+        value: originalAnswer,
+        rephrasedValue: useRephrased ? rephrasedAnswer : null,
+        isRephrased: useRephrased,
         confidence,
-        reasoning: aiMatch.reasoning || "AI-powered semantic match",
+        reasoning:
+          aiMatch.reasoning ||
+          (useRephrased
+            ? "AI-powered match with contextual rephrasing."
+            : "AI-powered semantic match."),
         alternativeMatches,
       };
     });

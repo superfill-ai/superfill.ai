@@ -1,6 +1,5 @@
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
-import { useAuthStore } from "@/stores/auth";
 import type { MemoryEntry } from "@/types/memory";
 import type { SyncOperationResult } from "@/types/sync";
 import { defineProxyService } from "@webext-core/proxy-service";
@@ -35,16 +34,7 @@ class SyncService {
       throw new Error("Sync already in progress");
     }
 
-    let authenticated = await isSupabaseAuthenticated();
-
-    if (!authenticated) {
-      const token = await useAuthStore.getState().getAuthToken();
-
-      if (token) {
-        await this.setAuthToken(token);
-        authenticated = await isSupabaseAuthenticated();
-      }
-    }
+    const authenticated = await isSupabaseAuthenticated();
 
     if (!authenticated) {
       throw new Error("Cannot perform sync: not authenticated");

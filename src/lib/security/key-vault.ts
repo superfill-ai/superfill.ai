@@ -1,5 +1,5 @@
 import type { AIProvider } from "@/lib/providers/registry";
-import { store } from "@/lib/storage";
+import { storage } from "@/lib/storage";
 import { createLogger } from "../logger";
 import { decrypt, encrypt, generateSalt } from "./encryption";
 import { getBrowserFingerprint } from "./fingerprint";
@@ -32,15 +32,15 @@ export class KeyVault {
     const salt = await generateSalt();
     const encrypted = await encrypt(key, fingerprint, salt);
 
-    const currentKeys = await store.apiKeys.getValue();
-    await store.apiKeys.setValue({
+    const currentKeys = await storage.apiKeys.getValue();
+    await storage.apiKeys.setValue({
       ...currentKeys,
       [provider]: { encrypted, salt },
     });
   }
 
   async getKey(provider: AIProvider): Promise<string | null> {
-    const keys = await store.apiKeys.getValue();
+    const keys = await storage.apiKeys.getValue();
 
     if (!keys[provider]) {
       return null;
@@ -64,9 +64,9 @@ export class KeyVault {
   }
 
   async deleteKey(provider: AIProvider): Promise<void> {
-    const currentKeys = await store.apiKeys.getValue();
+    const currentKeys = await storage.apiKeys.getValue();
     const { [provider]: _, ...rest } = currentKeys;
-    await store.apiKeys.setValue(rest);
+    await storage.apiKeys.setValue(rest);
     this.validationCache.delete(provider);
   }
 
