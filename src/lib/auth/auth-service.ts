@@ -1,7 +1,7 @@
-import { createLogger } from "@/lib/logger";
-import { supabase } from "@/lib/supabase/client";
 import type { Provider, Session } from "@supabase/supabase-js";
 import { defineProxyService } from "@webext-core/proxy-service";
+import { createLogger } from "@/lib/logger";
+import { supabase } from "@/lib/supabase/client";
 
 const logger = createLogger("auth-service");
 

@@ -1,9 +1,9 @@
+import type { Provider, Session } from "@supabase/supabase-js";
+import { useCallback, useEffect, useState } from "react";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
 import { autoSyncManager } from "@/lib/sync/auto-sync-manager";
 import { getSyncService } from "@/lib/sync/sync-service";
-import type { Provider, Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState } from "react";
 
 const logger = createLogger("hook:auth");
 

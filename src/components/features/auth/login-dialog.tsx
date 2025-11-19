@@ -1,3 +1,5 @@
+import type { Provider } from "@supabase/supabase-js";
+import { FaGithub, FaGoogle, FaLinkedin } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,8 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/use-auth";
-import type { Provider } from "@supabase/supabase-js";
-import { FaGithub, FaGoogle, FaLinkedin } from "react-icons/fa";
 
 interface LoginDialogProps {
   open: boolean;

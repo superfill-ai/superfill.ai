@@ -24,11 +24,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APP_NAME } from "@/constants";
+import { useAuth } from "@/hooks/use-auth";
 import { useMemories } from "@/hooks/use-memories";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
-import { useAuth } from "@/hooks/use-auth";
 
 const logger = createLogger("options:App");
 

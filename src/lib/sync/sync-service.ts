@@ -1,8 +1,8 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { store } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
 import type { SyncOperationResult } from "@/types/sync";
-import { defineProxyService } from "@webext-core/proxy-service";
 import {
   clearSupabaseAuth,
   isSupabaseAuthenticated,
