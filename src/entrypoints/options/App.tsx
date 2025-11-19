@@ -64,9 +64,15 @@ export const App = () => {
       }
 
       const uiSettings = await storage.uiSettings.getValue();
+      const storedMemories = await storage.memories.getValue();
 
-      if (!uiSettings.onboardingCompleted) {
+      if (!uiSettings.onboardingCompleted && storedMemories.length === 0) {
         setShowOnboarding(true);
+      } else {
+        await storage.uiSettings.setValue({
+          ...uiSettings,
+          onboardingCompleted: true,
+        });
       }
     };
 
