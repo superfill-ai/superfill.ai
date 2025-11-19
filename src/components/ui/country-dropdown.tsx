@@ -64,7 +64,7 @@ const CountryDropdownComponent = (
   useEffect(() => {
     if (defaultValue) {
       const initialCountry = filteredCountries.find(
-        (country) => country.alpha3 === defaultValue,
+        (country) => country.name === defaultValue,
       );
       if (initialCountry) {
         setSelectedCountry(initialCountry);

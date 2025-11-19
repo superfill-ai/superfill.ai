@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.1.4
+
+### Patch Changes
+
+- [`89a198b`](https://github.com/superfill-ai/superfill.ai/commit/89a198b3f323727537be4efab8b4a03ef2b71649) Thanks [@mikr13](https://github.com/mikr13)! - fix: update country selection logic to match by name instead of alpha3 code
+
 ## 0.1.3
 
 ### Patch Changes
