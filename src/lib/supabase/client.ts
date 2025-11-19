@@ -35,8 +35,8 @@ export function clearSupabaseAuth() {
 
 export async function isSupabaseAuthenticated(): Promise<boolean> {
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return session !== null;
+  return user !== null;
 }
