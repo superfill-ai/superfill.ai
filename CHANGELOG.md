@@ -1,5 +1,13 @@
 # superfill.ai
 
+## 0.1.5
+
+### Patch Changes
+
+- [`3dcfe9e`](https://github.com/superfill-ai/superfill.ai/commit/3dcfe9e2e9be004f485319f7ffc11c569ac675ab) Thanks [@mikr13](https://github.com/mikr13)! - fix: correct onboarding completion logic based on stored memories
+
+- [`66aec2f`](https://github.com/superfill-ai/superfill.ai/commit/66aec2f26050785db9a6b0cdcad23da811fda767) Thanks [@mikr13](https://github.com/mikr13)! - fix: update onboarding logic to check for stored memories before completion
+
 ## 0.1.4
 
 ### Patch Changes
