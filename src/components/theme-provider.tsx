@@ -1,8 +1,8 @@
+import { createContext, useContext, useEffect, useState } from "react";
 import { APP_NAME } from "@/constants";
 import { storage } from "@/lib/storage";
 import type { UISettings } from "@/types/settings";
 import { Theme } from "@/types/theme";
-import { createContext, useContext, useEffect, useState } from "react";
 
 type ThemeProviderProps = {
   children: React.ReactNode;

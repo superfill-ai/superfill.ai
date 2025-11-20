@@ -299,22 +299,25 @@ class SyncService {
         try {
           const { error } = await supabase.rpc("upsert_memory", {
             p_local_id: memory.id,
-            p_question: memory.question || "",
+            p_question: (memory.question || null) as string,
             p_answer: memory.answer,
             p_category: memory.category,
-            p_tags: memory.tags,
+            p_tags: memory.tags || [],
             p_confidence: memory.confidence,
-            p_embedding: memory.embedding
+            p_embedding: (memory.embedding && memory.embedding.length > 0
               ? `[${memory.embedding.join(",")}]`
-              : "",
+              : null) as string,
             p_source: memory.metadata.source,
             p_usage_count: memory.metadata.usageCount,
-            p_last_used: memory.metadata.lastUsed || "",
+            p_last_used: (memory.metadata.lastUsed || null) as string,
             p_created_at: memory.metadata.createdAt,
             p_updated_at: memory.metadata.updatedAt,
           });
 
           if (error) {
+            logger.error(
+              `Failed to sync memory ${memory.id}: ${error.message}`,
+            );
             errors.push(`Failed to sync memory ${memory.id}: ${error.message}`);
           } else {
             itemsSynced++;
