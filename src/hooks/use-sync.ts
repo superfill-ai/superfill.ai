@@ -112,7 +112,10 @@ export function useSync(): SyncState & SyncActions {
     if (state.timeUntilNextSync > 0) {
       const interval = setInterval(() => {
         setState((prev) => {
-          const newTimeUntilNextSync = Math.max(0, prev.timeUntilNextSync - 1000);
+          const newTimeUntilNextSync = Math.max(
+            0,
+            prev.timeUntilNextSync - 1000,
+          );
           const canSync = newTimeUntilNextSync === 0;
 
           return {

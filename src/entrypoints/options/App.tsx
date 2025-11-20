@@ -35,14 +35,9 @@ const logger = createLogger("options:App");
 
 export const App = () => {
   const isMobile = useIsMobile();
-  const { isAuthenticated, signOut, checkAuthStatus } = useAuth();
-  const {
-    syncing,
-    canSync,
-    timeUntilNextSync,
-    syncStatus,
-    performSync,
-  } = useSync();
+  const { isAuthenticated, loading, signOut, checkAuthStatus } = useAuth();
+  const { syncing, canSync, timeUntilNextSync, syncStatus, performSync } =
+    useSync();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
@@ -180,10 +175,11 @@ export const App = () => {
           {!isAuthenticated ? (
             <Button
               onClick={() => setLoginDialogOpen(true)}
+              disabled={loading}
               variant="outline"
               size="sm"
             >
-              Sign in to sync
+              {loading ? "Loading auth..." : "Sign in"}
             </Button>
           ) : (
             <>

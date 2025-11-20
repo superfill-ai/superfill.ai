@@ -75,7 +75,6 @@ export const App = () => {
   >("autofill");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
-
   const hasMemories = entries.length > 0;
 
   useEffect(() => {
