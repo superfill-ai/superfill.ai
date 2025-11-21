@@ -1,9 +1,9 @@
 import type { Provider, Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
+import { supabase } from "@/lib/supabase/client";
 import { autoSyncManager } from "@/lib/sync/auto-sync-manager";
-import { getSyncService } from "@/lib/sync/sync-service";
 
 const logger = createLogger("hook:auth");
 
@@ -13,103 +13,69 @@ type AuthState = {
   loading: boolean;
   error: string | null;
   signingIn: boolean;
-  selectedProvider: Provider | null;
 };
 
 type AuthActions = {
-  signIn: (provider: Provider) => Promise<void>;
+  signIn: (provider?: Provider) => Promise<void>;
   signOut: () => Promise<void>;
   checkAuthStatus: () => Promise<boolean>;
   loadSession: () => Promise<void>;
 };
 
 export function useAuth(): AuthState & AuthActions {
-  const [state, setState] = useState<AuthState>({
-    session: null,
-    isAuthenticated: false,
-    loading: false,
-    error: null,
-    signingIn: false,
-    selectedProvider: null,
-  });
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
 
-  const signIn = useCallback(async (provider: Provider) => {
-    try {
-      setState((prev) => ({
-        ...prev,
-        signingIn: true,
-        selectedProvider: provider,
-        error: null,
-      }));
+  const hasInitialized = useRef(false);
 
+  useEffect(() => {
+    const fetchAndWatch = async () => {
       const authService = getAuthService();
-      await authService.initiateOAuth(provider);
-
-      logger.info(`OAuth flow initiated for ${provider}`);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to sign in";
-      logger.error("Failed to sign in", { error });
-      setState((prev) => ({
-        ...prev,
-        signingIn: false,
-        error: errorMessage,
-        selectedProvider: null,
-      }));
-      throw error;
-    }
-  }, []);
-
-  const signOut = useCallback(async () => {
-    try {
-      setState((prev) => ({ ...prev, loading: true, error: null }));
-
-      const authService = getAuthService();
-      await authService.clearSession();
-
-      setState({
-        session: null,
-        isAuthenticated: false,
-        loading: false,
-        error: null,
-        signingIn: false,
-        selectedProvider: null,
+      const currentSession = await authService.getSession();
+      logger.info("[useAuth] Initial session loaded:", {
+        hasSession: !!currentSession,
+        userId: currentSession?.user?.id,
       });
+      setSession(currentSession);
+    };
 
-      logger.info("Signed out successfully");
+    fetchAndWatch();
 
-      const syncService = getSyncService();
-      syncService.clearAuth();
-      logger.info("Sync service auth cleared");
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to sign out";
-      logger.error("Failed to sign out", { error });
-      setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
-      throw error;
-    }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      logger.info("[useAuth] Auth state changed:", {
+        event: _event,
+        hasSession: !!newSession,
+        userId: newSession?.user?.id,
+      });
+      setSession(newSession);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const isAuthenticated = !!session?.access_token;
 
   const checkAuthStatus = useCallback(async () => {
     try {
+      logger.info("[checkAuthStatus] Starting auth status check");
       const authService = getAuthService();
       const session = await authService.getSession();
       const isAuthenticated = session !== null;
 
-      setState((prev) => ({
-        ...prev,
-        session,
+      logger.info("[checkAuthStatus] Session retrieved:", {
+        hasSession: !!session,
         isAuthenticated,
-        signingIn: false,
-        selectedProvider: null,
-      }));
+        hasAccessToken: !!session?.access_token,
+      });
 
       if (isAuthenticated && session) {
         try {
-          const syncService = getSyncService();
-          await syncService.setAuthToken(session.access_token);
-          logger.info("Sync service authenticated");
-
           await autoSyncManager.triggerSync("full", { silent: true });
         } catch (error) {
           logger.error("Failed to initialize sync service", { error });
@@ -119,13 +85,59 @@ export function useAuth(): AuthState & AuthActions {
       return isAuthenticated;
     } catch (error) {
       logger.error("Failed to check auth status", { error });
-      setState((prev) => ({
-        ...prev,
-        isAuthenticated: false,
-        signingIn: false,
-        selectedProvider: null,
-      }));
       return false;
+    }
+  }, []);
+
+  const signIn = useCallback(async () => {
+    try {
+      setSigningIn(true);
+      setError(null);
+
+      const authService = getAuthService();
+      await authService.initiateOAuth();
+
+      logger.info("Redirected to webapp login");
+
+      const authenticated = await authService.waitForAuth(300000);
+
+      logger.info("[signIn] waitForAuth resolved:", { authenticated });
+
+      if (authenticated) {
+        logger.info("[signIn] Calling checkAuthStatus after successful auth");
+        await checkAuthStatus();
+        logger.info("[signIn] checkAuthStatus completed");
+      } else {
+        setError("Authentication timeout");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to sign in";
+      logger.error("Failed to sign in", { error });
+      setError(errorMessage);
+      throw error;
+    } finally {
+      setSigningIn(false);
+    }
+  }, [checkAuthStatus]);
+
+  const signOut = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const authService = getAuthService();
+      await authService.clearSession();
+
+      logger.info("Signed out successfully");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to sign out";
+      logger.error("Failed to sign out", { error });
+      setError(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -134,11 +146,19 @@ export function useAuth(): AuthState & AuthActions {
   }, [checkAuthStatus]);
 
   useEffect(() => {
-    loadSession();
-  }, [loadSession]);
+    if (!hasInitialized.current && isAuthenticated && session) {
+      hasInitialized.current = true;
+      logger.info("[useAuth] Initializing sync with stored session");
+      checkAuthStatus();
+    }
+  }, [isAuthenticated, session, checkAuthStatus]);
 
   return {
-    ...state,
+    session,
+    isAuthenticated,
+    loading,
+    error,
+    signingIn,
     signIn,
     signOut,
     checkAuthStatus,

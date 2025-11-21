@@ -1,5 +1,4 @@
-import type { Provider } from "@supabase/supabase-js";
-import { FaGithub, FaGoogle, FaLinkedin } from "react-icons/fa";
+import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,11 +16,12 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
-  const { signIn, signingIn, selectedProvider } = useAuth();
+  const { signIn, signingIn } = useAuth();
 
-  const handleLogin = async (provider: Provider) => {
+  const handleLogin = async () => {
     try {
-      await signIn(provider);
+      await signIn();
+      onOpenChange(false);
     } catch (error) {
       console.error("Login failed:", error);
     }
@@ -33,54 +33,40 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         <DialogHeader>
           <DialogTitle className="text-2xl">Sign In</DialogTitle>
           <DialogDescription>
-            Choose your preferred authentication provider
+            Sign in to sync your memories across devices and access cloud
+            features
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <Button
-            variant="outline"
+            variant="default"
             className="w-full"
-            onClick={() => handleLogin("google")}
+            onClick={handleLogin}
             disabled={signingIn}
           >
-            {signingIn && selectedProvider === "google" ? (
-              <Spinner className="size-4" />
+            {signingIn ? (
+              <>
+                <Spinner className="size-4" />
+                Checking for authentication...
+              </>
             ) : (
-              <FaGoogle className="size-4" />
+              <>
+                <ExternalLink className="size-4" />
+                Open Login Page
+              </>
             )}
-            Continue with Google
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => handleLogin("github")}
-            disabled={signingIn}
-          >
-            {signingIn && selectedProvider === "github" ? (
-              <Spinner className="size-4" />
-            ) : (
-              <FaGithub className="size-4" />
-            )}
-            Continue with GitHub
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => handleLogin("linkedin_oidc")}
-            disabled={signingIn}
-          >
-            {signingIn && selectedProvider === "linkedin_oidc" ? (
-              <Spinner className="size-4" />
-            ) : (
-              <FaLinkedin className="size-4" />
-            )}
-            Continue with LinkedIn
           </Button>
         </div>
         {signingIn && (
-          <p className="text-sm text-muted-foreground text-center">
-            Opening authentication window...
-          </p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p className="text-center">
+              A new tab will open for authentication.
+            </p>
+            <p className="text-center">
+              After logging in, return here and this dialog will automatically
+              close.
+            </p>
+          </div>
         )}
       </DialogContent>
     </Dialog>

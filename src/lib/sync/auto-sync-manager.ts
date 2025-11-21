@@ -1,4 +1,6 @@
 import { createLogger } from "@/lib/logger";
+import type { SyncOperationResult } from "@/types/sync";
+import { getAuthService } from "../auth/auth-service";
 import { getSyncService } from "./sync-service";
 
 const logger = createLogger("auto-sync-manager");
@@ -18,53 +20,51 @@ class AutoSyncManager {
     const { delay = 0, silent = true } = options;
 
     try {
-      const syncService = getSyncService();
+      const authService = getAuthService();
 
-      if (!syncService.isAuthenticated()) {
+      if (!authService.isAuthenticated()) {
         logger.debug("Skipping auto-sync: Not authenticated");
         return;
       }
 
+      const syncService = getSyncService();
       const isSyncing = await syncService.isSyncInProgress();
+
       if (isSyncing) {
         logger.debug("Skipping auto-sync: Sync already in progress");
         return;
       }
 
       const executeSync = async () => {
-        try {
-          logger.info(`Triggering ${type} sync`, { silent, delay });
+        logger.info(`Triggering ${type} sync`, { silent, delay });
 
-          switch (type) {
-            case "push":
-              await syncService.pushToRemote();
-              break;
-            case "pull":
-              await syncService.pullFromRemote();
-              break;
-            case "full":
-              await syncService.performFullSync();
-              break;
-          }
+        let result: SyncOperationResult;
+        switch (type) {
+          case "push":
+            result = await syncService.pushToRemote();
+            break;
+          case "pull":
+            result = await syncService.pullFromRemote(undefined);
+            break;
+          case "full":
+            result = await syncService.performFullSync(silent);
+            break;
+        }
 
-          logger.info(`${type} sync completed successfully`);
-        } catch (error) {
-          if (!silent) {
-            throw error;
-          }
-          logger.error(`Auto-sync failed (${type})`, { error });
+        if (result.success) {
+          logger.info(`${type} sync completed successfully`, {
+            itemsSynced: result.itemsSynced,
+            conflictsResolved: result.conflictsResolved,
+          });
+        } else if (!silent) {
+          logger.error(`${type} sync failed`, { errors: result.errors });
         }
       };
 
       if (delay > 0) {
         setTimeout(executeSync, delay);
       } else {
-        executeSync().catch((error) => {
-          if (!silent) {
-            throw error;
-          }
-          logger.error("Auto-sync execution failed", { error });
-        });
+        await executeSync();
       }
     } catch (error) {
       logger.error("Failed to trigger auto-sync", { error });

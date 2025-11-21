@@ -4,41 +4,73 @@ import { storage } from "@/lib/storage";
 
 import type { MemoryEntry } from "@/types/memory";
 import type { SyncOperationResult } from "@/types/sync";
-import {
-  clearSupabaseAuth,
-  isSupabaseAuthenticated,
-  setSupabaseAuth,
-  supabase,
-} from "../supabase/client";
+import { getAuthService } from "../auth/auth-service";
+import { supabase } from "../supabase/client";
+import { autoSyncManager } from "./auto-sync-manager";
 
 const logger = createLogger("sync-service");
 
 class SyncService {
   private syncInProgress = false;
 
-  async setAuthToken(token: string): Promise<void> {
-    setSupabaseAuth(token);
-    logger.info("Sync service authenticated with Supabase");
+  async performStartupSync(): Promise<void> {
+    try {
+      logger.info("Checking auth status for startup sync");
+
+      const authService = getAuthService();
+      const session = await authService.getSession();
+
+      if (!session) {
+        logger.info("User not authenticated, skipping startup sync");
+        return;
+      }
+
+      logger.info("User authenticated, initializing sync");
+
+      await autoSyncManager.triggerSync("full", { silent: true });
+
+      logger.info("Startup sync initiated successfully");
+    } catch (error) {
+      logger.error("Failed to handle startup sync", { error });
+    }
   }
 
-  clearAuth(): void {
-    clearSupabaseAuth();
-    logger.info("Sync service auth cleared");
-  }
-
-  async isAuthenticated() {
-    return await isSupabaseAuthenticated();
-  }
-
-  async performFullSync(): Promise<SyncOperationResult> {
+  async performFullSync(silent = false): Promise<SyncOperationResult> {
     if (this.syncInProgress) {
-      throw new Error("Sync already in progress");
+      const error = "Sync already in progress";
+
+      if (silent) {
+        logger.debug(error);
+        return {
+          success: false,
+          operation: "full_sync",
+          itemsSynced: 0,
+          conflictsResolved: 0,
+          errors: [error],
+          timestamp: new Date().toISOString(),
+        };
+      }
+      throw new Error(error);
     }
 
-    const authenticated = await isSupabaseAuthenticated();
+    const authService = getAuthService();
+    const authenticated = await authService.isAuthenticated();
 
     if (!authenticated) {
-      throw new Error("Cannot perform sync: not authenticated");
+      const error = "Cannot perform sync: not authenticated";
+
+      if (silent) {
+        logger.debug(error);
+        return {
+          success: false,
+          operation: "full_sync",
+          itemsSynced: 0,
+          conflictsResolved: 0,
+          errors: [error],
+          timestamp: new Date().toISOString(),
+        };
+      }
+      throw new Error(error);
     }
 
     this.syncInProgress = true;

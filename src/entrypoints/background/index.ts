@@ -1,5 +1,5 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
-import { registerAuthService } from "@/lib/auth/auth-service";
+import { getAuthService, registerAuthService } from "@/lib/auth/auth-service";
 import { registerAutofillService } from "@/lib/autofill/autofill-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
@@ -11,66 +11,23 @@ import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
 import { storage } from "@/lib/storage";
-import { supabase } from "@/lib/supabase/client";
-import { handleStartupSync } from "@/lib/sync/startup-sync";
 import { registerSyncService } from "@/lib/sync/sync-service";
 
 const logger = createLogger("background");
 
-function parseUrlHash(url: string): Map<string, string> {
-  const hashParts = new URL(url).hash.slice(1).split("&");
-  const hashMap = new Map(
-    hashParts.map((part) => {
-      const [name, value] = part.split("=");
-      return [name, value];
-    }),
-  );
-  return hashMap;
-}
+const WEBSITE_URL = import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
 
-async function handleOAuthCallback(url: string) {
+function isWebappAuthPage(url: string): boolean {
   try {
-    logger.info("Handling OAuth callback from Supabase");
-
-    const hashMap = parseUrlHash(url);
-    const accessToken = hashMap.get("access_token");
-    const refreshToken = hashMap.get("refresh_token");
-
-    if (!accessToken || !refreshToken) {
-      throw new Error("No Supabase tokens found in URL hash");
-    }
-
-    const { data, error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-
-    if (error) throw error;
-
-    await browser.storage.local.set({
-      "superfill:auth:session": data.session,
-    });
-
-    logger.info("Successfully authenticated with Supabase");
-
-    try {
-      await handleStartupSync();
-    } catch (syncError) {
-      logger.error("Failed to sync after authentication:", syncError);
-    }
-
-    const tabs = await browser.tabs.query({
-      url: `${browser.identity.getRedirectURL()}*`,
-    });
-    for (const tab of tabs) {
-      if (tab.id) {
-        await browser.tabs.remove(tab.id);
-      }
-    }
-
-    browser.runtime.openOptionsPage();
-  } catch (error) {
-    logger.error("Error processing OAuth callback:", error);
+    const urlObj = new URL(url);
+    return (
+      urlObj.origin === WEBSITE_URL &&
+      (urlObj.pathname.includes("/login") ||
+        urlObj.pathname.includes("/oauth") ||
+        urlObj.pathname.includes("/auth"))
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -80,23 +37,45 @@ export default defineBackground({
     if (DEBUG) {
       tracerProvider.register();
     }
+
     registerCategorizationService();
     registerKeyValidationService();
     registerModelService();
     registerSessionService();
     registerAuthService();
-    registerSyncService();
+    const syncService = registerSyncService();
     const autofillService = registerAutofillService();
     const sessionService = getSessionService();
 
-    browser.tabs.onUpdated.addListener((_tabId, changeInfo, _tab) => {
-      if (changeInfo.url?.startsWith(browser.identity.getRedirectURL())) {
-        handleOAuthCallback(changeInfo.url);
+    browser.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+      if (changeInfo.url && isWebappAuthPage(changeInfo.url)) {
+        logger.info("Detected webapp auth page navigation");
+      }
+    });
+
+    browser.runtime.onMessage.addListener(async (message) => {
+      try {
+        if (message.type === "SUPERFILL_AUTH_SUCCESS") {
+          logger.info("Received auth tokens from webapp", {
+            hasAccessToken: !!message.access_token,
+            hasRefreshToken: !!message.refresh_token,
+            userId: message.user?.id,
+          });
+
+          const authService = getAuthService();
+          await authService.setAuthToken(
+            message.access_token,
+            message.refresh_token,
+          );
+          logger.info("Auth tokens set successfully in background");
+        }
+      } catch (error) {
+        logger.error("Error processing runtime message:", error);
       }
     });
 
     setTimeout(() => {
-      handleStartupSync();
+      syncService.performStartupSync();
     }, 5000);
 
     browser.runtime.onInstalled.addListener(async (details) => {

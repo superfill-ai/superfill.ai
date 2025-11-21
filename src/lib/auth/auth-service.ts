@@ -1,58 +1,79 @@
-import type { Provider, Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { supabase } from "@/lib/supabase/client";
+import {
+  clearSupabaseAuth,
+  isSupabaseAuthenticated,
+  setSupabaseAuth,
+  supabase,
+} from "../supabase/client";
 
 const logger = createLogger("auth-service");
 
 class AuthService {
-  private redirectUrl = browser.identity.getRedirectURL();
+  private readonly WEBSITE_URL =
+    import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
 
-  async initiateOAuth(provider: Provider): Promise<void> {
+  async initiateOAuth(): Promise<void> {
     try {
-      logger.info(
-        `Initiating OAuth flow with ${provider} with redirect URL: ${this.redirectUrl}`,
-      );
+      const loginUrl = `${this.WEBSITE_URL}/login?source=extension`;
+      logger.info(`Redirecting to webapp login: ${loginUrl}`);
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: this.redirectUrl,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-      if (!data.url) throw new Error("No OAuth URL returned");
-
-      await browser.tabs.create({ url: data.url });
-
-      logger.info("OAuth flow initiated, waiting for callback");
+      await browser.tabs.create({ url: loginUrl });
     } catch (error) {
       logger.error("Failed to initiate OAuth:", error);
       throw error;
     }
   }
 
+  async setAuthToken(
+    accessToken: string,
+    refreshToken?: string,
+  ): Promise<void> {
+    try {
+      await setSupabaseAuth(accessToken, refreshToken);
+      logger.info("Sync service authenticated with Supabase");
+    } catch (error) {
+      logger.error("Failed to set auth token:", error);
+      throw error;
+    }
+  }
+
+  async clearAuth(): Promise<void> {
+    await clearSupabaseAuth();
+    logger.info("Sync service auth cleared");
+  }
+
+  async isAuthenticated(): Promise<boolean> {
+    return await isSupabaseAuthenticated();
+  }
+
   async getSession(): Promise<Session | null> {
     try {
-      const result = await browser.storage.local.get("superfill:auth:session");
-      const session = result["superfill:auth:session"] as Session | undefined;
+      logger.info("[getSession] Retrieving session from Supabase");
 
-      if (!session) return null;
-
-      const { data, error } = await supabase.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      });
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
       if (error) {
-        logger.error("Session validation failed:", error);
-        await this.clearSession();
+        logger.error("[getSession] Error getting session:", error);
         return null;
       }
 
-      return data.session;
+      if (!session) {
+        logger.info("[getSession] No session found");
+        return null;
+      }
+
+      logger.info("[getSession] Session retrieved successfully", {
+        userId: session.user?.id,
+        hasAccessToken: !!session.access_token,
+        hasRefreshToken: !!session.refresh_token,
+      });
+
+      return session;
     } catch (error) {
       logger.error("Failed to get session:", error);
       return null;
@@ -61,8 +82,7 @@ class AuthService {
 
   async clearSession(): Promise<void> {
     try {
-      await browser.storage.local.remove("superfill:auth:session");
-      await supabase.auth.signOut();
+      await this.clearAuth();
       logger.info("Session cleared successfully");
     } catch (error) {
       logger.error("Failed to clear session:", error);
@@ -70,26 +90,40 @@ class AuthService {
     }
   }
 
-  async isAuthenticated(): Promise<boolean> {
-    const session = await this.getSession();
-    return session !== null;
+  async waitForAuth(timeoutMs = 300000): Promise<boolean> {
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(async () => {
+        const session = await this.getSession();
+        if (session?.access_token) {
+          cleanup();
+          logger.info("Authentication detected!");
+          resolve(true);
+        }
+      }, 500);
+
+      const timeout = setTimeout(() => {
+        cleanup();
+        logger.warn("Authentication timeout");
+        resolve(false);
+      }, timeoutMs);
+
+      const cleanup = () => {
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+      };
+
+      logger.info("Waiting for authentication tokens to be stored");
+    });
   }
 
   async getCurrentUser() {
     const session = await this.getSession();
-    if (!session) return null;
+    if (!session?.user) return null;
 
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error) {
-      logger.error("Failed to get user:", error);
-      return null;
-    }
-
-    return user;
+    return {
+      id: session.user.id,
+      email: session.user.email || null,
+    };
   }
 }
 

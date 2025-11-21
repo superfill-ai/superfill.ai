@@ -102,6 +102,38 @@ export default defineContentScript({
   async main(ctx) {
     logger.info("Content script loaded on:", window.location.href);
 
+    const WEBSITE_URL =
+      import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
+    const isWebappDomain =
+      window.location.origin === WEBSITE_URL ||
+      window.location.origin === new URL(WEBSITE_URL).origin;
+
+    if (isWebappDomain) {
+      window.addEventListener("message", (event) => {
+        if (event.data?.type === "SUPERFILL_AUTH_SUCCESS") {
+          const { access_token, refresh_token, user } = event.data;
+
+          if (access_token && refresh_token) {
+            browser.runtime.sendMessage({
+              type: "SUPERFILL_AUTH_SUCCESS",
+              access_token,
+              refresh_token,
+              user,
+              timestamp: Date.now(),
+            });
+            logger.info("Auth tokens forwarded to extension", {
+              hasAccessToken: !!access_token,
+              hasRefreshToken: !!refresh_token,
+              userId: user?.id,
+            });
+          } else {
+            logger.error("Auth message missing tokens");
+          }
+        }
+      });
+      logger.info("Auth message listener registered for webapp");
+    }
+
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
