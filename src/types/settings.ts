@@ -13,6 +13,7 @@ export interface AISettings {
   autoFillEnabled: boolean;
   autopilotMode: boolean;
   confidenceThreshold: number;
+  cloudModelsEnabled: boolean;
 }
 
 export interface UISettings {

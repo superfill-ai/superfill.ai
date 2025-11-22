@@ -309,42 +309,23 @@ class AutofillService {
     const compressedFields = fields.map((f) => this.compressField(f));
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
+    const settings = this.currentAiSettings;
+
+    if (!settings) {
+      throw new Error("AI settings not loaded");
+    }
+
+    const useCloudMode = settings.cloudModelsEnabled;
+
     try {
-      const settings = this.currentAiSettings;
-      if (!settings) {
-        throw new Error("AI settings not loaded");
-      }
-
-      const provider = settings.selectedProvider;
-
-      if (!provider) {
-        throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
-      }
-
-      const selectedModel = settings.selectedModels?.[provider];
-
-      logger.info(
-        "AutofillService: Using AI provider",
-        provider,
-        "with model",
-        selectedModel,
-      );
-
-      if (!apiKey) {
-        logger.warn("No API key found, using fallback matcher");
-        return await this.fallbackMatcher.matchFields(
-          compressedFields,
-          compressedMemories,
-        );
-      }
-
       return await this.aiMatcher.matchFields(
         compressedFields,
         compressedMemories,
         websiteContext,
-        provider,
+        useCloudMode,
+        settings.selectedProvider,
         apiKey,
-        selectedModel,
+        settings.selectedModels?.[settings.selectedProvider || "openai"],
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);

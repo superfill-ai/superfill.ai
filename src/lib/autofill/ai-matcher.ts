@@ -2,6 +2,7 @@ import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getAuthService } from "@/lib/auth/auth-service";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -57,6 +58,8 @@ type AIBatchMatchResult = z.infer<typeof AIBatchMatchSchema>;
 
 export class AIMatcher {
   private fallbackMatcher: FallbackMatcher;
+  private readonly API_URL =
+    import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
 
   constructor() {
     this.fallbackMatcher = new FallbackMatcher();
@@ -66,8 +69,9 @@ export class AIMatcher {
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
     websiteContext: WebsiteContext,
-    provider: AIProvider,
-    apiKey: string,
+    useCloudMode: boolean,
+    provider?: AIProvider,
+    apiKey?: string,
     modelName?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
@@ -87,6 +91,30 @@ export class AIMatcher {
 
     try {
       const startTime = performance.now();
+
+      if (useCloudMode) {
+        logger.info("Using cloud AI models for matching");
+        const cloudResults = await this.performCloudMatching(
+          fields,
+          memories,
+          websiteContext,
+        );
+        const mappings = this.convertAIResultsToMappings(
+          cloudResults,
+          fields,
+          memories,
+        );
+        const elapsed = performance.now() - startTime;
+        logger.info(
+          `Cloud AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
+        );
+        return mappings;
+      }
+
+      if (!provider || !apiKey) {
+        throw new Error("Provider and API key required for BYOK mode");
+      }
+
       const aiResults = await this.performAIMatching(
         fields,
         memories,
@@ -110,6 +138,59 @@ export class AIMatcher {
     } catch (error) {
       logger.error("AI matching failed, falling back to rule-based:", error);
       return await this.fallbackMatcher.matchFields(fields, memories);
+    }
+  }
+
+  private async performCloudMatching(
+    fields: CompressedFieldData[],
+    memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
+  ): Promise<AIBatchMatchResult> {
+    try {
+      const authService = getAuthService();
+      const session = await authService.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Not authenticated - cannot use cloud models");
+      }
+
+      const url = `${this.API_URL}/routes/api/autofill/match`;
+
+      logger.info(`Calling cloud API: ${url}`, {
+        fieldsCount: fields.length,
+        memoriesCount: memories.length,
+      });
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          fields,
+          memories,
+          websiteContext,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error("Cloud API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+        throw new Error(
+          `Cloud API request failed: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const data = await response.json();
+      return data as AIBatchMatchResult;
+    } catch (error) {
+      logger.error("Cloud matching failed:", error);
+      throw error;
     }
   }
 
