@@ -17,17 +17,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
-import type { FieldOpId, PreviewFieldData } from "@/types/autofill";
+import type { AutofillProgress, FieldOpId, PreviewFieldData } from "@/types/autofill";
+import {
+  getProgressDescription,
+  getProgressTitle,
+} from "../lib/progress-utils";
+import { MemoryLoader } from "./memory-loader";
 import type { PreviewRenderData } from "./preview-manager";
 
-type AutofillPreviewProps = {
-  data: PreviewRenderData;
+type AutofillContainerProps = {
+  mode: "loading" | "preview";
+  progress?: AutofillProgress;
+  data?: PreviewRenderData;
   onClose: () => void;
-  onFill: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
-  onHighlight: (fieldOpid: FieldOpId) => void;
-  onUnhighlight: () => void;
+  onFill?: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
+  onHighlight?: (fieldOpid: FieldOpId) => void;
+  onUnhighlight?: () => void;
 };
 
 type SelectionState = Set<FieldOpId>;
@@ -143,7 +151,7 @@ const FieldRow = ({
         className={cn(
           "space-y-1 rounded-md p-2 text-xs",
           field.mapping.rephrasedValue &&
-            (!useOriginal ? "bg-primary/5" : "bg-muted/50"),
+          (!useOriginal ? "bg-primary/5" : "bg-muted/50"),
         )}
       >
         {field.mapping.rephrasedValue && (
@@ -208,16 +216,34 @@ const FieldRow = ({
   );
 };
 
-export const AutofillPreview = ({
+export const AutofillContainer = ({
+  mode,
+  progress,
   data,
   onClose,
   onFill,
   onHighlight,
   onUnhighlight,
-}: AutofillPreviewProps) => {
-  const initialSelection = useMemo(() => {
-    const next: SelectionState = new Set();
+}: AutofillContainerProps) => {
+  const [isContentTransitioning, setIsContentTransitioning] = useState(false);
+  const [currentMode, setCurrentMode] = useState<"loading" | "preview">(mode);
 
+  useEffect(() => {
+    if (mode !== currentMode) {
+      setIsContentTransitioning(true);
+      const fadeOutTimer = setTimeout(() => {
+        setCurrentMode(mode);
+        setIsContentTransitioning(false);
+      }, 150);
+
+      return () => clearTimeout(fadeOutTimer);
+    }
+  }, [mode, currentMode]);
+
+  const initialSelection = useMemo(() => {
+    if (!data) return new Set<FieldOpId>();
+
+    const next: SelectionState = new Set();
     for (const form of data.forms) {
       for (const field of form.fields) {
         if (field.mapping.autoFill && field.mapping.value) {
@@ -225,7 +251,6 @@ export const AutofillPreview = ({
         }
       }
     }
-
     return next;
   }, [data]);
 
@@ -239,9 +264,11 @@ export const AutofillPreview = ({
   }, [initialSelection]);
 
   const selectedCount = selection.size;
-  const totalFields = data.summary.totalFields;
+  const totalFields = data?.summary.totalFields ?? 0;
 
   const handleFill = () => {
+    if (!data || !onFill) return;
+
     const fieldsToFill: { fieldOpid: FieldOpId; value: string }[] = [];
 
     for (const form of data.forms) {
@@ -285,17 +312,32 @@ export const AutofillPreview = ({
     });
   };
 
+  const headerTitle = currentMode === "loading"
+    ? getProgressTitle(progress?.state ?? "detecting")
+    : "Autofill suggestions";
+
+  const headerDescription = currentMode === "loading"
+    ? "Please do not navigate away from this page."
+    : `${data?.summary.matchedFields ?? 0} of ${totalFields} fields have matches${typeof data?.summary.processingTime === "number"
+      ? ` · ${Math.round(data.summary.processingTime)}ms`
+      : ""
+    }`;
+
+  const headerIcon = currentMode === "loading"
+    ? (progress?.state === "failed" ? <XIcon className="size-4" /> : <Spinner className="size-4" />)
+    : null;
+
   return (
-    <div className="pointer-events-auto flex h-full w-full flex-col bg-background text-foreground border-l border-border shadow-lg">
+    <div className="pointer-events-auto h-full w-full flex flex-col text-foreground border-l border-border shadow-lg animate-[slide-in-right_0.3s_ease-out]">
       <Card className="flex h-full flex-col rounded-none border-0 shadow-none p-0 gap-0">
         <CardHeader className="border-b bg-background/95 px-5 py-4 flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="text-base">Autofill suggestions</CardTitle>
+          <div className="space-y-1 flex-1">
+            <CardTitle className="text-base flex items-center gap-2">
+              {headerIcon}
+              {headerTitle}
+            </CardTitle>
             <CardDescription className="text-xs">
-              {data.summary.matchedFields} of {totalFields} fields have matches
-              {typeof data.summary.processingTime === "number"
-                ? ` · ${Math.round(data.summary.processingTime)}ms`
-                : ""}
+              {headerDescription}
             </CardDescription>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -303,64 +345,86 @@ export const AutofillPreview = ({
           </Button>
         </CardHeader>
 
-        <CardContent className="flex min-h-0 flex-1 flex-col gap-0 px-5 py-4">
-          <ScrollArea className="flex-1 min-h-0">
-            <Accordion
-              type="multiple"
-              defaultValue={data.forms.map(
-                (form: PreviewRenderData["forms"][number]) =>
-                  form.snapshot.opid,
-              )}
-            >
-              {data.forms.map((form: PreviewRenderData["forms"][number]) => (
-                <AccordionItem
-                  value={form.snapshot.opid}
-                  key={form.snapshot.opid}
-                >
-                  <AccordionTrigger className="text-left text-sm font-semibold">
-                    {form.snapshot.name || "Unnamed form"}
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-3 py-2">
-                      {form.fields.map((field: PreviewFieldData) => (
-                        <FieldRow
-                          key={field.fieldOpid}
-                          field={field}
-                          selected={selection.has(field.fieldOpid)}
-                          onToggle={(next) =>
-                            handleToggle(field.fieldOpid, next)
-                          }
-                          onChoiceChange={(useOriginal) =>
-                            handleChoiceChange(field.fieldOpid, useOriginal)
-                          }
-                          onHighlight={() => onHighlight(field.fieldOpid)}
-                          onUnhighlight={onUnhighlight}
-                        />
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </ScrollArea>
+        <CardContent
+          className={cn(
+            "flex min-h-0 flex-1 flex-col gap-0 px-5 py-4 transition-opacity duration-150",
+            isContentTransitioning ? "opacity-0" : "opacity-100",
+          )}
+        >
+          {currentMode === "loading" && progress ? (
+            <div className="flex-1 flex flex-col gap-4 items-center justify-center">
+              <MemoryLoader />
+              <p className="text-sm text-muted-foreground max-w-xs text-center">
+                {getProgressDescription(progress, "preview")}
+              </p>
+            </div>
+          ) : currentMode === "preview" && data ? (
+            <ScrollArea className="flex-1 min-h-0">
+              <Accordion
+                type="multiple"
+                defaultValue={data.forms.map(
+                  (form: PreviewRenderData["forms"][number]) =>
+                    form.snapshot.opid,
+                )}
+              >
+                {data.forms.map((form: PreviewRenderData["forms"][number]) => (
+                  <AccordionItem
+                    value={form.snapshot.opid}
+                    key={form.snapshot.opid}
+                  >
+                    <AccordionTrigger className="text-left text-sm font-semibold">
+                      {form.snapshot.name || "Unnamed form"}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 py-2">
+                        {form.fields.map((field: PreviewFieldData) => (
+                          <FieldRow
+                            key={field.fieldOpid}
+                            field={field}
+                            selected={selection.has(field.fieldOpid)}
+                            onToggle={(next) =>
+                              handleToggle(field.fieldOpid, next)
+                            }
+                            onChoiceChange={(useOriginal) =>
+                              handleChoiceChange(field.fieldOpid, useOriginal)
+                            }
+                            onHighlight={() => onHighlight?.(field.fieldOpid)}
+                            onUnhighlight={() => onUnhighlight?.()}
+                          />
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </ScrollArea>
+          ) : null}
         </CardContent>
 
-        <CardFooter className="border bg-background flex items-center justify-between gap-3 px-5 py-4">
-          <p className="text-xs text-muted-foreground">
-            {selectedCount} of {totalFields} fields selected
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleFill}
-              disabled={selectedCount === 0}
-            >
-              Fill selected
-            </Button>
-          </div>
+        <CardFooter className="border-t bg-background px-5 py-4">
+          {currentMode === "loading" ? (
+            <p className="text-xs text-muted-foreground">
+              This may take a few seconds...
+            </p>
+          ) : (
+            <div className="flex w-full items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                {selectedCount} of {totalFields} fields selected
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleFill}
+                  disabled={selectedCount === 0}
+                >
+                  Fill selected
+                </Button>
+              </div>
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>

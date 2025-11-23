@@ -20,8 +20,7 @@ import type {
   PreviewFieldData,
   PreviewSidebarPayload,
 } from "../../../types/autofill";
-import { AutofillLoading } from "./autofill-loading";
-import { AutofillPreview } from "./autofill-preview";
+import { AutofillContainer } from "./autofill-container";
 
 const logger = createLogger("preview-manager");
 
@@ -132,6 +131,9 @@ export class PreviewSidebarManager {
   private highlightedElement: HTMLElement | null = null;
   private mappingLookup: Map<string, FieldMapping> = new Map();
   private sessionId: string | null = null;
+  private currentMode: "loading" | "preview" = "loading";
+  private currentProgress: AutofillProgress | null = null;
+  private currentData: PreviewRenderData | null = null;
 
   constructor(options: PreviewSidebarManagerOptions) {
     this.options = options;
@@ -145,9 +147,14 @@ export class PreviewSidebarManager {
     }
 
     this.sessionId = payload.sessionId;
+    this.currentMode = "preview";
+    this.currentData = renderData;
 
     const ui = await this.ensureUi();
-    ui.mount();
+
+    if (!ui.mounted) {
+      ui.mount();
+    }
 
     const root = ui.mounted ?? this.reactRoot;
 
@@ -156,32 +163,44 @@ export class PreviewSidebarManager {
     }
 
     this.reactRoot = root;
+    this.renderCurrentState();
+  }
 
-    root.render(
-      <AutofillPreview
-        data={renderData}
+  async showProgress(progress: AutofillProgress) {
+    this.currentMode = "loading";
+    this.currentProgress = progress;
+
+    const ui = await this.ensureUi();
+
+    if (!ui.mounted) {
+      ui.mount();
+    }
+
+    const root = ui.mounted ?? this.reactRoot;
+
+    if (!root) {
+      return;
+    }
+
+    this.reactRoot = root;
+    this.renderCurrentState();
+  }
+
+  private renderCurrentState() {
+    if (!this.reactRoot) {
+      return;
+    }
+
+    this.reactRoot.render(
+      <AutofillContainer
+        mode={this.currentMode}
+        progress={this.currentProgress ?? undefined}
+        data={this.currentData ?? undefined}
         onClose={() => this.destroy()}
         onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
         onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
         onUnhighlight={() => this.clearHighlight()}
       />,
-    );
-  }
-
-  async showProgress(progress: AutofillProgress) {
-    const ui = await this.ensureUi();
-    ui.mount();
-
-    const root = ui.mounted ?? this.reactRoot;
-
-    if (!root) {
-      return;
-    }
-
-    this.reactRoot = root;
-
-    root.render(
-      <AutofillLoading progress={progress} onClose={() => this.destroy()} />,
     );
   }
 
@@ -447,7 +466,6 @@ export class PreviewSidebarManager {
       onMount: (uiContainer, _shadow, host) => {
         host.id = HOST_ID;
         host.setAttribute("data-ui-type", "preview");
-        uiContainer.innerHTML = "";
 
         const mountPoint = document.createElement("div");
         mountPoint.id = "superfill-autofill-preview-root";
