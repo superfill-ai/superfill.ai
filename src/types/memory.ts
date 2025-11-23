@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { allowedCategories } from "@/lib/copies";
 
-export const memoryEntrySchema = z.object({
+const memoryEntrySchema = z.object({
   id: z.uuid({
     version: "v7",
   }),
@@ -36,7 +36,7 @@ export const memoryEntrySchema = z.object({
 
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
 
-export const formFieldSchema = z.object({
+const formFieldSchema = z.object({
   element: z.any(), // Placeholder for HTMLElement
   type: z.string(), // 'text' | 'email' | 'textarea' | etc.
   name: z.string(), // Field name/id
@@ -49,7 +49,7 @@ export const formFieldSchema = z.object({
 
 export type FormField = z.infer<typeof formFieldSchema>;
 
-export const formMappingSchema = z.object({
+const formMappingSchema = z.object({
   url: z.url(),
   formId: z.string().optional(),
   fields: z.array(formFieldSchema),
@@ -62,7 +62,7 @@ export const formMappingSchema = z.object({
 
 export type FormMapping = z.infer<typeof formMappingSchema>;
 
-export const fillSessionSchema = z.object({
+const fillSessionSchema = z.object({
   id: z.uuid({
     version: "v7",
   }),

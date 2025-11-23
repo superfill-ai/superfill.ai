@@ -1,6 +1,5 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { addFormMapping } from "@/lib/storage/form-mappings";
 import { incrementUsageCount } from "@/lib/storage/memories";
 import {
   completeSession,
@@ -66,10 +65,6 @@ class SessionService {
     formMappings: FormMapping[],
   ): Promise<boolean> {
     try {
-      for (const formMapping of formMappings) {
-        await addFormMapping(formMapping);
-      }
-
       await updateSession(sessionId, {
         formMappings,
       });
