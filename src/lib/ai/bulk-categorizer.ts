@@ -1,8 +1,8 @@
-import { z } from "zod";
 import { generateObject } from "ai";
-import { createLogger } from "@/lib/logger";
+import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { allowedCategories } from "@/lib/copies";
+import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 
 const logger = createLogger("bulk-categorizer");
@@ -13,7 +13,9 @@ const BulkCategorizationResultSchema = z.object({
   categories: z.array(
     z.object({
       index: z.number().describe("The index of the field in the input array"),
-      category: CategorySchema.describe("The suggested category for this field"),
+      category: CategorySchema.describe(
+        "The suggested category for this field",
+      ),
       confidence: z
         .number()
         .min(0)
@@ -50,9 +52,7 @@ export class BulkCategorizer {
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(fields);
 
-      logger.info(
-        `Bulk categorizing ${fields.length} fields with ${provider}`,
-      );
+      logger.info(`Bulk categorizing ${fields.length} fields with ${provider}`);
 
       const { object: result } = await generateObject({
         model,
@@ -131,10 +131,12 @@ Remember to be consistent with similar fields and consider the context of both q
     result: BulkCategorizationResult,
     fields: Array<{ question: string; answer: string }>,
   ): CategorizedField[] {
-    const categorized: CategorizedField[] = new Array(fields.length).fill(null).map(() => ({
-      category: "general",
-      confidence: 0.3,
-    }));
+    const categorized: CategorizedField[] = new Array(fields.length)
+      .fill(null)
+      .map(() => ({
+        category: "general",
+        confidence: 0.3,
+      }));
 
     for (const cat of result.categories) {
       if (cat.index >= 0 && cat.index < fields.length) {

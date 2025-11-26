@@ -1,7 +1,13 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { X } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { CapturedFieldData } from "@/types/autofill";
 
 interface CaptureConfirmationProps {
@@ -32,18 +38,21 @@ export function CaptureConfirmation({
               <CardDescription className="text-sm mt-1">
                 {modifiedCount > 0 && unfilledCount > 0 && (
                   <>
-                    {modifiedCount} modified field{modifiedCount !== 1 ? "s" : ""} and{" "}
-                    {unfilledCount} unfilled field{unfilledCount !== 1 ? "s" : ""} detected
+                    {modifiedCount} modified field
+                    {modifiedCount !== 1 ? "s" : ""} and {unfilledCount}{" "}
+                    unfilled field{unfilledCount !== 1 ? "s" : ""} detected
                   </>
                 )}
                 {modifiedCount > 0 && unfilledCount === 0 && (
                   <>
-                    {modifiedCount} modified field{modifiedCount !== 1 ? "s" : ""} detected
+                    {modifiedCount} modified field
+                    {modifiedCount !== 1 ? "s" : ""} detected
                   </>
                 )}
                 {modifiedCount === 0 && unfilledCount > 0 && (
                   <>
-                    {unfilledCount} unfilled field{unfilledCount !== 1 ? "s" : ""} detected
+                    {unfilledCount} unfilled field
+                    {unfilledCount !== 1 ? "s" : ""} detected
                   </>
                 )}
               </CardDescription>
@@ -63,7 +72,10 @@ export function CaptureConfirmation({
           {isExpanded && (
             <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2 bg-muted/30">
               {capturedFields.slice(0, 5).map((field) => (
-                <div key={field.fieldOpid} className="text-xs space-y-1 pb-2 border-b last:border-0 last:pb-0">
+                <div
+                  key={field.fieldOpid}
+                  className="text-xs space-y-1 pb-2 border-b last:border-0 last:pb-0"
+                >
                   <div className="font-medium text-foreground">
                     {field.question || "Unknown field"}
                   </div>
@@ -71,7 +83,9 @@ export function CaptureConfirmation({
                     {field.answer || "(empty)"}
                   </div>
                   {field.wasAIFilled && (
-                    <div className="text-xs text-primary">Modified from AI suggestion</div>
+                    <div className="text-xs text-primary">
+                      Modified from AI suggestion
+                    </div>
                   )}
                 </div>
               ))}
@@ -87,7 +101,11 @@ export function CaptureConfirmation({
             <Button size="sm" className="flex-1" onClick={onSave}>
               Save All
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setIsExpanded(!isExpanded)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
               {isExpanded ? "Hide" : "Review"}
             </Button>
           </div>

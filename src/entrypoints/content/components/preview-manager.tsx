@@ -394,7 +394,10 @@ export class PreviewSidebarManager {
           element.setAttribute("data-superfill-memoryid", memoryId);
         }
         if (confidence !== undefined) {
-          element.setAttribute("data-superfill-confidence", confidence.toString());
+          element.setAttribute(
+            "data-superfill-confidence",
+            confidence.toString(),
+          );
         }
       }
 
@@ -412,7 +415,10 @@ export class PreviewSidebarManager {
         element.setAttribute("data-superfill-memoryid", memoryId);
       }
       if (confidence !== undefined) {
-        element.setAttribute("data-superfill-confidence", confidence.toString());
+        element.setAttribute(
+          "data-superfill-confidence",
+          confidence.toString(),
+        );
       }
       element.dispatchEvent(new Event("input", { bubbles: true }));
       element.dispatchEvent(new Event("change", { bubbles: true }));

@@ -1,10 +1,10 @@
 import { v7 as uuidv7 } from "uuid";
-import { createLogger } from "@/lib/logger";
-import { storage } from "@/lib/storage";
-import type { MemoryEntry } from "@/types/memory";
-import type { CapturedFieldData } from "@/types/autofill";
 import { BulkCategorizer } from "@/lib/ai/bulk-categorizer";
+import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
+import { storage } from "@/lib/storage";
+import type { CapturedFieldData } from "@/types/autofill";
+import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("capture-memory-service");
 
@@ -41,7 +41,10 @@ export class CaptureMemoryService {
       if (provider && apiKey) {
         try {
           const categorized = await this.categorizer.categorizeFields(
-            fieldsToSave.map((f) => ({ question: f.question, answer: f.answer })),
+            fieldsToSave.map((f) => ({
+              question: f.question,
+              answer: f.answer,
+            })),
             provider,
             apiKey,
             modelName,

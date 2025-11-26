@@ -1,3 +1,4 @@
+import { createLogger } from "@/lib/logger";
 import type {
   CapturedFieldData,
   DetectedFieldSnapshot,
@@ -5,7 +6,6 @@ import type {
   FieldOpId,
   TrackedFieldData,
 } from "@/types/autofill";
-import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("capture-service");
 
@@ -44,9 +44,7 @@ export class CaptureService {
     }
 
     const deduplicated = this.deduplicateFields(captured);
-    logger.info(
-      `Captured ${deduplicated.length} fields after deduplication`,
-    );
+    logger.info(`Captured ${deduplicated.length} fields after deduplication`);
 
     return deduplicated;
   }
@@ -97,9 +95,7 @@ export class CaptureService {
     trackedFields: TrackedFieldData[],
     confidenceThreshold: number,
   ): CapturedFieldData[] {
-    const trackedOpids = new Set(
-      trackedFields.map((f) => f.fieldOpid),
-    );
+    const trackedOpids = new Set(trackedFields.map((f) => f.fieldOpid));
     const unfilled: CapturedFieldData[] = [];
 
     for (const field of allFields) {
@@ -139,7 +135,9 @@ export class CaptureService {
       });
 
       if (unfilled.length >= MAX_UNFILLED_FIELDS) {
-        logger.info(`Reached max unfilled fields limit: ${MAX_UNFILLED_FIELDS}`);
+        logger.info(
+          `Reached max unfilled fields limit: ${MAX_UNFILLED_FIELDS}`,
+        );
         break;
       }
     }
@@ -206,9 +204,7 @@ export class CaptureService {
     return Array.from(new Set(allLabels));
   }
 
-  private deduplicateFields(
-    fields: CapturedFieldData[],
-  ): CapturedFieldData[] {
+  private deduplicateFields(fields: CapturedFieldData[]): CapturedFieldData[] {
     const seen = new Map<string, CapturedFieldData>();
 
     for (const field of fields) {

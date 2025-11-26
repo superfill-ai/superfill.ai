@@ -1,3 +1,4 @@
+import { createLogger } from "@/lib/logger";
 import type {
   CaptureSession,
   DetectedFieldSnapshot,
@@ -5,7 +6,6 @@ import type {
   FieldOpId,
   TrackedFieldData,
 } from "@/types/autofill";
-import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("field-data-tracker");
 
@@ -71,14 +71,22 @@ export class FieldDataTracker {
 
     if (type === "password") return false;
 
-    if (type !== "text" && type !== "email" && type !== "tel" && type !== "textarea" && type !== "url") {
+    if (
+      type !== "text" &&
+      type !== "email" &&
+      type !== "tel" &&
+      type !== "textarea" &&
+      type !== "url"
+    ) {
       return false;
     }
 
     return true;
   }
 
-  private findFieldElement(opid: FieldOpId): HTMLInputElement | HTMLTextAreaElement | null {
+  private findFieldElement(
+    opid: FieldOpId,
+  ): HTMLInputElement | HTMLTextAreaElement | null {
     const selector = `input[data-superfill-opid="${opid}"], textarea[data-superfill-opid="${opid}"]`;
     return document.querySelector(selector);
   }
@@ -93,7 +101,8 @@ export class FieldDataTracker {
     const value = element.value.trim();
     if (!value) return;
 
-    const wasAIFilled = element.getAttribute("data-superfill-filled") === "true";
+    const wasAIFilled =
+      element.getAttribute("data-superfill-filled") === "true";
     const originalAIValue = element.getAttribute("data-superfill-original");
     const aiMemoryId = element.getAttribute("data-superfill-memoryid");
 

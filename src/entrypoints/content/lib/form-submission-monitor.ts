@@ -1,5 +1,5 @@
-import type { FieldOpId } from "@/types/autofill";
 import { createLogger } from "@/lib/logger";
+import type { FieldOpId } from "@/types/autofill";
 
 const logger = createLogger("form-submission-monitor");
 
@@ -27,12 +27,17 @@ const SUBMIT_BUTTON_KEYWORDS = [
   "subscribe",
 ];
 
-type SubmissionCallback = (submittedFields: Set<FieldOpId>) => void | Promise<void>;
+type SubmissionCallback = (
+  submittedFields: Set<FieldOpId>,
+) => void | Promise<void>;
 
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
   private formListeners: Map<HTMLFormElement, () => void> = new Map();
-  private buttonListeners: WeakMap<HTMLButtonElement | HTMLInputElement, () => void> = new WeakMap();
+  private buttonListeners: WeakMap<
+    HTMLButtonElement | HTMLInputElement,
+    () => void
+  > = new WeakMap();
   private isMonitoring = false;
   private observer: MutationObserver | null = null;
 
@@ -122,10 +127,7 @@ export class FormSubmissionMonitor {
   }
 
   private isSubmitButton(element: HTMLElement): boolean {
-    if (
-      element instanceof HTMLInputElement &&
-      element.type === "submit"
-    ) {
+    if (element instanceof HTMLInputElement && element.type === "submit") {
       return true;
     }
 

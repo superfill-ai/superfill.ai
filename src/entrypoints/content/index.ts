@@ -1,13 +1,13 @@
 import "./content.css";
 
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import { CaptureService } from "@/lib/autofill/capture-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
   AutofillProgress,
-  CapturedFieldData,
   DetectedField,
   DetectedForm,
   DetectedFormSnapshot,
@@ -20,10 +20,9 @@ import type {
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
-import { FormDetector } from "./lib/form-detector";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
+import { FormDetector } from "./lib/form-detector";
 import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
-import { CaptureService } from "@/lib/autofill/capture-service";
 
 const logger = createLogger("content");
 
@@ -365,9 +364,7 @@ export default defineContentScript({
           return;
         }
 
-        logger.info(
-          `Saving ${capturedFields.length} captured fields directly`,
-        );
+        logger.info(`Saving ${capturedFields.length} captured fields directly`);
 
         const result = await contentAutofillMessaging.sendMessage(
           "saveCapturedMemories",
