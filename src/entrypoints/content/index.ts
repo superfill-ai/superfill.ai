@@ -7,10 +7,12 @@ import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
   AutofillProgress,
+  CapturedFieldData,
   DetectedField,
   DetectedForm,
   DetectedFormSnapshot,
   DetectFormsResult,
+  FieldMapping,
   FieldOpId,
   FormOpId,
   PreviewSidebarPayload,
@@ -19,6 +21,9 @@ import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { FormDetector } from "./lib/form-detector";
+import { getFieldDataTracker } from "./lib/field-data-tracker";
+import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
+import { CaptureService } from "@/lib/autofill/capture-service";
 
 const logger = createLogger("content");
 
@@ -27,6 +32,7 @@ const fieldCache = new Map<FieldOpId, DetectedField>();
 let serializedFormCache: DetectedFormSnapshot[] = [];
 let previewManager: PreviewSidebarManager | null = null;
 let autopilotManager: AutopilotManager | null = null;
+let currentApiKey: string | null = null; // Store API key from showPreview call
 
 const cacheDetectedForms = (forms: DetectedForm[]) => {
   formCache.clear();
@@ -105,6 +111,12 @@ export default defineContentScript({
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
+    const fieldTracker = getFieldDataTracker();
+    const submissionMonitor = getFormSubmissionMonitor();
+    const captureService = new CaptureService();
+
+    submissionMonitor.start();
+    logger.info("Form submission monitor started");
 
     contentAutofillMessaging.onMessage(
       "detectForms",
@@ -235,6 +247,9 @@ export default defineContentScript({
           payload: data,
         });
 
+        // Store API key for later use in capture
+        currentApiKey = data.apiKey || null;
+
         const settingStore = await storage.aiSettings.getValue();
         let manager: PreviewSidebarManager | AutopilotManager;
 
@@ -245,6 +260,22 @@ export default defineContentScript({
         }
 
         try {
+          await fieldTracker.startTracking(
+            window.location.href,
+            document.title,
+            data.sessionId,
+          );
+
+          const mappingLookup = new Map(
+            data.mappings.map((m) => [m.fieldOpid as FieldOpId, m]),
+          );
+          fieldTracker.attachFieldListeners(
+            serializedFormCache.flatMap((f) => f.fields),
+            mappingLookup,
+          );
+
+          logger.info("Field tracker initialized and listeners attached");
+
           if (
             settingStore.autopilotMode &&
             manager instanceof AutopilotManager
@@ -294,6 +325,68 @@ export default defineContentScript({
       }
 
       return true;
+    });
+
+    submissionMonitor.onSubmission(async (submittedFieldOpids) => {
+      logger.info(
+        `Form submitted with ${submittedFieldOpids.size} fields`,
+        Array.from(submittedFieldOpids),
+      );
+
+      try {
+        const trackedFields = await fieldTracker.getCapturedFields();
+        if (trackedFields.length === 0) {
+          logger.info("No tracked fields to capture");
+          return;
+        }
+
+        logger.info(
+          `Processing ${trackedFields.length} tracked fields for capture`,
+        );
+
+        const settingStore = await storage.aiSettings.getValue();
+
+        const allFields = serializedFormCache.flatMap((f) => f.fields);
+        const fieldMappings = new Map<FieldOpId, FieldMapping>();
+
+        const capturedFields = captureService.identifyCaptureOpportunities(
+          trackedFields,
+          allFields,
+          fieldMappings,
+          {
+            includeUnfilled: true,
+            includeModified: true,
+            confidenceThreshold: settingStore.confidenceThreshold,
+          },
+        );
+
+        if (capturedFields.length === 0) {
+          logger.info("No fields to capture after filtering");
+          return;
+        }
+
+        logger.info(
+          `Saving ${capturedFields.length} captured fields directly`,
+        );
+
+        const result = await contentAutofillMessaging.sendMessage(
+          "saveCapturedMemories",
+          {
+            capturedFields,
+            categories: [],
+            apiKey: currentApiKey || "",
+          },
+        );
+
+        if (result.success) {
+          logger.info(
+            `Successfully saved ${result.savedCount} memories from form submission`,
+          );
+          await fieldTracker.clearSession();
+        }
+      } catch (error) {
+        logger.error("Error processing form submission:", error);
+      }
     });
 
     // Temporarily show contentAutofill permanent UI for testing

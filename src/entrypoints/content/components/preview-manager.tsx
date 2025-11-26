@@ -227,10 +227,14 @@ export class PreviewSidebarManager {
         continue;
       }
 
-      this.applyValueToElement(detected.element, value);
-      filledFieldOpids.push(fieldOpid);
-
       const mapping = this.mappingLookup.get(fieldOpid);
+      this.applyValueToElement(
+        detected.element,
+        value,
+        mapping?.memoryId || undefined,
+        mapping?.confidence,
+      );
+      filledFieldOpids.push(fieldOpid);
 
       if (mapping?.memoryId) {
         memoryIds.push(mapping.memoryId);
@@ -374,6 +378,8 @@ export class PreviewSidebarManager {
   private applyValueToElement(
     element: DetectedField["element"],
     value: string,
+    memoryId?: string,
+    confidence?: number,
   ) {
     if (element instanceof HTMLInputElement) {
       element.focus({ preventScroll: true });
@@ -382,6 +388,14 @@ export class PreviewSidebarManager {
         element.checked = value === "true" || value === "on" || value === "1";
       } else {
         element.value = value;
+        element.setAttribute("data-superfill-filled", "true");
+        element.setAttribute("data-superfill-original", value);
+        if (memoryId) {
+          element.setAttribute("data-superfill-memoryid", memoryId);
+        }
+        if (confidence !== undefined) {
+          element.setAttribute("data-superfill-confidence", confidence.toString());
+        }
       }
 
       element.dispatchEvent(new Event("input", { bubbles: true }));
@@ -392,6 +406,14 @@ export class PreviewSidebarManager {
     if (element instanceof HTMLTextAreaElement) {
       element.focus({ preventScroll: true });
       element.value = value;
+      element.setAttribute("data-superfill-filled", "true");
+      element.setAttribute("data-superfill-original", value);
+      if (memoryId) {
+        element.setAttribute("data-superfill-memoryid", memoryId);
+      }
+      if (confidence !== undefined) {
+        element.setAttribute("data-superfill-confidence", confidence.toString());
+      }
       element.dispatchEvent(new Event("input", { bubbles: true }));
       element.dispatchEvent(new Event("change", { bubbles: true }));
       return;

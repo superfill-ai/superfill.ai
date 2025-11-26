@@ -1,6 +1,7 @@
 import { defineExtensionMessaging } from "@webext-core/messaging";
 import type {
   AutofillProgress,
+  CapturedFieldData,
   DetectFormsResult,
   PreviewSidebarPayload,
 } from "@/types/autofill";
@@ -23,6 +24,17 @@ interface ContentAutofillProtocolMap {
     sessionId: string;
     formMappings: FormMapping[];
   }) => boolean;
+
+  showCaptureConfirmation: (data: {
+    capturedFields: CapturedFieldData[];
+    url: string;
+    pageTitle: string;
+  }) => boolean;
+  saveCapturedMemories: (data: {
+    capturedFields: CapturedFieldData[];
+    categories: string[];
+    apiKey: string;
+  }) => Promise<{ success: boolean; savedCount: number }>;
 }
 
 export const contentAutofillMessaging =

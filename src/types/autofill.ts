@@ -155,6 +155,7 @@ export interface PreviewSidebarPayload {
   mappings: FieldMapping[];
   processingTime?: number;
   sessionId: string;
+  apiKey?: string;
 }
 
 export type AutofillProgressState =
@@ -173,4 +174,43 @@ export interface AutofillProgress {
   fieldsDetected?: number;
   fieldsMatched?: number;
   error?: string;
+}
+
+export interface CapturedFieldData {
+  fieldOpid: FieldOpId;
+  formOpid: FormOpId;
+  question: string;
+  answer: string;
+  timestamp: number;
+  wasAIFilled: boolean;
+  originalAIValue?: string;
+  aiMemoryId?: string;
+  aiConfidence?: number;
+  fieldMetadata: {
+    type: FieldType;
+    purpose: FieldPurpose;
+    labels: string[];
+    placeholder?: string;
+    required: boolean;
+  };
+}
+
+export interface TrackedFieldData {
+  fieldOpid: FieldOpId;
+  formOpid: FormOpId;
+  value: string;
+  timestamp: number;
+  wasAIFilled: boolean;
+  originalAIValue?: string;
+  aiMemoryId?: string;
+  aiConfidence?: number;
+  metadata: FieldMetadataSnapshot;
+}
+
+export interface CaptureSession {
+  sessionId: string;
+  url: string;
+  pageTitle: string;
+  trackedFields: Map<FieldOpId, TrackedFieldData>;
+  startedAt: number;
 }

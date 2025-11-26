@@ -258,7 +258,18 @@ export class AutopilotManager {
 
           if (element && element.type !== "password") {
             element.value = field.value;
-            element.setAttribute("data-autopilot-filled", "true");
+            element.setAttribute("data-superfill-filled", "true");
+            element.setAttribute("data-superfill-original", field.value);
+            element.setAttribute("data-superfill-opid", field.fieldOpid);
+            if (field.memoryId) {
+              element.setAttribute("data-superfill-memoryid", field.memoryId);
+            }
+            if (field.confidence !== undefined) {
+              element.setAttribute(
+                "data-superfill-confidence",
+                field.confidence.toString(),
+              );
+            }
 
             element.dispatchEvent(new Event("input", { bubbles: true }));
             element.dispatchEvent(new Event("change", { bubbles: true }));

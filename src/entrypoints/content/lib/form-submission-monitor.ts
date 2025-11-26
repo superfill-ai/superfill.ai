@@ -1,0 +1,289 @@
+import type { FieldOpId } from "@/types/autofill";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("form-submission-monitor");
+
+const SUBMIT_BUTTON_KEYWORDS = [
+  "submit",
+  "send",
+  "continue",
+  "next",
+  "proceed",
+  "login",
+  "log in",
+  "sign in",
+  "signin",
+  "signup",
+  "sign up",
+  "register",
+  "apply",
+  "save",
+  "confirm",
+  "verify",
+  "complete",
+  "finish",
+  "checkout",
+  "place order",
+  "subscribe",
+];
+
+type SubmissionCallback = (submittedFields: Set<FieldOpId>) => void | Promise<void>;
+
+export class FormSubmissionMonitor {
+  private submissionCallbacks: Set<SubmissionCallback> = new Set();
+  private formListeners: Map<HTMLFormElement, () => void> = new Map();
+  private buttonListeners: WeakMap<HTMLButtonElement | HTMLInputElement, () => void> = new WeakMap();
+  private isMonitoring = false;
+  private observer: MutationObserver | null = null;
+
+  start(): void {
+    if (this.isMonitoring) {
+      logger.warn("Form submission monitor already started");
+      return;
+    }
+
+    this.attachExistingFormListeners();
+    this.attachSubmitButtonListeners();
+    this.startMutationObserver();
+    this.isMonitoring = true;
+
+    logger.info("Form submission monitor started");
+  }
+
+  stop(): void {
+    if (!this.isMonitoring) return;
+
+    this.removeAllListeners();
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+
+    this.isMonitoring = false;
+    logger.info("Form submission monitor stopped");
+  }
+
+  onSubmission(callback: SubmissionCallback): () => void {
+    this.submissionCallbacks.add(callback);
+    return () => {
+      this.submissionCallbacks.delete(callback);
+    };
+  }
+
+  private attachExistingFormListeners(): void {
+    const forms = document.querySelectorAll<HTMLFormElement>("form");
+
+    for (const form of forms) {
+      this.attachFormListener(form);
+    }
+
+    logger.debug(`Attached listeners to ${forms.length} forms`);
+  }
+
+  private attachFormListener(form: HTMLFormElement): void {
+    if (this.formListeners.has(form)) return;
+
+    const listener = (event: Event) => {
+      event.preventDefault();
+      logger.info("Form submit event detected", form);
+      this.handleFormSubmission(form);
+    };
+
+    form.addEventListener("submit", listener);
+    this.formListeners.set(form, () => {
+      form.removeEventListener("submit", listener);
+    });
+  }
+
+  private attachSubmitButtonListeners(): void {
+    const buttons = this.findSubmitButtons();
+
+    for (const button of buttons) {
+      this.attachButtonListener(button);
+    }
+
+    logger.debug(`Attached listeners to ${buttons.length} submit buttons`);
+  }
+
+  private findSubmitButtons(): Array<HTMLButtonElement | HTMLInputElement> {
+    const buttons: Array<HTMLButtonElement | HTMLInputElement> = [];
+
+    const allButtons = document.querySelectorAll<
+      HTMLButtonElement | HTMLInputElement
+    >("button, input[type='button'], input[type='submit']");
+
+    for (const button of allButtons) {
+      if (this.isSubmitButton(button)) {
+        buttons.push(button);
+      }
+    }
+
+    return buttons;
+  }
+
+  private isSubmitButton(element: HTMLElement): boolean {
+    if (
+      element instanceof HTMLInputElement &&
+      element.type === "submit"
+    ) {
+      return true;
+    }
+
+    if (element instanceof HTMLButtonElement && element.type === "submit") {
+      return true;
+    }
+
+    const text = (
+      element.textContent ||
+      element.getAttribute("value") ||
+      element.getAttribute("aria-label") ||
+      ""
+    ).toLowerCase();
+
+    const id = (element.getAttribute("id") || "").toLowerCase();
+    const className = (element.getAttribute("class") || "").toLowerCase();
+    const name = (element.getAttribute("name") || "").toLowerCase();
+
+    const searchText = `${text} ${id} ${className} ${name}`;
+
+    return SUBMIT_BUTTON_KEYWORDS.some((keyword) =>
+      searchText.includes(keyword),
+    );
+  }
+
+  private attachButtonListener(
+    button: HTMLButtonElement | HTMLInputElement,
+  ): void {
+    if (this.buttonListeners.has(button)) return;
+
+    const listener = () => {
+      logger.info("Submit button clicked", button);
+      const form = button.closest("form");
+      if (form) {
+        this.handleFormSubmission(form);
+      } else {
+        this.handleStandaloneSubmission();
+      }
+    };
+
+    button.addEventListener("click", listener);
+    this.buttonListeners.set(button, listener);
+  }
+
+  private handleFormSubmission(form: HTMLFormElement): void {
+    const fields = this.extractFieldOpids(form);
+    logger.info(`Form submission detected with ${fields.size} fields`);
+    this.notifyCallbacks(fields);
+  }
+
+  private handleStandaloneSubmission(): void {
+    const fields = this.extractAllVisibleFieldOpids();
+    logger.info(`Standalone submission detected with ${fields.size} fields`);
+    this.notifyCallbacks(fields);
+  }
+
+  private extractFieldOpids(form: HTMLFormElement): Set<FieldOpId> {
+    const opids = new Set<FieldOpId>();
+
+    const fields = form.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >("input, textarea, select");
+
+    for (const field of fields) {
+      const opid = field.getAttribute("data-superfill-opid");
+      if (opid) {
+        opids.add(opid as FieldOpId);
+      }
+    }
+
+    return opids;
+  }
+
+  private extractAllVisibleFieldOpids(): Set<FieldOpId> {
+    const opids = new Set<FieldOpId>();
+
+    const fields = document.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >("input, textarea, select");
+
+    for (const field of fields) {
+      if (field.offsetParent === null) continue; // Skip invisible fields
+
+      const opid = field.getAttribute("data-superfill-opid");
+      if (opid) {
+        opids.add(opid as FieldOpId);
+      }
+    }
+
+    return opids;
+  }
+
+  private notifyCallbacks(fields: Set<FieldOpId>): void {
+    for (const callback of this.submissionCallbacks) {
+      try {
+        const result = callback(fields);
+        if (result instanceof Promise) {
+          result.catch((error) => {
+            logger.error("Submission callback error:", error);
+          });
+        }
+      } catch (error) {
+        logger.error("Submission callback error:", error);
+      }
+    }
+  }
+
+  private startMutationObserver(): void {
+    this.observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLFormElement) {
+            this.attachFormListener(node);
+          } else if (node instanceof HTMLElement) {
+            const forms = node.querySelectorAll<HTMLFormElement>("form");
+            for (const form of forms) {
+              this.attachFormListener(form);
+            }
+
+            if (this.isSubmitButton(node)) {
+              this.attachButtonListener(
+                node as HTMLButtonElement | HTMLInputElement,
+              );
+            } else {
+              const buttons = node.querySelectorAll<
+                HTMLButtonElement | HTMLInputElement
+              >("button, input[type='button'], input[type='submit']");
+
+              for (const button of buttons) {
+                if (this.isSubmitButton(button)) {
+                  this.attachButtonListener(button);
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    this.observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  private removeAllListeners(): void {
+    for (const cleanup of this.formListeners.values()) {
+      cleanup();
+    }
+    this.formListeners.clear();
+  }
+}
+
+let monitorInstance: FormSubmissionMonitor | null = null;
+
+export function getFormSubmissionMonitor(): FormSubmissionMonitor {
+  if (!monitorInstance) {
+    monitorInstance = new FormSubmissionMonitor();
+  }
+  return monitorInstance;
+}
