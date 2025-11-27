@@ -1,3 +1,9 @@
+import { createRoot, type Root } from "react-dom/client";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import {
+  createShadowRootUi,
+  type ShadowRootContentScriptUi,
+} from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
@@ -11,12 +17,6 @@ import type {
 } from "@/types/autofill";
 import type { FormField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
-import { createRoot, type Root } from "react-dom/client";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import {
-  createShadowRootUi,
-  type ShadowRootContentScriptUi,
-} from "wxt/utils/content-script-ui/shadow-root";
 import { AutopilotLoader } from "./autopilot-loader";
 
 const logger = createLogger("autopilot-manager");
@@ -264,7 +264,6 @@ export class AutopilotManager {
             element.value = field.value;
             element.setAttribute("data-superfill-filled", "true");
             element.setAttribute("data-superfill-original", field.value);
-            element.setAttribute("data-superfill-opid", field.fieldOpid);
             if (field.memoryId) {
               element.setAttribute("data-superfill-memoryid", field.memoryId);
             }

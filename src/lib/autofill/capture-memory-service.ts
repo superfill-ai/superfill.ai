@@ -1,3 +1,4 @@
+import { v7 as uuidv7 } from "uuid";
 import {
   BulkCategorizer,
   type CategorizedField,
@@ -8,7 +9,6 @@ import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { CapturedFieldData } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
-import { v7 as uuidv7 } from "uuid";
 
 const logger = createLogger("capture-memory-service");
 
@@ -32,13 +32,34 @@ export class CaptureMemoryService {
       }
 
       logger.info(`Processing ${capturedFields.length} captured fields`);
+      logger.debug(
+        "Captured fields details:",
+        capturedFields.map((f) => ({
+          opid: f.fieldOpid,
+          question: f.question,
+          answer: f.answer?.substring(0, 30),
+          wasAIFilled: f.wasAIFilled,
+        })),
+      );
 
       const fieldsToSave = capturedFields.filter((f) => f.question && f.answer);
 
       if (fieldsToSave.length === 0) {
         logger.info("No valid fields with both question and answer");
+        logger.debug(
+          "Filtered out fields:",
+          capturedFields.map((f) => ({
+            opid: f.fieldOpid,
+            hasQuestion: !!f.question,
+            hasAnswer: !!f.answer,
+          })),
+        );
         return { success: true, savedCount: 0 };
       }
+
+      logger.info(
+        `${fieldsToSave.length} fields passed question+answer filter`,
+      );
 
       let categorized: CategorizedField[] = [];
 
