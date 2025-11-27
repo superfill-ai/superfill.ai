@@ -61,7 +61,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 [Arcade interactive demo link](https://app.arcade.software/share/BOyhluu7rFgB0IzIJMLk)
 
-### 🎯 Completed (Phase 1)
+### 🚧 In Progress (Phase 1)
 
 - [x] Memory CRUD operations
 - [x] AI-powered categorization & tagging
@@ -87,20 +87,15 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 #### Free features
 
 ##### WIP
-
+- [ ] Cache Previous fill results for faster fill on similar form fields/urls
 - [ ] Store unfilled questions along with user filled answers as memories automatically
 - [ ] Parse pdf to extract content for memory creation. Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition.
-- [ ] Safari support
 
 ##### NOT STARTED
-
-- [ ] Cache Previous fill results for faster fill on similar form fields/urls
-- [ ] Image based matching algorithm for better context understanding
 - [ ] Explore alternate modes:
   - [ ] Browser native autofill integration (bypass extension popup)
   - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
-  - [ ] Enhanced Copilot mode (Sidebar with memory suggestions as you type)
-- [ ] Support for select, radio, checkbox fields
+  - [ ] Copilot mode (Sidebar with memory suggestions as you type)
 - [ ] Prompt caching for faster AI responses
 - [ ] MCP support
 - [ ] Upvote/downvote memory suggestions
@@ -108,6 +103,22 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - [ ] Customizable autofill shortcuts
 - [ ] Customizable autofill templates (Industry-specific templates)
 - [ ] Custom AI prompts
+
+#### Premium features
+
+- [x] Cloud AI model integration
+- [x] Sign in & cloud sync
+- [ ] Multi-device support
+- [ ] Reinforcement learning for user corrections
+- [ ] AI model memory prediction improvement
+- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
+- [ ] Team features
+- [ ] Analytics dashboard
+- [ ] SOC 2 Type II certification
+- [ ] GDPR compliance
+- [ ] Data residency options
+- [ ] Audit logs
+- [ ] SSO integration
 
 ---
 
