@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.1.6
+
+### Patch Changes
+
+- [`5da8cff`](https://github.com/superfill-ai/superfill.ai/commit/5da8cff987324cec8328eb5685fe5965c4c81a0c) Thanks [@mikr13](https://github.com/mikr13)! - feat: animations added for sidebar and improved card styles
+
 ## 0.1.5
 
 ### Patch Changes
