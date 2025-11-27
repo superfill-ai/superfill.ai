@@ -26,7 +26,7 @@ export default defineConfig({
       name: APP_NAME,
       version: "0.1.5",
       description: "AI-powered form filling browser extension",
-      permissions: ["activeTab", "storage"],
+      permissions: ["activeTab", "storage", "offscreen"],
       host_permissions: [
         "https://api.openai.com/*",
         "https://api.anthropic.com/*",

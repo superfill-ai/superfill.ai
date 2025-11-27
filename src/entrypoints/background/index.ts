@@ -13,6 +13,7 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
+import { keyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 
 const logger = createLogger("background");
@@ -87,10 +88,9 @@ export default defineBackground({
             return { success: false, savedCount: 0 };
           }
 
-          // API key should be passed from content script (which gets it from popup/options context)
-          // Background workers cannot decrypt keys (no browser fingerprint available)
-          if (!data.apiKey) {
-            logger.error("No API key provided");
+          const apiKey = await keyVault.getKey(provider);
+          if (!apiKey) {
+            logger.error("Failed to retrieve API key for categorization");
             return { success: false, savedCount: 0 };
           }
 
@@ -99,7 +99,7 @@ export default defineBackground({
           const result = await captureMemoryService.saveCapturedMemories(
             data.capturedFields,
             provider,
-            data.apiKey,
+            apiKey,
             modelName,
           );
 

@@ -155,7 +155,6 @@ export interface PreviewSidebarPayload {
   mappings: FieldMapping[];
   processingTime?: number;
   sessionId: string;
-  apiKey?: string;
 }
 
 export type AutofillProgressState =

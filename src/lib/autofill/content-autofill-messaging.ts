@@ -33,7 +33,6 @@ interface ContentAutofillProtocolMap {
   saveCapturedMemories: (data: {
     capturedFields: CapturedFieldData[];
     categories: string[];
-    apiKey: string;
   }) => Promise<{ success: boolean; savedCount: number }>;
 }
 

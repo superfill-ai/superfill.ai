@@ -177,6 +177,7 @@ export const App = () => {
         });
         return;
       }
+
       const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {
@@ -195,7 +196,7 @@ export const App = () => {
       toast.info("Starting autofill... This window will close shortly.");
 
       const autofillService = getAutofillService();
-      autofillService.startAutofillOnActiveTab(apiKey || undefined);
+      autofillService.startAutofillOnActiveTab();
 
       if (!DEBUG) {
         setTimeout(() => {

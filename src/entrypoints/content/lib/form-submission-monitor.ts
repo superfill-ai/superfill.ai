@@ -34,10 +34,10 @@ type SubmissionCallback = (
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
   private formListeners: Map<HTMLFormElement, () => void> = new Map();
-  private buttonListeners: WeakMap<
+  private buttonListeners: Map<
     HTMLButtonElement | HTMLInputElement,
     () => void
-  > = new WeakMap();
+  > = new Map();
   private isMonitoring = false;
   private observer: MutationObserver | null = null;
 
@@ -278,6 +278,11 @@ export class FormSubmissionMonitor {
       cleanup();
     }
     this.formListeners.clear();
+
+    for (const [button, listener] of this.buttonListeners.entries()) {
+      button.removeEventListener("click", listener);
+    }
+    this.buttonListeners.clear();
   }
 }
 

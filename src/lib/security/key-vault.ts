@@ -2,8 +2,8 @@ import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import { createLogger } from "../logger";
 import { decrypt, encrypt, generateSalt } from "./encryption";
-import { getBrowserFingerprint } from "./fingerprint";
 import { getKeyValidationService } from "./key-validation-service";
+import { getFingerprintFromOffscreen } from "./offscreen-messaging";
 
 interface ValidationCache {
   timestamp: number;
@@ -15,20 +15,20 @@ const logger = createLogger("key-vault");
 /**
  * KeyVault - Secure API key storage with device-bound encryption
  *
- * IMPORTANT: All methods MUST be called from a browser context (popup/options/content script)
- * DO NOT call from background/service worker context due to fingerprinting requirements.
+ * Uses offscreen document to generate browser fingerprint from background script.
+ * This eliminates the need to pass API keys between entrypoints.
  *
  * Usage Pattern:
- * 1. In browser context: Decrypt API key using keyVault.getKey()
- * 2. Pass decrypted key to background services as needed
- * 3. Background services use the plain key temporarily for API calls
+ * 1. Background script calls keyVault.storeKey() to encrypt and store
+ * 2. Background script calls keyVault.getKey() to decrypt when needed
+ * 3. No API key passing required between entrypoints
  */
 export class KeyVault {
   private validationCache = new Map<string, ValidationCache>();
   private CACHE_DURATION = 3600000;
 
   async storeKey(provider: AIProvider, key: string): Promise<void> {
-    const fingerprint = await getBrowserFingerprint();
+    const fingerprint = await getFingerprintFromOffscreen();
     const salt = await generateSalt();
     const encrypted = await encrypt(key, fingerprint, salt);
 
@@ -47,7 +47,7 @@ export class KeyVault {
     }
 
     const encryptedData = keys[provider];
-    const fingerprint = await getBrowserFingerprint();
+    const fingerprint = await getFingerprintFromOffscreen();
 
     try {
       return await decrypt(

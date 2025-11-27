@@ -31,7 +31,6 @@ const fieldCache = new Map<FieldOpId, DetectedField>();
 let serializedFormCache: DetectedFormSnapshot[] = [];
 let previewManager: PreviewSidebarManager | null = null;
 let autopilotManager: AutopilotManager | null = null;
-let currentApiKey: string | null = null; // Store API key from showPreview call
 
 const cacheDetectedForms = (forms: DetectedForm[]) => {
   formCache.clear();
@@ -242,13 +241,6 @@ export default defineContentScript({
           forms: data.forms.length,
         });
 
-        logger.info("Full payload structure:", {
-          payload: data,
-        });
-
-        // Store API key for later use in capture
-        currentApiKey = data.apiKey || null;
-
         const settingStore = await storage.aiSettings.getValue();
         let manager: PreviewSidebarManager | AutopilotManager;
 
@@ -371,7 +363,6 @@ export default defineContentScript({
           {
             capturedFields,
             categories: [],
-            apiKey: currentApiKey || "",
           },
         );
 
