@@ -237,7 +237,7 @@ export class FormSubmissionMonitor {
           promises.push(
             result.catch((error) => {
               logger.error("Submission callback error:", error);
-            })
+            }),
           );
         }
       } catch (error) {
