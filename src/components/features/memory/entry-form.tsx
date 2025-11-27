@@ -25,7 +25,7 @@ import {
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
 
@@ -138,6 +138,7 @@ export function EntryForm({
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
+      const keyVault = getKeyVault();
       const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey) {
@@ -180,6 +181,7 @@ export function EntryForm({
           dismissible: true,
         });
       }
+      const keyVault = getKeyVault();
       const apiKey = await keyVault.getKey(selectedProvider ?? "openai");
 
       if (!apiKey) {

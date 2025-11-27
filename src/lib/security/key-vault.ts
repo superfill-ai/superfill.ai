@@ -1,3 +1,4 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import { createLogger } from "../logger";
@@ -16,14 +17,14 @@ const logger = createLogger("key-vault");
  * KeyVault - Secure API key storage with device-bound encryption
  *
  * Uses offscreen document to generate browser fingerprint from background script.
- * This eliminates the need to pass API keys between entrypoints.
+ * This is a proxy service that MUST run in the background script context.
  *
  * Usage Pattern:
- * 1. Background script calls keyVault.storeKey() to encrypt and store
- * 2. Background script calls keyVault.getKey() to decrypt when needed
- * 3. No API key passing required between entrypoints
+ * 1. Call registerKeyVault() in background script
+ * 2. Call getKeyVault() from any entrypoint to get the proxy
+ * 3. All encryption/decryption happens in background via offscreen API
  */
-export class KeyVault {
+class KeyVault {
   private validationCache = new Map<string, ValidationCache>();
   private CACHE_DURATION = 3600000;
 
@@ -90,4 +91,7 @@ export class KeyVault {
   }
 }
 
-export const keyVault = new KeyVault();
+export const [registerKeyVault, getKeyVault] = defineProxyService(
+  "KeyVault",
+  () => new KeyVault(),
+);

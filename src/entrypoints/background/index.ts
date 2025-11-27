@@ -1,5 +1,8 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
-import { registerAutofillService } from "@/lib/autofill/autofill-service";
+import {
+  getAutofillService,
+  registerAutofillService,
+} from "@/lib/autofill/autofill-service";
 import {
   getCaptureMemoryService,
   registerCaptureMemoryService,
@@ -13,7 +16,7 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVault, registerKeyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 
 const logger = createLogger("background");
@@ -26,13 +29,16 @@ export default defineBackground({
     }
     registerCategorizationService();
     registerKeyValidationService();
+    registerKeyVault();
     registerModelService();
-    const autofillService = registerAutofillService();
+    registerAutofillService();
     registerSessionService();
     registerCaptureMemoryService();
 
+    const autofillService = getAutofillService();
     const sessionService = getSessionService();
     const captureMemoryService = getCaptureMemoryService();
+    const keyVault = getKeyVault();
 
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
