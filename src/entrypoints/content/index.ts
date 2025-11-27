@@ -1,6 +1,7 @@
 import "./content.css";
 
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import { CaptureService } from "@/lib/autofill/capture-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { createLogger } from "@/lib/logger";
@@ -11,6 +12,7 @@ import type {
   DetectedForm,
   DetectedFormSnapshot,
   DetectFormsResult,
+  FieldMapping,
   FieldOpId,
   FormOpId,
   PreviewSidebarPayload,
@@ -18,7 +20,9 @@ import type {
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
+import { getFieldDataTracker } from "./lib/field-data-tracker";
 import { FormDetector } from "./lib/form-detector";
+import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 
 const logger = createLogger("content");
 
@@ -94,6 +98,50 @@ const ensureAutopilotManager = (ctx: ContentScriptContext) => {
   return autopilotManager;
 };
 
+const initializeAutoTracking = async (
+  formDetector: FormDetector,
+  fieldTracker: ReturnType<typeof getFieldDataTracker>,
+) => {
+  try {
+    const allForms = formDetector.detectAll();
+
+    if (allForms.length === 0) {
+      logger.info("No forms detected for auto-tracking");
+      return;
+    }
+
+    cacheDetectedForms(allForms);
+    serializedFormCache = serializeForms(allForms);
+
+    const totalFields = allForms.reduce(
+      (sum, form) => sum + form.fields.length,
+      0,
+    );
+
+    logger.info(
+      `Auto-tracking initialized: ${allForms.length} forms, ${totalFields} fields`,
+    );
+
+    const sessionId = crypto.randomUUID();
+
+    await fieldTracker.startTracking(
+      window.location.href,
+      document.title,
+      sessionId,
+    );
+
+    const emptyMappings = new Map<FieldOpId, FieldMapping>();
+    fieldTracker.attachFieldListeners(
+      serializedFormCache.flatMap((f) => f.fields),
+      emptyMappings,
+    );
+
+    logger.info("Auto-tracking listeners attached for form submission capture");
+  } catch (error) {
+    logger.error("Failed to initialize auto-tracking:", error);
+  }
+};
+
 export default defineContentScript({
   matches: ["<all_urls>"],
   cssInjectionMode: "ui",
@@ -105,6 +153,15 @@ export default defineContentScript({
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
+    const fieldTracker = getFieldDataTracker();
+    const submissionMonitor = getFormSubmissionMonitor();
+    const captureService = new CaptureService();
+
+    submissionMonitor.start();
+
+    logger.info("Form submission monitor started");
+
+    await initializeAutoTracking(formDetector, fieldTracker);
 
     contentAutofillMessaging.onMessage(
       "detectForms",
@@ -117,7 +174,6 @@ export default defineContentScript({
 
             if (form.fields.length === 1) {
               const field = form.fields[0];
-              logger.info("Single field form:", field);
               const isUnlabeled =
                 !field.metadata.labelTag &&
                 !field.metadata.labelAria &&
@@ -125,6 +181,8 @@ export default defineContentScript({
                 !field.metadata.labelLeft &&
                 !field.metadata.labelRight &&
                 !field.metadata.labelTop;
+
+              logger.info("Single field form:", field);
 
               if (field.metadata.fieldPurpose === "unknown" && isUnlabeled) {
                 return false;
@@ -231,10 +289,6 @@ export default defineContentScript({
           forms: data.forms.length,
         });
 
-        logger.info("Full payload structure:", {
-          payload: data,
-        });
-
         const settingStore = await storage.aiSettings.getValue();
         let manager: PreviewSidebarManager | AutopilotManager;
 
@@ -245,6 +299,22 @@ export default defineContentScript({
         }
 
         try {
+          await fieldTracker.startTracking(
+            window.location.href,
+            document.title,
+            data.sessionId,
+          );
+
+          const mappingLookup = new Map(
+            data.mappings.map((m) => [m.fieldOpid as FieldOpId, m]),
+          );
+          fieldTracker.attachFieldListeners(
+            serializedFormCache.flatMap((f) => f.fields),
+            mappingLookup,
+          );
+
+          logger.info("Field tracker initialized and listeners attached");
+
           if (
             settingStore.autopilotMode &&
             manager instanceof AutopilotManager
@@ -294,6 +364,52 @@ export default defineContentScript({
       }
 
       return true;
+    });
+
+    submissionMonitor.onSubmission(async (submittedFieldOpids) => {
+      logger.info(
+        `Form submitted with ${submittedFieldOpids.size} fields`,
+        Array.from(submittedFieldOpids),
+      );
+
+      try {
+        const trackedFields = await fieldTracker.getCapturedFields();
+
+        if (trackedFields.length === 0) {
+          logger.info("No tracked fields to capture");
+          return;
+        }
+
+        logger.info(
+          `Processing ${trackedFields.length} tracked fields for capture`,
+        );
+
+        const capturedFields =
+          captureService.identifyCaptureOpportunities(trackedFields);
+
+        if (capturedFields.length === 0) {
+          logger.info("No user-entered fields to capture");
+          return;
+        }
+
+        logger.info(`Saving ${capturedFields.length} captured fields directly`);
+
+        const result = await contentAutofillMessaging.sendMessage(
+          "saveCapturedMemories",
+          {
+            capturedFields,
+          },
+        );
+
+        if (result.success) {
+          logger.info(
+            `Successfully saved ${result.savedCount} memories from form submission`,
+          );
+          await fieldTracker.clearSession();
+        }
+      } catch (error) {
+        logger.error("Error processing form submission:", error);
+      }
     });
 
     // Temporarily show contentAutofill permanent UI for testing

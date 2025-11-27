@@ -20,7 +20,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
-import type { AutofillProgress, FieldOpId, PreviewFieldData } from "@/types/autofill";
+import type {
+  AutofillProgress,
+  FieldOpId,
+  PreviewFieldData,
+} from "@/types/autofill";
 import {
   getProgressDescription,
   getProgressTitle,
@@ -151,7 +155,7 @@ const FieldRow = ({
         className={cn(
           "space-y-1 rounded-md p-2 text-xs",
           field.mapping.rephrasedValue &&
-          (!useOriginal ? "bg-primary/5" : "bg-muted/50"),
+            (!useOriginal ? "bg-primary/5" : "bg-muted/50"),
         )}
       >
         {field.mapping.rephrasedValue && (
@@ -312,20 +316,28 @@ export const AutofillContainer = ({
     });
   };
 
-  const headerTitle = currentMode === "loading"
-    ? getProgressTitle(progress?.state ?? "detecting")
-    : "Autofill suggestions";
+  const headerTitle =
+    currentMode === "loading"
+      ? getProgressTitle(progress?.state ?? "detecting")
+      : "Autofill suggestions";
 
-  const headerDescription = currentMode === "loading"
-    ? "Please do not navigate away from this page."
-    : `${data?.summary.matchedFields ?? 0} of ${totalFields} fields have matches${typeof data?.summary.processingTime === "number"
-      ? ` · ${Math.round(data.summary.processingTime)}ms`
-      : ""
-    }`;
+  const headerDescription =
+    currentMode === "loading"
+      ? "Please do not navigate away from this page."
+      : `${data?.summary.matchedFields ?? 0} of ${totalFields} fields have matches${
+          typeof data?.summary.processingTime === "number"
+            ? ` · ${Math.round(data.summary.processingTime)}ms`
+            : ""
+        }`;
 
-  const headerIcon = currentMode === "loading"
-    ? (progress?.state === "failed" ? <XIcon className="size-4" /> : <Spinner className="size-4" />)
-    : null;
+  const headerIcon =
+    currentMode === "loading" ? (
+      progress?.state === "failed" ? (
+        <XIcon className="size-4" />
+      ) : (
+        <Spinner className="size-4" />
+      )
+    ) : null;
 
   return (
     <div className="pointer-events-auto h-full w-full flex flex-col text-foreground border-l border-border shadow-lg animate-[slide-in-right_0.3s_ease-out]">

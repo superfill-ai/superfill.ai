@@ -6,3 +6,11 @@ export const allowedCategories = [
   "personal",
   "education",
 ];
+
+export const TRACKABLE_FIELD_TYPES = [
+  "text",
+  "email",
+  "tel",
+  "textarea",
+  "url",
+];

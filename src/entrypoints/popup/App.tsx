@@ -54,7 +54,7 @@ import {
 } from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 
 const logger = createLogger("popup");
@@ -177,6 +177,8 @@ export const App = () => {
         });
         return;
       }
+
+      const keyVault = getKeyVault();
       const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {
@@ -195,7 +197,7 @@ export const App = () => {
       toast.info("Starting autofill... This window will close shortly.");
 
       const autofillService = getAutofillService();
-      autofillService.startAutofillOnActiveTab(apiKey || undefined);
+      autofillService.startAutofillOnActiveTab();
 
       if (!DEBUG) {
         setTimeout(() => {

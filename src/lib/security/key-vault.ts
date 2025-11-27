@@ -1,9 +1,10 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import { createLogger } from "../logger";
 import { decrypt, encrypt, generateSalt } from "./encryption";
-import { getBrowserFingerprint } from "./fingerprint";
 import { getKeyValidationService } from "./key-validation-service";
+import { getFingerprintFromOffscreen } from "./offscreen-messaging";
 
 interface ValidationCache {
   timestamp: number;
@@ -15,20 +16,20 @@ const logger = createLogger("key-vault");
 /**
  * KeyVault - Secure API key storage with device-bound encryption
  *
- * IMPORTANT: All methods MUST be called from a browser context (popup/options/content script)
- * DO NOT call from background/service worker context due to fingerprinting requirements.
+ * Uses offscreen document to generate browser fingerprint from background script.
+ * This is a proxy service that MUST run in the background script context.
  *
  * Usage Pattern:
- * 1. In browser context: Decrypt API key using keyVault.getKey()
- * 2. Pass decrypted key to background services as needed
- * 3. Background services use the plain key temporarily for API calls
+ * 1. Call registerKeyVault() in background script
+ * 2. Call getKeyVault() from any entrypoint to get the proxy
+ * 3. All encryption/decryption happens in background via offscreen API
  */
-export class KeyVault {
+class KeyVault {
   private validationCache = new Map<string, ValidationCache>();
   private CACHE_DURATION = 3600000;
 
   async storeKey(provider: AIProvider, key: string): Promise<void> {
-    const fingerprint = await getBrowserFingerprint();
+    const fingerprint = await getFingerprintFromOffscreen();
     const salt = await generateSalt();
     const encrypted = await encrypt(key, fingerprint, salt);
 
@@ -47,7 +48,7 @@ export class KeyVault {
     }
 
     const encryptedData = keys[provider];
-    const fingerprint = await getBrowserFingerprint();
+    const fingerprint = await getFingerprintFromOffscreen();
 
     try {
       return await decrypt(
@@ -90,4 +91,7 @@ export class KeyVault {
   }
 }
 
-export const keyVault = new KeyVault();
+export const [registerKeyVault, getKeyVault] = defineProxyService(
+  "KeyVault",
+  () => new KeyVault(),
+);

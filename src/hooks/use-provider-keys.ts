@@ -6,7 +6,7 @@ import {
   getProviderConfig,
   validateProviderKey,
 } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";
 
@@ -17,6 +17,7 @@ export function useProviderKeyStatuses() {
     queryKey: PROVIDER_KEYS_QUERY_KEY,
     queryFn: async () => {
       const statuses: Record<string, boolean> = {};
+      const keyVault = getKeyVault();
 
       await Promise.all(
         AI_PROVIDERS.map(async (provider) => {
@@ -45,6 +46,7 @@ export function useSaveApiKeyWithModel() {
       defaultModel: string;
     }) => {
       const config = getProviderConfig(provider);
+      const keyVault = getKeyVault();
 
       if (config.requiresApiKey && !validateProviderKey(provider, key)) {
         throw new Error(`Invalid ${config.name} API key format`);
@@ -93,6 +95,7 @@ export function useDeleteApiKey() {
 
   return useMutation({
     mutationFn: async (provider: AIProvider) => {
+      const keyVault = getKeyVault();
       await keyVault.deleteKey(provider);
       return provider;
     },
