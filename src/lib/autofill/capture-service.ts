@@ -6,6 +6,7 @@ import type {
   FieldOpId,
   TrackedFieldData,
 } from "@/types/autofill";
+import { TRACKABLE_FIELD_TYPES } from "../copies";
 
 const logger = createLogger("capture-service");
 
@@ -156,13 +157,7 @@ export class CaptureService {
   }
 
   private isTrackableFieldType(fieldType: string): boolean {
-    return (
-      fieldType === "text" ||
-      fieldType === "email" ||
-      fieldType === "tel" ||
-      fieldType === "textarea" ||
-      fieldType === "url"
-    );
+    return TRACKABLE_FIELD_TYPES.includes(fieldType);
   }
 
   private extractQuestion(

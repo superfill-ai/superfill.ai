@@ -1,6 +1,6 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
-import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "../logger";
 import { decrypt, encrypt, generateSalt } from "./encryption";
 import { getKeyValidationService } from "./key-validation-service";

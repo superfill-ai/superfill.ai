@@ -27,6 +27,12 @@ export class FieldDataTracker {
     pageTitle: string,
     sessionId: string,
   ): Promise<void> {
+    // If we already have a session for this URL, keep it to preserve tracked fields
+    if (this.session && this.session.url === url) {
+      logger.info("Reusing existing tracking session for URL:", url);
+      return;
+    }
+
     this.session = {
       sessionId,
       url,
@@ -48,11 +54,18 @@ export class FieldDataTracker {
       return;
     }
 
+    let attachedCount = 0;
     for (const field of fields) {
       if (!this.isTrackableField(field)) continue;
 
+      // Skip if we already have a listener for this field
+      if (this.activeListeners.has(field.opid)) continue;
+
       const element = this.findFieldElement(field.opid);
-      if (!element) continue;
+      if (!element) {
+        logger.debug(`Could not find element for field ${field.opid}`);
+        continue;
+      }
 
       const mapping = mappings.get(field.opid);
       const listener = () => this.handleFieldBlur(field, mapping, element);
@@ -61,9 +74,12 @@ export class FieldDataTracker {
       this.activeListeners.set(field.opid, () => {
         element.removeEventListener("blur", listener);
       });
+      attachedCount++;
     }
 
-    logger.info(`Attached listeners to ${this.activeListeners.size} fields`);
+    logger.info(
+      `Attached ${attachedCount} new listeners (total: ${this.activeListeners.size} fields)`,
+    );
   }
 
   private isTrackableField(field: DetectedFieldSnapshot): boolean {

@@ -1,6 +1,5 @@
 import "./content.css";
 
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { CaptureService } from "@/lib/autofill/capture-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
@@ -17,6 +16,7 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
@@ -98,6 +98,59 @@ const ensureAutopilotManager = (ctx: ContentScriptContext) => {
   return autopilotManager;
 };
 
+/**
+ * Auto-detect forms and start field tracking for memory capture.
+ * This allows capturing user-entered data even when autofill wasn't triggered.
+ */
+const initializeAutoTracking = async (
+  formDetector: FormDetector,
+  fieldTracker: ReturnType<typeof getFieldDataTracker>,
+) => {
+  try {
+    // Detect all forms on the page
+    const allForms = formDetector.detectAll();
+
+    if (allForms.length === 0) {
+      logger.info("No forms detected for auto-tracking");
+      return;
+    }
+
+    // Cache forms for later use
+    cacheDetectedForms(allForms);
+    serializedFormCache = serializeForms(allForms);
+
+    const totalFields = allForms.reduce(
+      (sum, form) => sum + form.fields.length,
+      0,
+    );
+
+    logger.info(
+      `Auto-tracking initialized: ${allForms.length} forms, ${totalFields} fields`,
+    );
+
+    // Generate a session ID for this page
+    const sessionId = crypto.randomUUID();
+
+    // Start tracking session
+    await fieldTracker.startTracking(
+      window.location.href,
+      document.title,
+      sessionId,
+    );
+
+    // Attach listeners to all fields (with empty mapping since no AI suggestions yet)
+    const emptyMappings = new Map<FieldOpId, FieldMapping>();
+    fieldTracker.attachFieldListeners(
+      serializedFormCache.flatMap((f) => f.fields),
+      emptyMappings,
+    );
+
+    logger.info("Auto-tracking listeners attached for form submission capture");
+  } catch (error) {
+    logger.error("Failed to initialize auto-tracking:", error);
+  }
+};
+
 export default defineContentScript({
   matches: ["<all_urls>"],
   cssInjectionMode: "ui",
@@ -115,6 +168,9 @@ export default defineContentScript({
 
     submissionMonitor.start();
     logger.info("Form submission monitor started");
+
+    // Initialize auto-tracking for memory capture on form submissions
+    await initializeAutoTracking(formDetector, fieldTracker);
 
     contentAutofillMessaging.onMessage(
       "detectForms",
@@ -326,6 +382,7 @@ export default defineContentScript({
 
       try {
         const trackedFields = await fieldTracker.getCapturedFields();
+
         if (trackedFields.length === 0) {
           logger.info("No tracked fields to capture");
           return;
@@ -338,7 +395,10 @@ export default defineContentScript({
         const settingStore = await storage.aiSettings.getValue();
 
         const allFields = serializedFormCache.flatMap((f) => f.fields);
-        const fieldMappings = new Map<FieldOpId, FieldMapping>();
+        const fieldMappings: Map<FieldOpId, FieldMapping> =
+          previewManager?.getFieldMappings() ??
+          autopilotManager?.getFieldMappings() ??
+          new Map<FieldOpId, FieldMapping>();
 
         const capturedFields = captureService.identifyCaptureOpportunities(
           trackedFields,

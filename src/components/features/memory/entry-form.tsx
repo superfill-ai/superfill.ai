@@ -1,3 +1,9 @@
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
+import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
@@ -22,12 +28,6 @@ import type { AIProvider } from "@/lib/providers/registry";
 import { getKeyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
-import { useForm, useStore } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
-import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { z } from "zod";
 
 const logger = createLogger("component:entry-form");
 

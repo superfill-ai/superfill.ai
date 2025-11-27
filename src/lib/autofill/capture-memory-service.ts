@@ -1,10 +1,14 @@
-import { v7 as uuidv7 } from "uuid";
-import { BulkCategorizer } from "@/lib/ai/bulk-categorizer";
+import {
+  BulkCategorizer,
+  type CategorizedField,
+} from "@/lib/ai/bulk-categorizer";
+import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { CapturedFieldData } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
+import { v7 as uuidv7 } from "uuid";
 
 const logger = createLogger("capture-memory-service");
 
@@ -36,11 +40,11 @@ export class CaptureMemoryService {
         return { success: true, savedCount: 0 };
       }
 
-      let categories: string[] = [];
+      let categorized: CategorizedField[] = [];
 
       if (provider && apiKey) {
         try {
-          const categorized = await this.categorizer.categorizeFields(
+          categorized = await this.categorizer.categorizeFields(
             fieldsToSave.map((f) => ({
               question: f.question,
               answer: f.answer,
@@ -49,31 +53,50 @@ export class CaptureMemoryService {
             apiKey,
             modelName,
           );
-          categories = categorized.map((c) => c.category);
-          logger.info("Bulk categorization completed", categories);
+          logger.info(
+            "Bulk categorization completed",
+            categorized.map((c) => c.category),
+          );
         } catch (error) {
           logger.error("Bulk categorization failed, using fallback:", error);
-          categories = fieldsToSave.map(() => "general");
+          categorized = fieldsToSave.map(() => ({
+            category: "general",
+            confidence: 0.3,
+          }));
         }
       } else {
         logger.info("No AI provider configured, using fallback categories");
-        categories = fieldsToSave.map(() => "general");
+        categorized = fieldsToSave.map(() => ({
+          category: "general",
+          confidence: 0.5,
+        }));
       }
 
-      const newMemories: MemoryEntry[] = fieldsToSave.map((field, idx) => ({
-        id: uuidv7(),
-        question: field.question,
-        answer: field.answer,
-        category: categories[idx] as MemoryEntry["category"],
-        tags: [],
-        confidence: 0.8,
-        metadata: {
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          source: "autofill",
-          usageCount: 0,
-        },
-      }));
+      const isValidCategory = (cat: string): cat is MemoryEntry["category"] => {
+        return allowedCategories.includes(cat as MemoryEntry["category"]);
+      };
+
+      const newMemories: MemoryEntry[] = fieldsToSave.map((field, idx) => {
+        const catResult = categorized[idx];
+        const validCategory = isValidCategory(catResult.category)
+          ? catResult.category
+          : "general";
+
+        return {
+          id: uuidv7(),
+          question: field.question,
+          answer: field.answer,
+          category: validCategory,
+          tags: [],
+          confidence: catResult.confidence,
+          metadata: {
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            source: "autofill",
+            usageCount: 0,
+          },
+        };
+      });
 
       const currentMemories = await storage.memories.getValue();
       const updatedMemories = [...currentMemories, ...newMemories];

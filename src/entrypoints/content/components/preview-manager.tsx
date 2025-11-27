@@ -1,14 +1,14 @@
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
+import type { AutofillProgress } from "@/types/autofill";
+import type { FormField, FormMapping } from "@/types/memory";
 import { createRoot, type Root } from "react-dom/client";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
-import { createLogger } from "@/lib/logger";
-import { storage } from "@/lib/storage";
-import type { AutofillProgress } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -138,6 +138,10 @@ export class PreviewSidebarManager {
   constructor(options: PreviewSidebarManagerOptions) {
     this.options = options;
     ensureHighlightStyle();
+  }
+
+  getFieldMappings(): Map<FieldOpId, FieldMapping> {
+    return this.mappingLookup as Map<FieldOpId, FieldMapping>;
   }
 
   async show({ payload }: PreviewShowParams) {

@@ -1,7 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { getModelService, type ModelInfo } from "@/lib/providers/model-service";
 import type { AIProvider } from "@/lib/providers/registry";
 import { getKeyVault } from "@/lib/security/key-vault";
-import { useQuery } from "@tanstack/react-query";
 
 export const useProviderModels = (provider: AIProvider) => {
   return useQuery({

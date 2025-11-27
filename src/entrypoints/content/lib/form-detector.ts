@@ -209,6 +209,8 @@ export class FormDetector {
   private createDetectedField(element: FormFieldElement): DetectedField {
     const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
 
+    element.setAttribute("data-superfill-opid", opid);
+
     const field: DetectedField = {
       opid,
       element,
