@@ -398,7 +398,6 @@ export default defineContentScript({
           "saveCapturedMemories",
           {
             capturedFields,
-            categories: [],
           },
         );
 

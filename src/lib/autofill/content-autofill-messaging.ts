@@ -25,14 +25,8 @@ interface ContentAutofillProtocolMap {
     formMappings: FormMapping[];
   }) => boolean;
 
-  showCaptureConfirmation: (data: {
-    capturedFields: CapturedFieldData[];
-    url: string;
-    pageTitle: string;
-  }) => boolean;
   saveCapturedMemories: (data: {
     capturedFields: CapturedFieldData[];
-    categories: string[];
   }) => Promise<{ success: boolean; savedCount: number }>;
 }
 

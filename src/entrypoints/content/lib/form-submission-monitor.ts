@@ -88,10 +88,17 @@ export class FormSubmissionMonitor {
   private attachFormListener(form: HTMLFormElement): void {
     if (this.formListeners.has(form)) return;
 
-    const listener = (event: Event) => {
-      event.preventDefault();
-      logger.info("Form submit event detected", form);
-      this.handleFormSubmission(form);
+    const listener = async (event: Event) => {
+      try {
+        event.preventDefault();
+        logger.info("Form submit event detected", form);
+
+        await this.handleFormSubmission(form);
+      } catch (error) {
+        logger.error("Error handling form submission:", error);
+      } finally {
+        form.submit();
+      }
     };
 
     form.addEventListener("submit", listener);
@@ -158,13 +165,13 @@ export class FormSubmissionMonitor {
   ): void {
     if (this.buttonListeners.has(button)) return;
 
-    const listener = () => {
+    const listener = async () => {
       logger.info("Submit button clicked", button);
       const form = button.closest("form");
       if (form) {
-        this.handleFormSubmission(form);
+        await this.handleFormSubmission(form);
       } else {
-        this.handleStandaloneSubmission();
+        await this.handleStandaloneSubmission();
       }
     };
 
@@ -172,16 +179,16 @@ export class FormSubmissionMonitor {
     this.buttonListeners.set(button, listener);
   }
 
-  private handleFormSubmission(form: HTMLFormElement): void {
+  private async handleFormSubmission(form: HTMLFormElement): Promise<void> {
     const fields = this.extractFieldOpids(form);
     logger.info(`Form submission detected with ${fields.size} fields`);
-    this.notifyCallbacks(fields);
+    await this.notifyCallbacks(fields);
   }
 
-  private handleStandaloneSubmission(): void {
+  private async handleStandaloneSubmission(): Promise<void> {
     const fields = this.extractAllVisibleFieldOpids();
     logger.info(`Standalone submission detected with ${fields.size} fields`);
-    this.notifyCallbacks(fields);
+    await this.notifyCallbacks(fields);
   }
 
   private extractFieldOpids(form: HTMLFormElement): Set<FieldOpId> {
@@ -220,19 +227,25 @@ export class FormSubmissionMonitor {
     return opids;
   }
 
-  private notifyCallbacks(fields: Set<FieldOpId>): void {
+  private async notifyCallbacks(fields: Set<FieldOpId>): Promise<void> {
+    const promises: Promise<void>[] = [];
+
     for (const callback of this.submissionCallbacks) {
       try {
         const result = callback(fields);
         if (result instanceof Promise) {
-          result.catch((error) => {
-            logger.error("Submission callback error:", error);
-          });
+          promises.push(
+            result.catch((error) => {
+              logger.error("Submission callback error:", error);
+            })
+          );
         }
       } catch (error) {
         logger.error("Submission callback error:", error);
       }
     }
+
+    await Promise.all(promises);
   }
 
   private startMutationObserver(): void {
