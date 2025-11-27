@@ -61,9 +61,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 [Arcade interactive demo link](https://app.arcade.software/share/BOyhluu7rFgB0IzIJMLk)
 
-## 📊 Progress
-
-### ✅ Completed (Phase 1)
+### 🎯 Completed (Phase 1)
 
 - [x] Memory CRUD operations
 - [x] AI-powered categorization & tagging
