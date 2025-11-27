@@ -77,6 +77,27 @@ export class FillTriggerManager {
       return false;
     }
 
+    const classString = element.className || "";
+
+    const dropdownClassHints = [
+      "select",
+      "dropdown",
+      "combobox",
+      "react-select",
+      "choices",
+      "autocomplete",
+      "remix-css", // important for your case
+      "select__",
+      "select-",
+      "select_",
+    ];
+
+    for (const hint of dropdownClassHints) {
+      if (classString.toLowerCase().includes(hint)) {
+        return false; // it's a dropdown/autocomplete
+      }
+    }
+
     if (tagName === "input") {
       const inputType = (
         (element as HTMLInputElement).type || ""
@@ -90,6 +111,7 @@ export class FillTriggerManager {
         "image",
         "checkbox",
         "radio",
+        "select",
       ]);
       if (invalid.has(inputType)) return false;
     }

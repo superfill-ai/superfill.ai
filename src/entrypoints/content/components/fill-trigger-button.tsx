@@ -108,16 +108,17 @@ export class FillTriggerButton {
       this.host = document.createElement("div");
       this.host.id = "superfill-trigger-host";
       this.host.style.cssText = `
-        position: fixed;
+        position: absolute;
         z-index: 2147483647;
         pointer-events: auto;
         margin: 0;
         padding: 0;
         display: block;
+        box-sizing: border-box;
       `;
 
-      const left = Math.round(rect.left);
-      const top = Math.round(rect.bottom + 4);
+      const left = Math.round(rect.left + window.scrollX);
+      const top = Math.round(rect.bottom + window.scrollY + 4);
 
       this.host.style.left = `${left}px`;
       this.host.style.top = `${top}px`;
