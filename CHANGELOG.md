@@ -1,28 +1,5 @@
 # superfill.ai
 
-## 0.1.8
-
-### Patch Changes
-
-- [`f5e21fb`](https://github.com/superfill-ai/superfill.ai/commit/f5e21fb5e9a6e8430acb88c31ab1be66806f9fd7) Thanks [@mikr13](https://github.com/mikr13)! - fix: update answer display in AIMatcher to show full answer instead of truncated version
-
-## 0.1.7
-
-### Patch Changes
-
-- [#20](https://github.com/superfill-ai/superfill.ai/pull/20) [`8b20ca6`](https://github.com/superfill-ai/superfill.ai/commit/8b20ca6644927eff6ee427d03f5ad13762cde13a) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - removed memory usage tracking
-
-- [`33d249d`](https://github.com/superfill-ai/superfill.ai/commit/33d249d3c4856028049a3e1fd49f6b5a0e4664c6) Thanks [@mikr13](https://github.com/mikr13)! - feat: add API key URL to provider configuration and update UI to display link
-
-- [#18](https://github.com/superfill-ai/superfill.ai/pull/18) [`a4a1992`](https://github.com/superfill-ai/superfill.ai/commit/a4a1992a6283f0fe020a15f3c8c74e00335b40ce) Thanks [@Andro-human](https://github.com/Andro-human)! - fix(onboarding): improve country and phone number field handling
-
-- [#20](https://github.com/superfill-ai/superfill.ai/pull/20) [`8b20ca6`](https://github.com/superfill-ai/superfill.ai/commit/8b20ca6644927eff6ee427d03f5ad13762cde13a) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - Updated prompt to deal in compound input fields
-
-  - Made prompt lenient to make it more flexible to fill generic info\
-  - Made change to handle a memory id as string or array (A field can be mapped to multiple memory ids)
-
-- [#17](https://github.com/superfill-ai/superfill.ai/pull/17) [`f687093`](https://github.com/superfill-ai/superfill.ai/commit/f687093105ea165079a18a9d309ddd3d8c1ff271) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement CORS dialog and enhance form field detection quality
-
 ## 0.1.6
 
 ### Patch Changes
