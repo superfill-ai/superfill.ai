@@ -1,5 +1,3 @@
-import { Redo2Icon, SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -25,6 +23,8 @@ import type {
   FieldOpId,
   PreviewFieldData,
 } from "@/types/autofill";
+import { Redo2Icon, SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getProgressDescription,
   getProgressTitle,
@@ -104,7 +104,8 @@ const FieldRow = ({
   const confidence = field.mapping.confidence;
   const { label, intent } = confidenceMeta(confidence);
   const suggestion = getSuggestedValue(field);
-  const [useOriginal, setUseOriginal] = useState(false);
+  const hasMultipleMemories = Array.isArray(field.mapping.memoryId);
+  const [useOriginal, setUseOriginal] = useState(!field.mapping.rephrasedValue);
 
   const handleToggleChoice = () => {
     const nextState = !useOriginal;
@@ -112,9 +113,7 @@ const FieldRow = ({
     onChoiceChange(nextState);
   };
 
-  const finalSuggestion = useOriginal
-    ? (field.mapping.value ?? suggestion)
-    : suggestion;
+  const finalSuggestion = useOriginal ? field.mapping.value : suggestion;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: highlighting only
@@ -167,7 +166,11 @@ const FieldRow = ({
               )}
             >
               {!useOriginal && <SparklesIcon className="size-3.5" />}
-              {useOriginal ? "Original Memory" : "AI Rephrased Memory"}
+              {useOriginal
+                ? hasMultipleMemories
+                  ? "Original Memories (Combined)"
+                  : "Original Memory"
+                : "AI Rephrased Memory"}
             </p>
             <Button
               variant="ghost"
@@ -190,7 +193,7 @@ const FieldRow = ({
         <p
           className={cn(
             "text-xs leading-relaxed wrap-break-word pt-1",
-            useOriginal ? "text-foreground" : "text-muted-foreground/90",
+            !useOriginal ? "text-foreground" : "text-muted-foreground/90",
           )}
         >
           {finalSuggestion}
@@ -201,20 +204,6 @@ const FieldRow = ({
         <p className="text-xs text-muted-foreground/80 leading-relaxed wrap-break-word">
           {field.mapping.reasoning}
         </p>
-      )}
-      {field.mapping.alternativeMatches.length > 0 && (
-        <div className="space-y-1 rounded-md border border-dashed border-border/60 bg-muted/30 p-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Alternative matches
-          </p>
-          <ul className="space-y-1 text-xs text-muted-foreground truncate">
-            {field.mapping.alternativeMatches.map((alt) => (
-              <li key={`${field.fieldOpid}-alt-${alt.memoryId}`}>
-                {alt.value} · {Math.round(alt.confidence * 100)}%
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
     </div>
   );
@@ -283,7 +272,7 @@ export const AutofillContainer = ({
             ? field.mapping.value
             : (field.mapping.rephrasedValue ?? field.mapping.value);
 
-          if (valueToFill) {
+          if (valueToFill !== null && valueToFill !== undefined) {
             fieldsToFill.push({
               fieldOpid: field.fieldOpid,
               value: valueToFill,

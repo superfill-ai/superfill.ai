@@ -72,12 +72,6 @@ export class FallbackMatcher {
     const bestCandidate = candidates[0];
     const confidence = roundConfidence(bestCandidate.score);
 
-    const alternativeMatches = candidates.slice(1, 4).map((candidate) => ({
-      memoryId: candidate.memory.id,
-      value: candidate.memory.answer,
-      confidence: roundConfidence(candidate.score),
-    }));
-
     if (confidence < MIN_MATCH_CONFIDENCE) {
       return {
         fieldOpid: field.opid,
@@ -85,7 +79,6 @@ export class FallbackMatcher {
         value: null,
         confidence,
         reasoning: `Low confidence match (${(confidence * 100).toFixed(0)}%). ${bestCandidate.reasons.join(" · ")}`,
-        alternativeMatches,
         rephrasedValue: null,
       };
     }
@@ -96,7 +89,6 @@ export class FallbackMatcher {
       value: bestCandidate.memory.answer,
       confidence,
       reasoning: bestCandidate.reasons.join(" · "),
-      alternativeMatches,
       rephrasedValue: null,
     };
   }

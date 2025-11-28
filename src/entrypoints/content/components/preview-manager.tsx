@@ -1,14 +1,14 @@
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
+import type { AutofillProgress } from "@/types/autofill";
+import type { FormField, FormMapping } from "@/types/memory";
 import { createRoot, type Root } from "react-dom/client";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
-import { createLogger } from "@/lib/logger";
-import { storage } from "@/lib/storage";
-import type { AutofillProgress } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -87,7 +87,6 @@ const buildPreviewFields = (
           rephrasedValue: null,
           confidence: 0,
           reasoning: "No suggestion generated",
-          alternativeMatches: [],
           autoFill: false,
         } satisfies FieldMapping);
 
@@ -232,7 +231,11 @@ export class PreviewSidebarManager {
       const mapping = this.mappingLookup.get(fieldOpid);
 
       if (mapping?.memoryId) {
-        memoryIds.push(mapping.memoryId);
+        if (Array.isArray(mapping.memoryId)) {
+          memoryIds.push(...mapping.memoryId);
+        } else {
+          memoryIds.push(mapping.memoryId);
+        }
       }
     }
 
@@ -329,7 +332,10 @@ export class PreviewSidebarManager {
           formFields.push(formField);
 
           if (mapping.memoryId) {
-            const memory = memoryMap.get(mapping.memoryId);
+            const representativeId = Array.isArray(mapping.memoryId)
+              ? mapping.memoryId[0]
+              : mapping.memoryId;
+            const memory = memoryMap.get(representativeId);
             if (memory) {
               matches.set(formField.name, memory);
             }
