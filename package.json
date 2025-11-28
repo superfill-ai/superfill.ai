@@ -110,6 +110,6 @@
     "@wxt-dev/storage": "1.2.0"
   },
   "simple-git-hooks": {
-    "pre-commit": "bun run biome check --staged --write --no-errors-on-unmatched"
+    "pre-commit": "bun run biome check --staged --write --no-errors-on-unmatched && bun type-check"
   }
 }
