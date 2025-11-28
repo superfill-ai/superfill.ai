@@ -39,7 +39,6 @@ const getPrimaryLabel = (
     metadata.labelData,
     metadata.labelTop,
     metadata.labelLeft,
-    metadata.labelRight,
     metadata.placeholder,
     metadata.name,
     metadata.id,

@@ -1,7 +1,15 @@
 import "./content.css";
 
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import {
+  createFilterStats,
+  getPrimaryLabel,
+  hasAnyLabel,
+  hasValidContext,
+  scoreField,
+} from "@/lib/autofill/field-quality";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
@@ -111,28 +119,67 @@ export default defineContentScript({
       async (): Promise<DetectFormsResult> => {
         try {
           const allForms = formDetector.detectAll();
+          const stats = createFilterStats();
 
-          const forms = allForms.filter((form) => {
-            if (form.fields.length === 0) return false;
+          const forms = allForms
+            .map((form) => {
+              const seenLabels = new Set<string>();
 
-            if (form.fields.length === 1) {
-              const field = form.fields[0];
-              logger.info("Single field form:", field);
-              const isUnlabeled =
-                !field.metadata.labelTag &&
-                !field.metadata.labelAria &&
-                !field.metadata.placeholder &&
-                !field.metadata.labelLeft &&
-                !field.metadata.labelRight &&
-                !field.metadata.labelTop;
+              const filteredFields = form.fields.filter((field) => {
+                const quality = scoreField(field.metadata);
+                stats.total++;
 
-              if (field.metadata.fieldPurpose === "unknown" && isUnlabeled) {
-                return false;
-              }
-            }
+                if (quality < MIN_FIELD_QUALITY) {
+                  stats.filtered++;
+                  if (
+                    field.metadata.fieldPurpose === "unknown" &&
+                    !hasAnyLabel(field.metadata) &&
+                    !hasValidContext(field.metadata)
+                  ) {
+                    stats.reasons.unknownUnlabeled++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: unknown purpose, no labels, no valid context, low quality score ${quality.toFixed(2)}`,
+                    );
+                  } else {
+                    stats.reasons.noQuality++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: low quality score ${quality.toFixed(2)}`,
+                    );
+                  }
+                  return false;
+                }
 
-            return true;
-          });
+                const primaryLabel = getPrimaryLabel(field.metadata);
+
+                if (primaryLabel) {
+                  const normalizedLabel = primaryLabel.toLowerCase().trim();
+                  if (seenLabels.has(normalizedLabel)) {
+                    stats.filtered++;
+                    stats.reasons.duplicate++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: duplicate label "${primaryLabel}"`,
+                    );
+                    return false;
+                  }
+                  seenLabels.add(normalizedLabel);
+                }
+
+                return true;
+              });
+
+              return {
+                ...form,
+                fields: filteredFields,
+              };
+            })
+            .filter((form) => form.fields.length > 0);
+
+          logger.debug(
+            `Field filtering: ${stats.total} detected, ${stats.filtered} filtered, ${stats.total - stats.filtered} kept`,
+          );
+          logger.debug(
+            `Filter reasons: ${stats.reasons.noQuality} low quality, ${stats.reasons.unknownUnlabeled} unknown+unlabeled, ${stats.reasons.duplicate} duplicates`,
+          );
 
           cacheDetectedForms(forms);
           serializedFormCache = serializeForms(forms);
@@ -462,7 +509,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: null,
-    //                 labelRight: null,
     //                 labelTop: "Floating Labels",
     //                 helperText: null,
     //                 fieldType: "text",
@@ -498,7 +544,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: null,
-    //                 labelRight: null,
     //                 labelTop: "Full Name",
     //                 helperText: null,
     //                 fieldType: "email",
@@ -534,7 +579,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: null,
-    //                 labelRight: null,
     //                 labelTop: "Home Address",
     //                 helperText: null,
     //                 fieldType: "text",
@@ -570,7 +614,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: null,
-    //                 labelRight: null,
     //                 labelTop: "LinkedIn Profile",
     //                 helperText: null,
     //                 fieldType: "url",
@@ -606,7 +649,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: "Primary Programming Language:",
-    //                 labelRight: "Primary Programming Language:",
     //                 labelTop: "Primary Programming Language:",
     //                 helperText: null,
     //                 fieldType: "text",
@@ -642,7 +684,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: "GitHub Profile:",
-    //                 labelRight: "GitHub Profile:",
     //                 labelTop: "GitHub Profile:",
     //                 helperText: null,
     //                 fieldType: "url",
@@ -678,7 +719,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: "Resume",
     //                 labelLeft: null,
-    //                 labelRight: null,
     //                 labelTop: "No Visible Label (Aria-label only)",
     //                 helperText: "Paste your resume text or provide a link",
     //                 fieldType: "text",
@@ -714,7 +754,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: null,
-    //                 labelRight: null,
     //                 labelTop: "Why do you want to work with us?",
     //                 helperText: null,
     //                 fieldType: "textarea",
@@ -751,7 +790,6 @@ export default defineContentScript({
     //                 labelData: null,
     //                 labelAria: null,
     //                 labelLeft: null,
-    //                 labelRight: null,
     //                 labelTop: "What book inspired you recently?",
     //                 helperText: null,
     //                 fieldType: "textarea",
