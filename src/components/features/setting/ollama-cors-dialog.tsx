@@ -18,11 +18,9 @@ const detectOS = (): "macos" | "linux" | "windows" => {
   if (userAgent.includes("win")) {
     return "windows";
   }
-  // Check Android before Linux since Android user agents contain "linux"
-  if (userAgent.includes("android")) {
-    return "linux";
-  }
-  if (userAgent.includes("linux")) {
+  // Android is Linux-based; show Linux instructions as fallback
+  // (Ollama is typically run on desktop/server, not mobile devices)
+  if (userAgent.includes("android") || userAgent.includes("linux")) {
     return "linux";
   }
 
