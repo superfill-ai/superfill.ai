@@ -122,9 +122,6 @@ const CountryDropdownComponent = (
         side="bottom"
         className="min-w-[--radix-popper-anchor-width] p-0"
       >
-          <div
-          onWheel={(e) => e.stopPropagation()}
-        >
         <Command className="w-full max-h-[200px] sm:max-h-[270px]"
          onWheel={(e) => e.stopPropagation()}
          >
@@ -166,7 +163,6 @@ const CountryDropdownComponent = (
             </CommandGroup>
           </CommandList>
         </Command>
-        </div>
       </PopoverContent>
     </Popover>
   );
