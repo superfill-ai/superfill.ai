@@ -1,10 +1,10 @@
-import type { FieldMetadata } from "@/types/autofill";
+import type { FieldMetadata, FilterStats } from "@/types/autofill";
 
 const CRYPTIC_PATTERNS = [
   /\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b/i,
   /\[[\w-]{8,}\]\[field\d+\]/i,
   /field_\d{8,}/i,
-  /\b[a-zA-Z0-9]{20,}\b/,
+  /\b[a-zA-Z0-9]{32,}\b/,
   /^[A-Za-z0-9+/]{20,}={0,2}$/,
   /^(question|input|field|control)_[a-f0-9]{8,}$/i,
 ];
@@ -19,14 +19,27 @@ export function isCrypticString(str: string | null): boolean {
   return CRYPTIC_PATTERNS.some((pattern) => pattern.test(str));
 }
 
-export function hasAnyLabel(metadata: FieldMetadata): boolean {
+export function hasLabelsWithoutPlaceholder(metadata: FieldMetadata): boolean {
   return (
     !!metadata.labelTag ||
     !!metadata.labelAria ||
     !!metadata.labelTop ||
     !!metadata.labelLeft ||
-    !!metadata.labelRight ||
-    !!metadata.placeholder
+    !!metadata.labelRight
+  );
+}
+
+export function hasAnyLabel(metadata: FieldMetadata): boolean {
+  return hasLabelsWithoutPlaceholder(metadata) || !!metadata.placeholder;
+}
+
+export function getPrimaryLabel(metadata: FieldMetadata): string | null {
+  return (
+    metadata.labelTag ||
+    metadata.labelAria ||
+    metadata.labelTop ||
+    metadata.labelLeft ||
+    null
   );
 }
 
@@ -64,16 +77,6 @@ export function scoreField(metadata: FieldMetadata): number {
   }
 
   return Math.min(score, 1.0);
-}
-
-export interface FilterStats {
-  total: number;
-  filtered: number;
-  reasons: {
-    noQuality: number;
-    duplicate: number;
-    unknownUnlabeled: number;
-  };
 }
 
 export function createFilterStats(): FilterStats {

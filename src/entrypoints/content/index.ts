@@ -5,6 +5,7 @@ import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   createFilterStats,
+  getPrimaryLabel,
   hasAnyLabel,
   hasValidContext,
   scoreField,
@@ -125,36 +126,30 @@ export default defineContentScript({
               const seenLabels = new Set<string>();
 
               const filteredFields = form.fields.filter((field) => {
+                const quality = scoreField(field.metadata);
                 stats.total++;
 
-                if (
-                  field.metadata.fieldPurpose === "unknown" &&
-                  !hasAnyLabel(field.metadata) &&
-                  !hasValidContext(field.metadata)
-                ) {
-                  stats.filtered++;
-                  stats.reasons.unknownUnlabeled++;
-                  logger.debug(
-                    `Filtered field ${field.opid}: unknown purpose, no labels, no valid context`,
-                  );
-                  return false;
-                }
-
-                const quality = scoreField(field.metadata);
                 if (quality < MIN_FIELD_QUALITY) {
                   stats.filtered++;
-                  stats.reasons.noQuality++;
-                  logger.debug(
-                    `Filtered field ${field.opid}: low quality score ${quality.toFixed(2)}`,
-                  );
+                  if (
+                    field.metadata.fieldPurpose === "unknown" &&
+                    !hasAnyLabel(field.metadata) &&
+                    !hasValidContext(field.metadata)
+                  ) {
+                    stats.reasons.unknownUnlabeled++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: unknown purpose, no labels, no valid context, low quality score ${quality.toFixed(2)}`,
+                    );
+                  } else {
+                    stats.reasons.noQuality++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: low quality score ${quality.toFixed(2)}`,
+                    );
+                  }
                   return false;
                 }
 
-                const primaryLabel =
-                  field.metadata.labelTag ||
-                  field.metadata.labelAria ||
-                  field.metadata.labelTop ||
-                  field.metadata.labelLeft;
+                const primaryLabel = getPrimaryLabel(field.metadata);
 
                 if (primaryLabel) {
                   const normalizedLabel = primaryLabel.toLowerCase().trim();

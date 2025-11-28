@@ -174,3 +174,13 @@ export interface AutofillProgress {
   fieldsMatched?: number;
   error?: string;
 }
+
+export interface FilterStats {
+  total: number;
+  filtered: number;
+  reasons: {
+    noQuality: number;
+    duplicate: number;
+    unknownUnlabeled: number;
+  };
+}
