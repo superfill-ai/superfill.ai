@@ -14,6 +14,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { ProviderConfig } from "@/lib/providers/registry";
 import { getKeyValidationService } from "@/lib/security/key-validation-service";
+import { OllamaCorsDialog } from "./ollama-cors-dialog";
 
 interface ProviderKeyInputProps {
   providerId: string;
@@ -134,15 +135,7 @@ export const ProviderKeyInput = ({
                 <span className="text-destructive text-xs">
                   <AlertCircleIcon className="inline-block size-4" /> To use
                   Ollama with this extension, please ensure that{" "}
-                  <a
-                    href="https://medium.com/dcoderai/how-to-handle-cors-settings-in-ollama-a-comprehensive-guide-ee2a5a1beef0"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-foreground"
-                  >
-                    CORS settings are properly configured
-                  </a>
-                  .
+                  <OllamaCorsDialog />
                 </span>
               </AlertDescription>
             </Alert>
