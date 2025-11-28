@@ -54,7 +54,6 @@ export interface FieldMetadata {
   labelData: string | null;
   labelAria: string | null;
   labelLeft: string | null;
-  labelRight: string | null;
   labelTop: string | null;
 
   placeholder: string | null;
@@ -173,4 +172,14 @@ export interface AutofillProgress {
   fieldsDetected?: number;
   fieldsMatched?: number;
   error?: string;
+}
+
+export interface FilterStats {
+  total: number;
+  filtered: number;
+  reasons: {
+    noQuality: number;
+    duplicate: number;
+    unknownUnlabeled: number;
+  };
 }
