@@ -15,11 +15,15 @@ const detectOS = (): "macos" | "linux" | "windows" => {
   if (userAgent.includes("mac")) {
     return "macos";
   }
-  if (userAgent.includes("linux")) {
-    return "linux";
-  }
   if (userAgent.includes("win")) {
     return "windows";
+  }
+  // Check Android before Linux since Android user agents contain "linux"
+  if (userAgent.includes("android")) {
+    return "linux";
+  }
+  if (userAgent.includes("linux")) {
+    return "linux";
   }
 
   // Default to macOS if unable to detect
