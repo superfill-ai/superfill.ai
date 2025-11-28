@@ -1,19 +1,12 @@
 type MappingBase = {
-  /** Field operation ID - unique runtime identifier (primary key) */
   fieldOpid: string;
-  /** CSS selector for the field (kept for DOM queries) */
-  selector: string;
   value: string | null;
   confidence: number;
   reasoning: string;
   autoFill?: boolean;
 };
 
-/** Field type that has either fieldOpid or opid property */
-type FieldWithOpid = { selector: string } & (
-  | { fieldOpid: string }
-  | { opid: string }
-);
+type FieldWithOpid = { fieldOpid: string } | { opid: string };
 
 const getFieldOpid = (field: FieldWithOpid): string => {
   if ("fieldOpid" in field) {
@@ -28,13 +21,12 @@ export const createEmptyMapping = <
 >(
   field: TField,
   reason: string,
-  overrides?: Omit<Partial<TMapping>, "fieldOpid" | "selector">,
+  overrides?: Omit<Partial<TMapping>, "fieldOpid">,
 ): TMapping => {
   const fieldOpid = getFieldOpid(field);
 
   const base: MappingBase = {
     fieldOpid,
-    selector: field.selector,
     value: null,
     confidence: 0,
     reasoning: reason,
@@ -44,7 +36,6 @@ export const createEmptyMapping = <
     ...base,
     ...(overrides ?? {}),
     fieldOpid,
-    selector: field.selector,
   } as TMapping;
 };
 

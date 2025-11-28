@@ -147,7 +147,7 @@ class AutofillService {
       logger.info("Autofill processing result:", processingResult);
 
       const matchedCount = processingResult.mappings.filter(
-        (mapping) => mapping.value !== null,
+        (mapping) => mapping.memoryId !== null,
       ).length;
 
       await sessionService.updateSessionStatus(sessionId, "reviewing");
@@ -268,19 +268,12 @@ class AutofillService {
         };
       }
 
-      // Combine DOM contexts from all forms (typically there's just one)
-      const domContext = forms
-        .map((form) => form.domContext)
-        .filter(Boolean)
-        .join("\n---\n");
-
       const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
       const mappings = await this.matchFields(
         fields,
         memories,
         websiteContext,
         apiKey,
-        domContext || undefined,
       );
       const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
@@ -309,7 +302,6 @@ class AutofillService {
     memories: MemoryEntry[],
     websiteContext: WebsiteContext,
     apiKey?: string,
-    domContext?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       return [];
@@ -354,7 +346,6 @@ class AutofillService {
         provider,
         apiKey,
         selectedModel,
-        domContext,
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);
@@ -366,9 +357,15 @@ class AutofillService {
   }
 
   private compressField(field: DetectedFieldSnapshot): CompressedFieldData {
-    // Use primary label: prefer <label> tag, fall back to aria-label
-    const label = field.metadata.labelTag || field.metadata.labelAria || null;
+    const allLabels = [
+      field.metadata.labelTag,
+      field.metadata.labelAria,
+      field.metadata.labelData,
+      field.metadata.labelLeft,
+      field.metadata.labelTop,
+    ].filter(Boolean) as string[];
 
+    const labels = Array.from(new Set(allLabels));
     const contextParts = [
       field.metadata.placeholder,
       field.metadata.helperText,
@@ -383,38 +380,13 @@ class AutofillService {
 
     const context = contextParts.filter(Boolean).join(" ");
 
-    const result: CompressedFieldData = {
-      fieldOpid: field.opid,
-      selector: field.selector,
+    return {
+      opid: field.opid,
       type: field.metadata.fieldType,
       purpose: field.metadata.fieldPurpose,
-      label,
+      labels,
       context,
     };
-
-    // Add options for select fields (just the labels for AI matching)
-    if (field.metadata.options && field.metadata.options.length > 0) {
-      result.options = field.metadata.options.map(
-        (opt) => opt.label || opt.value,
-      );
-    }
-
-    // Add radio group info
-    if (field.metadata.radioGroup) {
-      result.radioGroup = {
-        name: field.metadata.radioGroup.name,
-        values: field.metadata.radioGroup.options.map(
-          (opt) => opt.label || opt.value,
-        ),
-      };
-    }
-
-    // Add checked state for checkboxes
-    if (field.metadata.fieldType === "checkbox") {
-      result.isChecked = field.metadata.isChecked;
-    }
-
-    return result;
   }
 
   private compressMemory(memory: MemoryEntry): CompressedMemoryData {
@@ -462,9 +434,11 @@ class AutofillService {
 
     const mappingsWithThreshold = processingResult.mappings.map((mapping) => {
       const meetsThreshold =
-        mapping.value !== null && mapping.confidence >= confidenceThreshold;
+        mapping.memoryId !== null &&
+        mapping.value !== null &&
+        mapping.confidence >= confidenceThreshold;
 
-      if (mapping.value !== null) {
+      if (mapping.memoryId !== null) {
         logger.debug(
           `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
         );

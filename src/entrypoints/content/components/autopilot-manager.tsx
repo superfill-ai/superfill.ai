@@ -1,11 +1,4 @@
-import { createRoot, type Root } from "react-dom/client";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import {
-  createShadowRootUi,
-  type ShadowRootContentScriptUi,
-} from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
-import { fillField } from "@/lib/autofill/fill-field";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
@@ -14,11 +7,16 @@ import type {
   DetectedFieldSnapshot,
   FieldMapping,
   FieldOpId,
-  FieldType,
   FormOpId,
 } from "@/types/autofill";
 import type { FilledField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
+import { createRoot, type Root } from "react-dom/client";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import {
+  createShadowRootUi,
+  type ShadowRootContentScriptUi,
+} from "wxt/utils/content-script-ui/shadow-root";
 import { AutopilotLoader } from "./autopilot-loader";
 
 const logger = createLogger("autopilot-manager");
@@ -29,6 +27,7 @@ export interface AutopilotFillData {
   fieldOpid: string;
   value: string;
   confidence: number;
+  memoryId: string;
 }
 
 const getPrimaryLabel = (
@@ -37,6 +36,9 @@ const getPrimaryLabel = (
   const candidates = [
     metadata.labelTag,
     metadata.labelAria,
+    metadata.labelData,
+    metadata.labelTop,
+    metadata.labelLeft,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -177,10 +179,11 @@ export class AutopilotManager {
 
       const fieldsToFill: AutopilotFillData[] = [];
       for (const mapping of mappings) {
-        const valueToFill = mapping.value;
+        const valueToFill = mapping.rephrasedValue ?? mapping.value;
 
         if (
           valueToFill !== null &&
+          mapping.memoryId !== null &&
           mapping.confidence >= confidenceThreshold &&
           mapping.autoFill !== false
         ) {
@@ -188,6 +191,7 @@ export class AutopilotManager {
             fieldOpid: mapping.fieldOpid,
             value: valueToFill,
             confidence: mapping.confidence,
+            memoryId: mapping.memoryId,
           });
         }
       }
@@ -236,18 +240,9 @@ export class AutopilotManager {
 
       for (const field of this.fieldsToFill) {
         try {
-          const detected = this.options.getFieldMetadata(
-            field.fieldOpid as FieldOpId,
-          );
-
-          let element = detected?.element;
-
-          // Fallback: try to find element by data attribute or index
-          if (!element) {
-            element = document.querySelector(
-              `[data-wxt-field-opid="${field.fieldOpid}"]`,
-            ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-          }
+          let element = document.querySelector(
+            `[data-wxt-field-opid="${field.fieldOpid}"]`,
+          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
           if (!element && field.fieldOpid.startsWith("__")) {
             const index = field.fieldOpid.substring(2);
@@ -261,22 +256,17 @@ export class AutopilotManager {
           }
 
           if (element && element.type !== "password") {
-            // Use centralized fillField function
-            const fieldType =
-              detected?.metadata.fieldType ?? this.inferFieldType(element);
-            const success = fillField(element, field.value, fieldType);
+            element.value = field.value;
+            element.setAttribute("data-autopilot-filled", "true");
 
-            if (success) {
-              element.setAttribute("data-autopilot-filled", "true");
-              filledCount++;
-              logger.debug(
-                `Filled field ${field.fieldOpid} with value: ${field.value}`,
-              );
-            } else {
-              logger.warn(
-                `Failed to fill field ${field.fieldOpid} with value: ${field.value}`,
-              );
-            }
+            element.dispatchEvent(new Event("input", { bubbles: true }));
+            element.dispatchEvent(new Event("change", { bubbles: true }));
+            element.dispatchEvent(new Event("blur", { bubbles: true }));
+
+            filledCount++;
+            logger.debug(
+              `Filled field ${field.fieldOpid} with value: ${field.value}`,
+            );
           } else {
             logger.warn(
               `Field element not found or is password field for opid: ${field.fieldOpid}`,
@@ -327,6 +317,23 @@ export class AutopilotManager {
     }
 
     try {
+      const usedMemoryIds = Array.from(
+        new Set(this.fieldsToFill.map((field) => field.memoryId)),
+      );
+
+      logger.info(
+        `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,
+      );
+
+      if (usedMemoryIds.length > 0) {
+        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
+          memoryIds: usedMemoryIds,
+        });
+        logger.info(
+          `Incremented usage count for ${usedMemoryIds.length} memories`,
+        );
+      }
+
       await contentAutofillMessaging.sendMessage("completeSession", {
         sessionId: this.sessionId,
       });
@@ -381,29 +388,28 @@ export class AutopilotManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formSelector = formMetadata?.name || formOpid;
 
-        const filledFields: FilledField[] = [];
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
-          if (!mapping || !mapping.value) continue;
+          if (!mapping) continue;
 
           const filledField: FilledField = {
-            selector: field.selector,
+            selector: `[data-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            filledValue: mapping.value,
+            filledValue: mapping.value || "",
             fieldType: field.metadata.fieldType,
           };
-          filledFields.push(filledField);
+          formFields.push(filledField);
         }
 
-        if (filledFields.length > 0) {
+        if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
             pageTitle: document.title,
-            formSelector,
-            fields: filledFields,
+            formSelector: formMetadata?.name,
+            fields: formFields,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });
@@ -423,50 +429,12 @@ export class AutopilotManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.value !== null && mapping !== undefined) {
+      if (mapping?.memoryId) {
         totalConfidence += mapping.confidence;
         count++;
       }
     }
 
     return count > 0 ? totalConfidence / count : 0;
-  }
-
-  /**
-   * Infer field type from element when metadata is not available
-   */
-  private inferFieldType(
-    element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
-  ): FieldType {
-    if (element instanceof HTMLSelectElement) {
-      return "select";
-    }
-    if (element instanceof HTMLTextAreaElement) {
-      return "textarea";
-    }
-    if (element instanceof HTMLInputElement) {
-      const type = element.type.toLowerCase();
-      switch (type) {
-        case "email":
-          return "email";
-        case "tel":
-          return "tel";
-        case "url":
-          return "url";
-        case "number":
-          return "number";
-        case "date":
-          return "date";
-        case "checkbox":
-          return "checkbox";
-        case "radio":
-          return "radio";
-        case "password":
-          return "password";
-        default:
-          return "text";
-      }
-    }
-    return "text";
   }
 }

@@ -1,15 +1,14 @@
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
+import type { AutofillProgress } from "@/types/autofill";
+import type { FilledField, FormMapping } from "@/types/memory";
 import { createRoot, type Root } from "react-dom/client";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
-import { fillField } from "@/lib/autofill/fill-field";
-import { createLogger } from "@/lib/logger";
-import { storage } from "@/lib/storage";
-import type { AutofillProgress } from "@/types/autofill";
-import type { FilledField, FormMapping } from "@/types/memory";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -56,6 +55,9 @@ const getPrimaryLabel = (
   const candidates = [
     metadata.labelTag,
     metadata.labelAria,
+    metadata.labelData,
+    metadata.labelTop,
+    metadata.labelLeft,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -80,16 +82,17 @@ const buildPreviewFields = (
         mappingLookup.get(field.opid) ??
         ({
           fieldOpid: field.opid,
-          selector: field.selector,
+          memoryId: null,
           value: null,
+          rephrasedValue: null,
           confidence: 0,
           reasoning: "No suggestion generated",
+          alternativeMatches: [],
           autoFill: false,
         } satisfies FieldMapping);
 
       return {
         fieldOpid: field.opid,
-        selector: field.selector,
         formOpid: field.formOpid,
         metadata: field.metadata,
         mapping,
@@ -139,21 +142,6 @@ export class PreviewSidebarManager {
   async show({ payload }: PreviewShowParams) {
     const renderData = this.buildRenderData(payload);
     if (!renderData) {
-      // Show "no fields detected" message and auto-close
-      await this.showProgress({
-        state: "failed",
-        message: "No matching fields detected on this page",
-        fieldsDetected: payload.forms.reduce(
-          (sum, form) => sum + form.fields.length,
-          0,
-        ),
-        fieldsMatched: 0,
-      });
-
-      // Auto-close after 3 seconds
-      setTimeout(() => {
-        this.destroy();
-      }, 3000);
       return;
     }
 
@@ -228,20 +216,35 @@ export class PreviewSidebarManager {
   private async handleFill(
     fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
   ) {
+    const memoryIds: string[] = [];
     const filledFieldOpids: FieldOpId[] = [];
 
     for (const { fieldOpid, value } of fieldsToFill) {
       const detected = this.options.getFieldMetadata(fieldOpid);
 
-      if (detected) {
-        const success = fillField(
-          detected.element,
-          value,
-          detected.metadata.fieldType,
-        );
-        if (success) {
-          filledFieldOpids.push(fieldOpid);
-        }
+      if (!detected) {
+        continue;
+      }
+
+      this.applyValueToElement(detected.element, value);
+      filledFieldOpids.push(fieldOpid);
+
+      const mapping = this.mappingLookup.get(fieldOpid);
+
+      if (mapping?.memoryId) {
+        memoryIds.push(mapping.memoryId);
+      }
+    }
+
+    logger.info("Filled fields, incrementing memory usage for:", memoryIds);
+
+    if (memoryIds.length > 0) {
+      try {
+        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
+          memoryIds,
+        });
+      } catch (error) {
+        logger.error("Failed to increment memory usage:", error);
       }
     }
 
@@ -265,18 +268,11 @@ export class PreviewSidebarManager {
           sessionId: this.sessionId,
         });
 
-        const matchedCount = filledFieldOpids.filter((opid) => {
-          const detected = this.options.getFieldMetadata(opid);
-          return (
-            detected && this.mappingLookup.get(detected.opid)?.value !== null
-          );
-        }).length;
-
         await this.showProgress({
           state: "completed",
           message: "Auto-fill completed successfully",
           fieldsDetected: filledFieldOpids.length,
-          fieldsMatched: matchedCount,
+          fieldsMatched: memoryIds.length,
         });
 
         logger.info("Session completed:", this.sessionId);
@@ -293,7 +289,6 @@ export class PreviewSidebarManager {
   ): Promise<FormMapping[]> {
     try {
       const pageUrl = window.location.href;
-      const pageTitle = document.title;
       const formMappings: FormMapping[] = [];
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
@@ -310,29 +305,28 @@ export class PreviewSidebarManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formSelector = formMetadata?.name || formOpid;
 
-        const filledFields: FilledField[] = [];
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
-          if (!mapping || !mapping.value) continue;
+          if (!mapping) continue;
 
           const filledField: FilledField = {
-            selector: field.selector,
+            selector: `[data-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            filledValue: mapping.value,
+            filledValue: mapping.value || "",
             fieldType: field.metadata.fieldType,
           };
-          filledFields.push(filledField);
+          formFields.push(filledField);
         }
 
-        if (filledFields.length > 0) {
+        if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            pageTitle,
-            formSelector,
-            fields: filledFields,
+            pageTitle: document.title,
+            formSelector: formMetadata?.name,
+            fields: formFields,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });
@@ -352,13 +346,63 @@ export class PreviewSidebarManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.value !== null && mapping !== undefined) {
+      if (mapping?.memoryId) {
         totalConfidence += mapping.confidence;
         count++;
       }
     }
 
     return count > 0 ? totalConfidence / count : 0;
+  }
+
+  private applyValueToElement(
+    element: DetectedField["element"],
+    value: string,
+  ) {
+    if (element instanceof HTMLInputElement) {
+      element.focus({ preventScroll: true });
+
+      if (element.type === "checkbox" || element.type === "radio") {
+        element.checked = value === "true" || value === "on" || value === "1";
+      } else {
+        element.value = value;
+      }
+
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+
+    if (element instanceof HTMLTextAreaElement) {
+      element.focus({ preventScroll: true });
+      element.value = value;
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+
+    if (element instanceof HTMLSelectElement) {
+      const normalizedValue = value.toLowerCase();
+      let matched = false;
+
+      for (const option of Array.from(element.options)) {
+        if (
+          option.value.toLowerCase() === normalizedValue ||
+          option.text.toLowerCase() === normalizedValue
+        ) {
+          option.selected = true;
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        element.value = value;
+      }
+
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   }
 
   private highlightField(fieldOpid: FieldOpId) {
@@ -463,14 +507,8 @@ export class PreviewSidebarManager {
     );
 
     const matchedFields = payload.mappings.filter(
-      (mapping: FieldMapping) => mapping.value !== null,
+      (mapping: FieldMapping) => mapping.memoryId !== null,
     ).length;
-
-    // Don't show preview if no fields were matched
-    if (matchedFields === 0) {
-      logger.info("No fields matched, not showing preview");
-      return null;
-    }
 
     return {
       forms,

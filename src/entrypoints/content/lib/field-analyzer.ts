@@ -1,48 +1,27 @@
-import {
-  extractRadioGroup,
-  extractSelectOptions,
-} from "@/lib/autofill/dom-serializer";
 import type {
   DetectedField,
   FieldMetadata,
   FieldPurpose,
   FieldType,
   FormFieldElement,
-  RadioGroupInfo,
-  SelectOption,
 } from "@/types/autofill";
 
-/**
- * Simplified FieldAnalyzer
- *
- * Relies on DOM serialization for context, keeping only essential metadata extraction.
- * Removes complex positional label detection - the serialized DOM provides that context.
- */
 export class FieldAnalyzer {
+  private labelCache = new WeakMap<Element, string | null>();
+
   analyzeField(field: DetectedField): FieldMetadata {
     const element = field.element;
 
     const basicAttrs = this.extractBasicAttributes(element);
-    const labelTag = this.findExplicitLabel(element);
-    const labelAria = this.findAriaLabel(element);
+    const labels = this.extractLabels(element);
     const fieldType = this.classifyFieldType(element);
-
-    // Extract choice-specific data
-    const options = this.extractOptions(element, fieldType);
-    const radioGroup = this.extractRadioGroupInfo(element, fieldType);
-    const isChecked = this.getCheckedState(element, fieldType);
 
     const metadata: Omit<FieldMetadata, "fieldPurpose"> = {
       ...basicAttrs,
-      labelTag,
-      labelAria,
-      helperText: this.findHelperText(element),
+      ...labels,
       fieldType,
       rect: element.getBoundingClientRect(),
       currentValue: this.getCurrentValue(element),
-      options,
-      radioGroup,
-      isChecked,
     };
 
     return {
@@ -72,8 +51,18 @@ export class FieldAnalyzer {
     };
   }
 
+  private extractLabels(element: FormFieldElement) {
+    return {
+      labelTag: this.findExplicitLabel(element),
+      labelData: element.getAttribute("data-label") || null,
+      labelAria: this.findAriaLabel(element),
+      labelLeft: this.findPositionalLabel(element, "left"),
+      labelTop: this.findPositionalLabel(element, "top"),
+      helperText: this.findHelperText(element),
+    };
+  }
+
   private findExplicitLabel(element: FormFieldElement): string | null {
-    // Check for label with "for" attribute
     if (element.id) {
       const label = document.querySelector<HTMLLabelElement>(
         `label[for="${element.id}"]`,
@@ -83,7 +72,6 @@ export class FieldAnalyzer {
       }
     }
 
-    // Check for wrapping label
     const parentLabel = element.closest("label");
     if (parentLabel) {
       const clone = parentLabel.cloneNode(true) as HTMLLabelElement;
@@ -114,6 +102,145 @@ export class FieldAnalyzer {
     return null;
   }
 
+  private findPositionalLabel(
+    element: FormFieldElement,
+    direction: "left" | "top",
+  ): string | null {
+    if (this.labelCache.has(element)) {
+      return this.labelCache.get(element) || null;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const threshold = direction === "top" ? 100 : 200;
+    const candidates: Array<{ element: Element; distance: number }> = [];
+
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          const text = node.textContent?.trim();
+          if (!text || text.length < 2) return NodeFilter.FILTER_REJECT;
+
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+
+          const tagName = parent.tagName.toLowerCase();
+          if (
+            [
+              "script",
+              "style",
+              "noscript",
+              "input",
+              "textarea",
+              "select",
+              "button",
+              "a",
+            ].includes(tagName)
+          ) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          if (direction === "top") {
+            let ancestor: HTMLElement | null = parent;
+            let depth = 0;
+            while (ancestor && depth < 3) {
+              const ancestorTag = ancestor.tagName.toLowerCase();
+              if (["button", "a"].includes(ancestorTag)) {
+                return NodeFilter.FILTER_REJECT;
+              }
+              if (
+                ancestor.className &&
+                typeof ancestor.className === "string" &&
+                /\b(btn|button|cta|action)\b/i.test(ancestor.className)
+              ) {
+                return NodeFilter.FILTER_REJECT;
+              }
+              ancestor = ancestor.parentElement;
+              depth++;
+            }
+
+            if (text.length < 3) return NodeFilter.FILTER_REJECT;
+
+            if (/^(or|and|with|continue|sign|login|register)$/i.test(text)) {
+              return NodeFilter.FILTER_REJECT;
+            }
+          }
+
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      },
+    );
+
+    let node: Node | null = walker.nextNode();
+    while (node && candidates.length < 20) {
+      const parent = node.parentElement;
+      if (!parent) {
+        node = walker.nextNode();
+        continue;
+      }
+
+      const parentRect = parent.getBoundingClientRect();
+      const distance = this.calculateDistance(rect, parentRect, direction);
+
+      if (distance !== null && distance < threshold) {
+        candidates.push({ element: parent, distance });
+      }
+
+      node = walker.nextNode();
+    }
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance);
+    const label = this.cleanText(candidates[0].element.textContent || "");
+
+    this.labelCache.set(element, label);
+    return label;
+  }
+
+  private calculateDistance(
+    fieldRect: DOMRect,
+    labelRect: DOMRect,
+    direction: "left" | "top",
+  ): number | null {
+    const verticalOverlap =
+      Math.max(
+        0,
+        Math.min(fieldRect.bottom, labelRect.bottom) -
+          Math.max(fieldRect.top, labelRect.top),
+      ) > 0;
+
+    switch (direction) {
+      case "left":
+        if (!verticalOverlap || labelRect.right > fieldRect.left) return null;
+        return fieldRect.left - labelRect.right;
+
+      case "top": {
+        if (labelRect.bottom > fieldRect.top) return null;
+
+        const horizontalOverlap =
+          Math.min(fieldRect.right, labelRect.right) >
+          Math.max(fieldRect.left, labelRect.left);
+
+        if (!horizontalOverlap) {
+          const horizontalDistance = Math.min(
+            Math.abs(fieldRect.left - labelRect.right),
+            Math.abs(labelRect.left - fieldRect.right),
+          );
+          if (horizontalDistance > 50) return null;
+        }
+
+        return fieldRect.top - labelRect.bottom;
+      }
+
+      default:
+        return null;
+    }
+  }
+
   private findHelperText(element: FormFieldElement): string | null {
     const describedBy = element.getAttribute("aria-describedby");
     if (describedBy) {
@@ -134,51 +261,6 @@ export class FieldAnalyzer {
     }
 
     return null;
-  }
-
-  private extractOptions(
-    element: FormFieldElement,
-    fieldType: FieldType,
-  ): SelectOption[] | undefined {
-    if (fieldType !== "select") {
-      return undefined;
-    }
-
-    if (element instanceof HTMLSelectElement) {
-      return extractSelectOptions(element);
-    }
-
-    return undefined;
-  }
-
-  private extractRadioGroupInfo(
-    element: FormFieldElement,
-    fieldType: FieldType,
-  ): RadioGroupInfo | undefined {
-    if (fieldType !== "radio") {
-      return undefined;
-    }
-
-    if (element instanceof HTMLInputElement) {
-      return extractRadioGroup(element) || undefined;
-    }
-
-    return undefined;
-  }
-
-  private getCheckedState(
-    element: FormFieldElement,
-    fieldType: FieldType,
-  ): boolean | undefined {
-    if (fieldType !== "checkbox" && fieldType !== "radio") {
-      return undefined;
-    }
-
-    if (element instanceof HTMLInputElement) {
-      return element.checked;
-    }
-
-    return undefined;
   }
 
   private getCurrentValue(element: FormFieldElement): string {
@@ -256,10 +338,12 @@ export class FieldAnalyzer {
       if (purpose) return purpose;
     }
 
-    // Use available label sources for pattern matching
     const allText = [
       metadata.labelTag,
       metadata.labelAria,
+      metadata.labelData,
+      metadata.labelLeft,
+      metadata.labelTop,
       metadata.placeholder,
       metadata.name,
       metadata.id,
@@ -270,7 +354,10 @@ export class FieldAnalyzer {
 
     const patterns: Array<{ regex: RegExp; purpose: FieldPurpose }> = [
       { regex: /\b(email|e-mail|mail)\b/i, purpose: "email" },
-      { regex: /\b(phone|tel|telephone|mobile|cell)\b/i, purpose: "phone" },
+      {
+        regex: /\b(phone|tel|telephone|mobile|cell)\b/i,
+        purpose: "phone",
+      },
       {
         regex:
           /\b(name|full[\s-]?name|first[\s-]?name|last[\s-]?name|given[\s-]?name|family[\s-]?name)\b/i,
@@ -282,13 +369,19 @@ export class FieldAnalyzer {
       },
       { regex: /\b(city|town)\b/i, purpose: "city" },
       { regex: /\b(state|province|region)\b/i, purpose: "state" },
-      { regex: /\b(zip|postal[\s-]?code|postcode)\b/i, purpose: "zip" },
+      {
+        regex: /\b(zip|postal[\s-]?code|postcode)\b/i,
+        purpose: "zip",
+      },
       { regex: /\b(country|nation)\b/i, purpose: "country" },
       {
         regex: /\b(company|organization|employer|business)\b/i,
         purpose: "company",
       },
-      { regex: /\b(title|position|job[\s-]?title|role)\b/i, purpose: "title" },
+      {
+        regex: /\b(title|position|job[\s-]?title|role)\b/i,
+        purpose: "title",
+      },
     ];
 
     for (const { regex, purpose } of patterns) {

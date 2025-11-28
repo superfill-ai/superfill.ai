@@ -1,6 +1,5 @@
 import "./content.css";
 
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
@@ -23,6 +22,7 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
