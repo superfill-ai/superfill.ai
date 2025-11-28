@@ -362,7 +362,6 @@ class AutofillService {
       field.metadata.labelAria,
       field.metadata.labelData,
       field.metadata.labelLeft,
-      field.metadata.labelRight,
       field.metadata.labelTop,
     ].filter(Boolean) as string[];
 

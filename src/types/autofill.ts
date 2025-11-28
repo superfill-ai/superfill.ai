@@ -54,7 +54,6 @@ export interface FieldMetadata {
   labelData: string | null;
   labelAria: string | null;
   labelLeft: string | null;
-  labelRight: string | null;
   labelTop: string | null;
 
   placeholder: string | null;

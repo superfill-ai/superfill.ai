@@ -24,8 +24,7 @@ export function hasLabelsWithoutPlaceholder(metadata: FieldMetadata): boolean {
     !!metadata.labelTag ||
     !!metadata.labelAria ||
     !!metadata.labelTop ||
-    !!metadata.labelLeft ||
-    !!metadata.labelRight
+    !!metadata.labelLeft
   );
 }
 
@@ -55,13 +54,7 @@ export function hasValidContext(metadata: FieldMetadata): boolean {
 export function scoreField(metadata: FieldMetadata): number {
   let score = 0;
 
-  const hasLabels =
-    !!metadata.labelTag ||
-    !!metadata.labelAria ||
-    !!metadata.labelTop ||
-    !!metadata.labelLeft ||
-    !!metadata.labelRight;
-
+  const hasLabels = hasLabelsWithoutPlaceholder(metadata);
   const hasKnownPurpose = metadata.fieldPurpose !== "unknown";
   const hasContext = hasValidContext(metadata);
 
