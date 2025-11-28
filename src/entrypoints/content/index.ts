@@ -5,7 +5,8 @@ import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   createFilterStats,
-  isCrypticString,
+  hasAnyLabel,
+  hasValidContext,
   scoreField,
 } from "@/lib/autofill/field-quality";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
@@ -126,24 +127,10 @@ export default defineContentScript({
               const filteredFields = form.fields.filter((field) => {
                 stats.total++;
 
-                const hasAnyLabel =
-                  field.metadata.labelTag ||
-                  field.metadata.labelAria ||
-                  field.metadata.labelTop ||
-                  field.metadata.labelLeft ||
-                  field.metadata.labelRight ||
-                  field.metadata.placeholder;
-                const hasValidContext =
-                  field.metadata.placeholder ||
-                  field.metadata.helperText ||
-                  (field.metadata.name &&
-                    !isCrypticString(field.metadata.name)) ||
-                  (field.metadata.id && !isCrypticString(field.metadata.id));
-
                 if (
                   field.metadata.fieldPurpose === "unknown" &&
-                  !hasAnyLabel &&
-                  !hasValidContext
+                  !hasAnyLabel(field.metadata) &&
+                  !hasValidContext(field.metadata)
                 ) {
                   stats.filtered++;
                   stats.reasons.unknownUnlabeled++;
