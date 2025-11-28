@@ -1,8 +1,7 @@
 import type { FieldMetadata } from "@/types/autofill";
 
 const CRYPTIC_PATTERNS = [
-  /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i,
-  /\b[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\b/i,
+  /\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b/i,
   /\b[a-f0-9]{16,}\b/i,
   /\[[\w-]{8,}\]\[field\d+\]/i,
   /field_\d{8,}/i,

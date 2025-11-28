@@ -1,6 +1,7 @@
 import "./content.css";
 
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   createFilterStats,
@@ -8,7 +9,6 @@ import {
   scoreField,
 } from "@/lib/autofill/field-quality";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
-import { MIN_FIELD_QUALITY } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
