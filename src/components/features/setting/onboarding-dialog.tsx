@@ -250,8 +250,8 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                   field.handleChange(country.name);
                   setSelectedCountryCode(country);
                   const phoneDigits = phoneDisplay.replace(/\D/g, "");
+                  const countryCode = country.countryCallingCodes?.[0] || "";
                   if (phoneDigits) {
-                    const countryCode = country.countryCallingCodes[0] || "";
                     form.setFieldValue("phoneNumber", `${countryCode}${phoneDigits}`);
                   }
                 };
@@ -287,11 +287,11 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                   setPhoneDisplay(inputValue);
                   
                   const phoneDigits = inputValue.replace(/\D/g, "");
-                  const countryCode = selectedCountryCode?.countryCallingCodes[0] || "";
+                  const countryCode = selectedCountryCode?.countryCallingCodes?.[0] || "";
                   
                   const newValue = phoneDigits
                     ? `${countryCode}${phoneDigits}`
-                    : countryCode;
+                    : "";
                   field.handleChange(newValue);
                 };
 
@@ -307,7 +307,7 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                     <div className="relative">
                       {selectedCountryCode && (
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                          {selectedCountryCode.countryCallingCodes[0]}
+                          {selectedCountryCode.countryCallingCodes?.[0] || ""}
                         </div>
                       )}
                       <Input
