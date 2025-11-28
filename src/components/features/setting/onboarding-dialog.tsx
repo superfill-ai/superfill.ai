@@ -1,8 +1,10 @@
 import { useForm } from "@tanstack/react-form";
 import { SparklesIcon } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import type { Country } from "@/components/ui/country-dropdown";
 import { CountryDropdown } from "@/components/ui/country-dropdown";
 import {
   Dialog,
@@ -32,9 +34,7 @@ const onboardingSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.email("Invalid email address"),
-  phoneNumber: z.e164(
-    "Invalid phone number. Please include country code, e.g., +1 555-123-4567",
-  ),
+  phoneNumber: z.e164("Invalid phone number"),
   address: z.string().min(1, "Address is required"),
   country: z.string().min(1, "Country is required"),
 });
@@ -45,6 +45,10 @@ interface OnboardingDialogProps {
 
 export function OnboardingDialog({ open }: OnboardingDialogProps) {
   const { addEntries } = useMemoryMutations();
+  const [selectedCountryCode, setSelectedCountryCode] = useState<Country | null>(
+    null,
+  );
+  const [phoneDisplay, setPhoneDisplay] = useState("");
 
   const form = useForm({
     defaultValues: {
@@ -237,10 +241,59 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
               }}
             </form.Field>
 
+            <form.Field name="country">
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+
+                const handleCountryChange = (country: Country) => {
+                  field.handleChange(country.name);
+                  setSelectedCountryCode(country);
+                  const phoneDigits = phoneDisplay.replace(/\D/g, "");
+                  const countryCode = country.countryCallingCodes?.[0] || "";
+                  if (phoneDigits) {
+                    form.setFieldValue("phoneNumber", `${countryCode}${phoneDigits}`);
+                  }
+                };
+
+                return (
+                  <Field>
+                    <FieldLabel>
+                      Country <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <CountryDropdown
+                      id={field.name}
+                      name={field.name}
+                      defaultValue={field.state.value}
+                      onChange={handleCountryChange}
+                      aria-invalid={isInvalid}
+                      placeholder="Select your country"
+                    />
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                );
+              }}
+            </form.Field>
+
             <form.Field name="phoneNumber">
               {(field) => {
                 const isInvalid =
                   field.state.meta.isTouched && !field.state.meta.isValid;
+
+                const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                  const inputValue = e.target.value;
+                  setPhoneDisplay(inputValue);
+                  
+                  const phoneDigits = inputValue.replace(/\D/g, "");
+                  const countryCode = selectedCountryCode?.countryCallingCodes?.[0] || "";
+                  
+                  const newValue = phoneDigits
+                    ? `${countryCode}${phoneDigits}`
+                    : "";
+                  field.handleChange(newValue);
+                };
 
                 return (
                   <Field>
@@ -248,18 +301,27 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                       Phone Number <span className="text-destructive">*</span>
                     </FieldLabel>
                     <FieldDescription>
-                      Include country code (e.g., +1 555-123-4567)
+                      Enter your phone number
                     </FieldDescription>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      type="tel"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={isInvalid}
-                      placeholder="+1 555-123-4567"
-                    />
+
+                    <div className="relative">
+                      {selectedCountryCode && (
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                          {selectedCountryCode.countryCallingCodes?.[0] || ""}
+                        </div>
+                      )}
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        type="tel"
+                        value={phoneDisplay}
+                        onBlur={field.handleBlur}
+                        onChange={handlePhoneChange}
+                        aria-invalid={isInvalid}
+                        placeholder="555-123-4567"
+                        className={selectedCountryCode ? "pl-16" : ""}
+                      />
+                    </div>
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />
                     )}
@@ -294,34 +356,6 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                       <FieldError errors={field.state.meta.errors} />
                     )}
                   </FieldGroup>
-                );
-              }}
-            </form.Field>
-
-            <form.Field name="country">
-              {(field) => {
-                const isInvalid =
-                  field.state.meta.isTouched && !field.state.meta.isValid;
-
-                return (
-                  <Field>
-                    <FieldLabel>
-                      Country <span className="text-destructive">*</span>
-                    </FieldLabel>
-                    <CountryDropdown
-                      id={field.name}
-                      name={field.name}
-                      defaultValue={field.state.value}
-                      onChange={(country) => {
-                        field.handleChange(country.name);
-                      }}
-                      aria-invalid={isInvalid}
-                      placeholder="Select your country"
-                    />
-                    {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
                 );
               }}
             </form.Field>
