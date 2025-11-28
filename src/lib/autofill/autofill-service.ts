@@ -20,6 +20,7 @@ import { aiSettings } from "../storage/ai-settings";
 import { AIMatcher } from "./ai-matcher";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
+import { isCrypticString } from "./field-quality";
 import { createEmptyMapping } from "./mapping-utils";
 
 const logger = createLogger("autofill-service");
@@ -366,15 +367,19 @@ class AutofillService {
     ].filter(Boolean) as string[];
 
     const labels = Array.from(new Set(allLabels));
-
-    const context = [
+    const contextParts = [
       field.metadata.placeholder,
       field.metadata.helperText,
-      field.metadata.name,
-      field.metadata.id,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    ];
+
+    if (field.metadata.name && !isCrypticString(field.metadata.name)) {
+      contextParts.push(field.metadata.name);
+    }
+    if (field.metadata.id && !isCrypticString(field.metadata.id)) {
+      contextParts.push(field.metadata.id);
+    }
+
+    const context = contextParts.filter(Boolean).join(" ");
 
     return {
       opid: field.opid,
