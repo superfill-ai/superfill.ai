@@ -1,3 +1,5 @@
+import { XIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -23,8 +25,6 @@ import type {
   FieldOpId,
   PreviewFieldData,
 } from "@/types/autofill";
-import { Redo2Icon, SparklesIcon, Undo2Icon, XIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import {
   getProgressDescription,
   getProgressTitle,
@@ -68,22 +68,7 @@ const getFieldSubtitle = (field: PreviewFieldData) => {
 };
 
 const getSuggestedValue = (field: PreviewFieldData): string => {
-  if (field.mapping.rephrasedValue) {
-    return field.mapping.rephrasedValue;
-  }
-
-  if (field.mapping.value) {
-    return field.mapping.value;
-  }
-
-  if (
-    field.metadata.currentValue &&
-    field.metadata.currentValue.trim() !== ""
-  ) {
-    return field.metadata.currentValue;
-  }
-
-  return "No value suggested";
+  return field.mapping.value ?? "No value suggested";
 };
 
 const FieldRow = ({
@@ -92,34 +77,22 @@ const FieldRow = ({
   onToggle,
   onHighlight,
   onUnhighlight,
-  onChoiceChange,
 }: {
   field: PreviewFieldData;
   selected: boolean;
   onToggle: (next: boolean) => void;
-  onChoiceChange: (useOriginal: boolean) => void;
   onHighlight: () => void;
   onUnhighlight: () => void;
 }) => {
   const confidence = field.mapping.confidence;
   const { label, intent } = confidenceMeta(confidence);
   const suggestion = getSuggestedValue(field);
-  const hasMultipleMemories = Array.isArray(field.mapping.memoryId);
-  const [useOriginal, setUseOriginal] = useState(!field.mapping.rephrasedValue);
-
-  const handleToggleChoice = () => {
-    const nextState = !useOriginal;
-    setUseOriginal(nextState);
-    onChoiceChange(nextState);
-  };
-
-  const finalSuggestion = useOriginal ? field.mapping.value : suggestion;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: highlighting only
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-lg border bg-card/80 p-3 transition hover:border-primary/70 max-w-80",
+        "flex flex-col gap-2 rounded-lg border bg-card/80 p-3 transition hover:border-primary/70",
         selected && "border-primary shadow-sm",
       )}
       onMouseEnter={onHighlight}
@@ -150,55 +123,15 @@ const FieldRow = ({
         <Switch checked={selected} onCheckedChange={onToggle} />
       </div>
 
-      <div
-        className={cn(
-          "space-y-1 rounded-md p-2 text-xs",
-          field.mapping.rephrasedValue &&
-            (!useOriginal ? "bg-primary/5" : "bg-muted/50"),
-        )}
-      >
-        {field.mapping.rephrasedValue && (
-          <div className="flex items-center justify-between">
-            <p
-              className={cn(
-                "flex items-center gap-1.5 font-semibold",
-                !useOriginal ? "text-primary/90" : "text-muted-foreground",
-              )}
-            >
-              {!useOriginal && <SparklesIcon className="size-3.5" />}
-              {useOriginal
-                ? hasMultipleMemories
-                  ? "Original Memories (Combined)"
-                  : "Original Memory"
-                : "AI Rephrased Memory"}
-            </p>
-            <Button
-              variant="ghost"
-              size="xs"
-              className="h-6 gap-1.5 text-muted-foreground"
-              onClick={handleToggleChoice}
-            >
-              {useOriginal ? (
-                <>
-                  <Redo2Icon className="size-3" /> Use AI version
-                </>
-              ) : (
-                <>
-                  <Undo2Icon className="size-3" /> Use original
-                </>
-              )}
-            </Button>
-          </div>
-        )}
+      {field.mapping.value && (
         <p
           className={cn(
-            "text-xs leading-relaxed wrap-break-word pt-1",
-            !useOriginal ? "text-foreground" : "text-muted-foreground/90",
+            "text-xs leading-relaxed wrap-break-word rounded-md bg-muted/50 p-2 text-foreground",
           )}
         >
-          {finalSuggestion}
+          {suggestion}
         </p>
-      </div>
+      )}
 
       {field.mapping.reasoning && (
         <p className="text-xs text-muted-foreground/80 leading-relaxed wrap-break-word">
@@ -248,9 +181,6 @@ export const AutofillContainer = ({
   }, [data]);
 
   const [selection, setSelection] = useState<SelectionState>(initialSelection);
-  const [fieldChoices, setFieldChoices] = useState<Map<FieldOpId, boolean>>(
-    new Map(),
-  );
 
   useEffect(() => {
     setSelection(new Set(initialSelection));
@@ -267,10 +197,7 @@ export const AutofillContainer = ({
     for (const form of data.forms) {
       for (const field of form.fields) {
         if (selection.has(field.fieldOpid)) {
-          const useOriginal = fieldChoices.get(field.fieldOpid) ?? false;
-          const valueToFill = useOriginal
-            ? field.mapping.value
-            : (field.mapping.rephrasedValue ?? field.mapping.value);
+          const valueToFill = field.mapping.value;
 
           if (valueToFill !== null && valueToFill !== undefined) {
             fieldsToFill.push({
@@ -293,14 +220,6 @@ export const AutofillContainer = ({
       } else {
         updated.delete(fieldOpid);
       }
-      return updated;
-    });
-  };
-
-  const handleChoiceChange = (fieldOpid: FieldOpId, useOriginal: boolean) => {
-    setFieldChoices((prev) => {
-      const updated = new Map(prev);
-      updated.set(fieldOpid, useOriginal);
       return updated;
     });
   };
@@ -385,9 +304,6 @@ export const AutofillContainer = ({
                             selected={selection.has(field.fieldOpid)}
                             onToggle={(next) =>
                               handleToggle(field.fieldOpid, next)
-                            }
-                            onChoiceChange={(useOriginal) =>
-                              handleChoiceChange(field.fieldOpid, useOriginal)
                             }
                             onHighlight={() => onHighlight?.(field.fieldOpid)}
                             onUnhighlight={() => onUnhighlight?.()}

@@ -1,6 +1,5 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { incrementUsageCount } from "@/lib/storage/memories";
 import {
   completeSession,
   startSession,
@@ -43,19 +42,6 @@ class SessionService {
       return true;
     } catch (error) {
       logger.error("Failed to complete session:", error);
-      return false;
-    }
-  }
-
-  async incrementMemoryUsage(memoryIds: string[]): Promise<boolean> {
-    try {
-      for (const memoryId of memoryIds) {
-        await incrementUsageCount(memoryId);
-      }
-      logger.info("Memory usage incremented for:", memoryIds);
-      return true;
-    } catch (error) {
-      logger.error("Failed to increment memory usage:", error);
       return false;
     }
   }

@@ -27,7 +27,6 @@ export interface AutopilotFillData {
   fieldOpid: string;
   value: string;
   confidence: number;
-  memoryId: string;
 }
 
 const getPrimaryLabel = (
@@ -179,11 +178,10 @@ export class AutopilotManager {
 
       const fieldsToFill: AutopilotFillData[] = [];
       for (const mapping of mappings) {
-        const valueToFill = mapping.rephrasedValue ?? mapping.value;
+        const valueToFill = mapping.value;
 
         if (
           valueToFill !== null &&
-          mapping.memoryId !== null &&
           mapping.confidence >= confidenceThreshold &&
           mapping.autoFill !== false
         ) {
@@ -191,7 +189,6 @@ export class AutopilotManager {
             fieldOpid: mapping.fieldOpid,
             value: valueToFill,
             confidence: mapping.confidence,
-            memoryId: mapping.memoryId,
           });
         }
       }
@@ -317,9 +314,9 @@ export class AutopilotManager {
     }
 
     try {
-      const usedMemoryIds = Array.from(
-        new Set(this.fieldsToFill.map((field) => field.memoryId)),
-      );
+      const usedMemoryIds = Array.from(this.mappingLookup.values())
+        .filter((mapping) => mapping.value !== null)
+        .map((mapping) => mapping.value as string);   
 
       logger.info(
         `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,
@@ -411,8 +408,8 @@ export class AutopilotManager {
           };
           formFields.push(formField);
 
-          if (mapping.memoryId) {
-            const memory = memoryMap.get(mapping.memoryId);
+          if (mapping.value !== null) {
+            const memory = memoryMap.get(mapping.value);
             if (memory) {
               matches.set(formField.name, memory);
             }
@@ -444,7 +441,7 @@ export class AutopilotManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.memoryId) {
+      if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
       }

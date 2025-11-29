@@ -1,3 +1,7 @@
+import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
+import { trace } from "@opentelemetry/api";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -7,12 +11,7 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
-import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
-import { trace } from "@opentelemetry/api";
-import { generateObject } from "ai";
-import { z } from "zod";
 import { langfuseSpanProcessor } from "../observability/langfuse";
-import { MIN_MATCH_CONFIDENCE } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 
@@ -20,10 +19,12 @@ const logger = createLogger("ai-matcher");
 
 const AIMatchSchema = z.object({
   fieldOpid: z.string().describe("The field operation ID being matched"),
-  memoryId: z
-    .union([z.string(), z.array(z.string())])
+  value: z
+    .string()
     .nullable()
-    .describe("ID of the best matching memory, or null if no good match"),
+    .describe(
+      "The answer to fill into the field. This can be from a memory, combined from multiple memories, or rephrased. Null if no suitable answer is found.",
+    ),
   confidence: z
     .number()
     .min(0)
@@ -32,13 +33,6 @@ const AIMatchSchema = z.object({
   reasoning: z
     .string()
     .describe("Explanation of why this memory was selected or rejected"),
-  rephrasedAnswer: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(
-      "The rephrased answer, if the context requires it. Otherwise, this should be null.",
-    ),
 });
 
 const AIBatchMatchSchema = z.object({
@@ -91,11 +85,7 @@ export class AIMatcher {
         apiKey,
         modelName,
       );
-      const mappings = this.convertAIResultsToMappings(
-        aiResults,
-        fields,
-        memories,
-      );
+      const mappings = this.convertAIResultsToMappings(aiResults, fields);
 
       const elapsed = performance.now() - startTime;
       logger.info(
@@ -206,17 +196,17 @@ export class AIMatcher {
     **CRUCIAL**: Use the provided Website Context to understand the form's purpose. A field labeled "Name" on a 'job_portal' is for a person's name, but on an 'e-commerce' site during checkout, it might be for a credit card name.
     
     Important Rules:
-    1. **Rephrasing**: If a stored answer is long or informal, and the website context requires a shorter or more professional tone, provide a 'rephrasedAnswer'. Otherwise, **leave 'rephrasedAnswer' as null**.
-    2. **Matching**: Set 'memoryId' to null if no good match exists (confidence < 0.35).
+    1. **Rephrasing**: If a stored answer is long or informal, and the website context requires a shorter or more professional tone, provide a 'rephrasedAnswer'. 
+    2. **Matching**: Set 'value' to null if no good match exists (confidence < 0.35).
     3. **Reasoning**: Provide clear reasoning for each match, rejection, or rephrasing decision.
     4. **NEVER** match password fields (they should have been filtered out already)
     5. Consider field purpose, labels, and context together
     6. **Handle Compound Data - SPLITTING**: For data like names or addresses, analyze the field's purpose. If the original answer is a full name and the field asks for a specific part (e.g., 'First Name'), extract only that part. Do not return the full answer.
     7. **Handle Compound Data - COMBINING**: For compound fields (e.g., 'Full Name', 'Complete Address'), combine multiple related memories intelligently:
-        - For 'Full Name' fields: Combine 'First Name' + 'Middle Name' (if exists) + 'Last Name'
-        - For 'Complete Address' fields: Combine 'Street' + 'City' + 'State' + 'ZIP' + 'Country' as appropriate
-        - For combined fields, set 'memoryId' as an array of all contributing memory IDs
-        - Only combine memories when the field explicitly asks for compound data
+        - For 'Full Name' fields: Combine 'First Name' + 'Middle Name' (if exists) + 'Last Name'.
+        - For 'Complete Address' fields: Combine 'Street' + 'City' + 'State' + 'ZIP' + 'Country' as appropriate.
+        - The final combined string should be placed in the 'value' field.
+        - Only combine memories when the field explicitly asks for compound data.
     8. **Generate for Generic Fields**: If no memory exists but field can be answered generically
 
     ### Fields that CANNOT be generated:
@@ -241,23 +231,22 @@ export class AIMatcher {
     *Example 1: Tone & Brevity*
     - Original Answer: "I am a skilled software engineer with 5 years of experience in React and Node.js."
     - Field: "Short Bio" on a 'social' network.
-    - Rephrased Answer: "Software engineer, 5 years with React & Node.js."
+    - 'value': "Software engineer, 5 years with React & Node.js."
     
     *Example 2: Splitting Name Data*
     - Original Answer: "John Fitzgerald Doe"
     - Field Context: Field Purpose is 'name.first', Field Label is 'First Name'
-    - Rephrased Answer: "John"
+    - 'value': "John"
     - Original Answer: "John Fitzgerald Doe"
     - Field Context: Field Purpose is 'name.last', Field Label is 'Last Name'
-    - Rephrased Answer: "Doe"
+    - 'value': "Doe"
     
     *Example 3: COMBINING Name Data*
     - Memory 1: "John" (category: 'name.first')
     - Memory 2: "Fitzgerald" (category: 'name.middle')
     - Memory 3: "Doe" (category: 'name.last')
     - Field Context: Field Purpose is 'name.full', Field Label is 'Full Name' or 'Complete Name'
-    - Rephrased Answer: "John Fitzgerald Doe"
-    - Memory IDs: [id1, id2, id3]
+    - 'value': "John Fitzgerald Doe"
     
     *Example 4: COMBINING Address Data*
     - Memory 1: "123 Main St" (category: 'address.street')
@@ -265,24 +254,23 @@ export class AIMatcher {
     - Memory 3: "CA" (category: 'address.state')
     - Memory 4: "94105" (category: 'address.zip')
     - Field Context: Field Purpose is 'address.full', Field Label is 'Full Address' or 'Complete Address'
-    - Rephrased Answer: "123 Main St, Anytown, CA 94105"
-    - Memory IDs: [id1, id2, id3, id4]
+    - 'value': "123 Main St, Anytown, CA 94105"
     
     *Example 5: Splitting Address Data*
     - Original Answer: "123 Main St, Anytown, CA 94105, USA"
     - Field Context: Field Purpose is 'address.street', Field Label is 'Street Address'
-    - Rephrased Answer: "123 Main St"
+    - 'value': "123 Main St"
     - Original Answer: "123 Main St, Anytown, CA 94105, USA"
     - Field Context: Field Purpose is 'address.city', Field Label is 'City'
-    - Rephrased Answer: "Anytown"
+    - 'value': "Anytown"
     
     *Example 6: Email Purpose*
     - Original Answer: "user@example.com category: personal"
     - Field Context: Field Purpose is 'email', Field Label is 'Personal Email'
-    - Rephrased Answer: "user@example.com"
+    - 'value': "user@example.com"
     - Original Answer: "user@work.com category: work"
     - Field Context: Field Purpose is 'email', Field Label is 'Work Email'
-    - Rephrased Answer: "user@work.com"
+    - 'value': "user@work.com"
     
     Output Format:
     - Return an array of matches, one per field
@@ -312,7 +300,6 @@ export class AIMatcher {
       .map(
         (m, idx) => `
           **Memory ${idx + 1}**
-          - id: ${m.id}
           - question: ${m.question || "none"}
           - answer: ${m.answer.substring(0, 100)}
           - category: ${m.category}`,
@@ -347,9 +334,8 @@ export class AIMatcher {
   private convertAIResultsToMappings(
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
-    memories: CompressedMemoryData[],
+    // memories: CompressedMemoryData[],
   ): FieldMapping[] {
-    const memoryMap = new Map(memories.map((m) => [m.id, m]));
     const fieldMap = new Map(fields.map((f) => [f.opid, f]));
 
     return aiResults.matches.map((aiMatch) => {
@@ -365,38 +351,20 @@ export class AIMatcher {
       }
 
       const confidence = roundConfidence(aiMatch.confidence);
-      const meetsThreshold = confidence >= MIN_MATCH_CONFIDENCE;
+      // const meetsThreshold = confidence >= MIN_MATCH_CONFIDENCE;
 
-      const rephrasedAnswer = aiMatch.rephrasedAnswer || null;
-      const useRephrased = !!rephrasedAnswer;
-
-      let originalAnswer: string | null = null;
-
-      if (meetsThreshold) {
-        if (typeof aiMatch.memoryId === "string") {
-          const memory = memoryMap.get(aiMatch.memoryId);
-          originalAnswer = memory ? memory.answer : null;
-        } else if (Array.isArray(aiMatch.memoryId)) {
-          originalAnswer = aiMatch.memoryId
-            .map((id) => memoryMap.get(id)?.answer)
-            .filter(Boolean)
-            .join(" ");
-        }
-
-        console.log("Original Answer:", originalAnswer);
-      }
+      // const value = meetsThreshold ? aiMatch.value : null;
+      const value = aiMatch.value;
 
       return {
         fieldOpid: aiMatch.fieldOpid,
-        memoryId: meetsThreshold && aiMatch.memoryId ? aiMatch.memoryId : null,
-        value: originalAnswer,
-        rephrasedValue: useRephrased ? rephrasedAnswer : null,
+        // memoryId: null, // No longer used
+        // rephrasedValue: null, // No longer used
+        value,
         confidence,
         reasoning:
           aiMatch.reasoning ||
-          (useRephrased
-            ? "AI-powered match with contextual rephrasing."
-            : "AI-powered semantic match."),
+          "AI-powered semantic match and value generation.",
       };
     });
   }

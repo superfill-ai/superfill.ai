@@ -1,14 +1,14 @@
-import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
-import { createLogger } from "@/lib/logger";
-import { storage } from "@/lib/storage";
-import type { AutofillProgress } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
 import { createRoot, type Root } from "react-dom/client";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
+import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
+import type { AutofillProgress } from "@/types/autofill";
+import type { FormField, FormMapping } from "@/types/memory";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -82,9 +82,7 @@ const buildPreviewFields = (
         mappingLookup.get(field.opid) ??
         ({
           fieldOpid: field.opid,
-          memoryId: null,
           value: null,
-          rephrasedValue: null,
           confidence: 0,
           reasoning: "No suggestion generated",
           autoFill: false,
@@ -215,39 +213,14 @@ export class PreviewSidebarManager {
   private async handleFill(
     fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
   ) {
-    const memoryIds: string[] = [];
     const filledFieldOpids: FieldOpId[] = [];
 
     for (const { fieldOpid, value } of fieldsToFill) {
       const detected = this.options.getFieldMetadata(fieldOpid);
 
-      if (!detected) {
-        continue;
-      }
-
-      this.applyValueToElement(detected.element, value);
-      filledFieldOpids.push(fieldOpid);
-
-      const mapping = this.mappingLookup.get(fieldOpid);
-
-      if (mapping?.memoryId) {
-        if (Array.isArray(mapping.memoryId)) {
-          memoryIds.push(...mapping.memoryId);
-        } else {
-          memoryIds.push(mapping.memoryId);
-        }
-      }
-    }
-
-    logger.info("Filled fields, incrementing memory usage for:", memoryIds);
-
-    if (memoryIds.length > 0) {
-      try {
-        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
-          memoryIds,
-        });
-      } catch (error) {
-        logger.error("Failed to increment memory usage:", error);
+      if (detected) {
+        this.applyValueToElement(detected.element, value);
+        filledFieldOpids.push(fieldOpid);
       }
     }
 
@@ -271,11 +244,15 @@ export class PreviewSidebarManager {
           sessionId: this.sessionId,
         });
 
+        const matchedCount = filledFieldOpids.filter(
+          (opid) => this.mappingLookup.get(opid)?.value !== null,
+        ).length;
+
         await this.showProgress({
           state: "completed",
           message: "Auto-fill completed successfully",
           fieldsDetected: filledFieldOpids.length,
-          fieldsMatched: memoryIds.length,
+          fieldsMatched: matchedCount,
         });
 
         logger.info("Session completed:", this.sessionId);
@@ -293,8 +270,6 @@ export class PreviewSidebarManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await storage.memories.getValue();
-      const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
       for (const fieldOpid of selectedFieldOpids) {
@@ -331,14 +306,8 @@ export class PreviewSidebarManager {
           };
           formFields.push(formField);
 
-          if (mapping.memoryId) {
-            const representativeId = Array.isArray(mapping.memoryId)
-              ? mapping.memoryId[0]
-              : mapping.memoryId;
-            const memory = memoryMap.get(representativeId);
-            if (memory) {
-              matches.set(formField.name, memory);
-            }
+          if (mapping.value) {
+            matches.set(formField.name, mapping.value);
           }
         }
 
@@ -367,7 +336,7 @@ export class PreviewSidebarManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.memoryId) {
+      if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
       }
@@ -528,7 +497,7 @@ export class PreviewSidebarManager {
     );
 
     const matchedFields = payload.mappings.filter(
-      (mapping: FieldMapping) => mapping.memoryId !== null,
+      (mapping: FieldMapping) => mapping.value !== null,
     ).length;
 
     return {

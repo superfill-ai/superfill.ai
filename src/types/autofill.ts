@@ -121,9 +121,9 @@ export interface CompressedMemoryData {
 
 export interface FieldMapping {
   fieldOpid: string;
-  memoryId: string | string[] | null;
+  // memoryId: string | string[] | null;
   value: string | null;
-  rephrasedValue: string | null;
+  // rephrasedValue: string | null;
   confidence: number;
   reasoning: string;
   autoFill?: boolean;

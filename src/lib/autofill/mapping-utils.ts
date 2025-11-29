@@ -1,6 +1,5 @@
 type MappingBase = {
   fieldOpid: string;
-  memoryId: string | string[] | null;
   value: string | null;
   confidence: number;
   reasoning: string;
@@ -17,7 +16,6 @@ export const createEmptyMapping = <
 ): TMapping => {
   const base: MappingBase = {
     fieldOpid: field.opid,
-    memoryId: null,
     value: null,
     confidence: 0,
     reasoning: reason,

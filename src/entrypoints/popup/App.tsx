@@ -1,12 +1,3 @@
-import {
-  SettingsIcon,
-  SparklesIcon,
-  TargetIcon,
-  TrophyIcon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
-import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +36,6 @@ import {
   useMemories,
   useMemoryMutations,
   useMemoryStats,
-  useTopMemories,
 } from "@/hooks/use-memories";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
 import {
@@ -56,6 +46,15 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
+import {
+  SettingsIcon,
+  SparklesIcon,
+  TargetIcon,
+  TrophyIcon,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { toast } from "sonner";
 
 const logger = createLogger("popup");
 
@@ -69,7 +68,13 @@ export const App = () => {
     AIProvider | undefined
   >();
   const stats = useMemoryStats();
-  const topMemories = useTopMemories(10);
+  const recentMemories = [...entries]
+    .sort(
+      (a, b) =>
+        new Date(b.metadata.updatedAt).getTime() -
+        new Date(a.metadata.updatedAt).getTime(),
+    )
+    .slice(0, 10);
   const [activeTab, setActiveTab] = useState<
     "autofill" | "memories" | "add-memory"
   >("autofill");
@@ -386,12 +391,6 @@ export const App = () => {
                   </span>
                   <Badge variant="secondary">{stats.memoryCount}</Badge>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    🎯 successful autofills
-                  </span>
-                  <Badge variant="secondary">{stats.totalAutofills}</Badge>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -433,7 +432,7 @@ export const App = () => {
             value="memories"
             className="flex-1 overflow-auto space-y-2 p-2"
           >
-            {topMemories.length === 0 ? (
+            {recentMemories.length === 0 ? (
               <Empty className="h-full w-full flex items-center justify-center">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -452,16 +451,16 @@ export const App = () => {
                   <ItemContent>
                     <ItemTitle className="flex items-center">
                       <TargetIcon className="size-4" />
-                      Top 10 Most Used Memories
+                      10 Most Recent Memories
                     </ItemTitle>
                     <ItemDescription>
-                      Your most frequently used memory entries
+                      Your most recently updated memory entries
                     </ItemDescription>
                   </ItemContent>
                 </Item>
                 <Item className="p-0">
                   <ItemContent>
-                    {topMemories.map((entry) => (
+                    {recentMemories.map((entry) => (
                       <EntryCard
                         key={entry.id}
                         entry={entry}

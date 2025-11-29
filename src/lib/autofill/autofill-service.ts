@@ -147,7 +147,7 @@ class AutofillService {
       logger.info("Autofill processing result:", processingResult);
 
       const matchedCount = processingResult.mappings.filter(
-        (mapping) => mapping.memoryId !== null,
+        (mapping) => mapping.value !== null,
       ).length;
 
       await sessionService.updateSessionStatus(sessionId, "reviewing");
@@ -434,11 +434,9 @@ class AutofillService {
 
     const mappingsWithThreshold = processingResult.mappings.map((mapping) => {
       const meetsThreshold =
-        mapping.memoryId !== null &&
-        mapping.value !== null &&
-        mapping.confidence >= confidenceThreshold;
+        mapping.value !== null && mapping.confidence >= confidenceThreshold;
 
-      if (mapping.memoryId !== null) {
+      if (mapping.value !== null) {
         logger.debug(
           `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
         );
