@@ -45,9 +45,8 @@ interface OnboardingDialogProps {
 
 export function OnboardingDialog({ open }: OnboardingDialogProps) {
   const { addEntries } = useMemoryMutations();
-  const [selectedCountryCode, setSelectedCountryCode] = useState<Country | null>(
-    null,
-  );
+  const [selectedCountryCode, setSelectedCountryCode] =
+    useState<Country | null>(null);
   const [phoneDisplay, setPhoneDisplay] = useState("");
 
   const form = useForm({
@@ -252,7 +251,10 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                   const phoneDigits = phoneDisplay.replace(/\D/g, "");
                   const countryCode = country.countryCallingCodes?.[0] || "";
                   if (phoneDigits) {
-                    form.setFieldValue("phoneNumber", `${countryCode}${phoneDigits}`);
+                    form.setFieldValue(
+                      "phoneNumber",
+                      `${countryCode}${phoneDigits}`,
+                    );
                   }
                 };
 
@@ -282,13 +284,16 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                 const isInvalid =
                   field.state.meta.isTouched && !field.state.meta.isValid;
 
-                const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                const handlePhoneChange = (
+                  e: React.ChangeEvent<HTMLInputElement>,
+                ) => {
                   const inputValue = e.target.value;
                   setPhoneDisplay(inputValue);
-                  
+
                   const phoneDigits = inputValue.replace(/\D/g, "");
-                  const countryCode = selectedCountryCode?.countryCallingCodes?.[0] || "";
-                  
+                  const countryCode =
+                    selectedCountryCode?.countryCallingCodes?.[0] || "";
+
                   const newValue = phoneDigits
                     ? `${countryCode}${phoneDigits}`
                     : "";
@@ -300,9 +305,7 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                     <FieldLabel>
                       Phone Number <span className="text-destructive">*</span>
                     </FieldLabel>
-                    <FieldDescription>
-                      Enter your phone number
-                    </FieldDescription>
+                    <FieldDescription>Enter your phone number</FieldDescription>
 
                     <div className="relative">
                       {selectedCountryCode && (

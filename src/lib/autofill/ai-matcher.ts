@@ -334,7 +334,6 @@ export class AIMatcher {
   private convertAIResultsToMappings(
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
-    // memories: CompressedMemoryData[],
   ): FieldMapping[] {
     const fieldMap = new Map(fields.map((f) => [f.opid, f]));
 
@@ -351,15 +350,10 @@ export class AIMatcher {
       }
 
       const confidence = roundConfidence(aiMatch.confidence);
-      // const meetsThreshold = confidence >= MIN_MATCH_CONFIDENCE;
-
-      // const value = meetsThreshold ? aiMatch.value : null;
       const value = aiMatch.value;
 
       return {
         fieldOpid: aiMatch.fieldOpid,
-        // memoryId: null, // No longer used
-        // rephrasedValue: null, // No longer used
         value,
         confidence,
         reasoning:

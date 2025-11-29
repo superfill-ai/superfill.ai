@@ -22,7 +22,6 @@ const detectOS = (): "macos" | "linux" | "windows" => {
     return "windows";
   }
 
-  // Default to macOS if unable to detect
   return "macos";
 };
 
