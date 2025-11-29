@@ -382,8 +382,6 @@ export class AIMatcher {
             .filter(Boolean)
             .join(" ");
         }
-
-        console.log("Original Answer:", originalAnswer);
       }
 
       return {
