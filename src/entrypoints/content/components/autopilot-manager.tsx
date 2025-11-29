@@ -316,7 +316,7 @@ export class AutopilotManager {
     try {
       const usedMemoryIds = Array.from(this.mappingLookup.values())
         .filter((mapping) => mapping.value !== null)
-        .map((mapping) => mapping.value as string);   
+        .map((mapping) => mapping.value as string);
 
       logger.info(
         `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,

@@ -58,13 +58,6 @@ export default defineBackground({
       return sessionService.completeSession(data.sessionId);
     });
 
-    contentAutofillMessaging.onMessage(
-      "incrementMemoryUsage",
-      async ({ data }) => {
-        return sessionService.incrementMemoryUsage(data.memoryIds);
-      },
-    );
-
     contentAutofillMessaging.onMessage("saveFormMappings", async ({ data }) => {
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
