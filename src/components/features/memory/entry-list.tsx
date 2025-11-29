@@ -43,7 +43,7 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("component:entry-list");
 
-type SortOption = "recent" | "usage" | "alphabetical";
+type SortOption = "recent" | "alphabetical";
 type ViewMode = "list" | "grid";
 
 interface EntryListProps {
@@ -94,9 +94,6 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
             new Date(b.metadata.updatedAt).getTime() -
             new Date(a.metadata.updatedAt).getTime(),
         );
-        break;
-      case "usage":
-        sorted.sort((a, b) => b.metadata.usageCount - a.metadata.usageCount);
         break;
       case "alphabetical":
         sorted.sort((a, b) => {
@@ -223,7 +220,6 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="recent">Most Recent</SelectItem>
-              <SelectItem value="usage">Most Used</SelectItem>
               <SelectItem value="alphabetical">Alphabetical</SelectItem>
             </SelectContent>
           </Select>
