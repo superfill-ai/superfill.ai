@@ -314,23 +314,6 @@ export class AutopilotManager {
     }
 
     try {
-      const usedMemoryIds = Array.from(this.mappingLookup.values())
-        .filter((mapping) => mapping.value !== null)
-        .map((mapping) => mapping.value as string);
-
-      logger.info(
-        `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,
-      );
-
-      if (usedMemoryIds.length > 0) {
-        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
-          memoryIds: usedMemoryIds,
-        });
-        logger.info(
-          `Incremented usage count for ${usedMemoryIds.length} memories`,
-        );
-      }
-
       await contentAutofillMessaging.sendMessage("completeSession", {
         sessionId: this.sessionId,
       });
