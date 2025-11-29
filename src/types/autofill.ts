@@ -121,16 +121,9 @@ export interface CompressedMemoryData {
 
 export interface FieldMapping {
   fieldOpid: string;
-  memoryId: string | null;
   value: string | null;
-  rephrasedValue: string | null;
   confidence: number;
   reasoning: string;
-  alternativeMatches: Array<{
-    memoryId: string;
-    value: string;
-    confidence: number;
-  }>;
   autoFill?: boolean;
 }
 

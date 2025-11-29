@@ -1,13 +1,13 @@
 import { createLogger } from "@/lib/logger";
 import type {
-  CompressedFieldData,
-  CompressedMemoryData,
-  FieldMapping,
+    CompressedFieldData,
+    CompressedMemoryData,
+    FieldMapping,
 } from "@/types/autofill";
 import {
-  FIELD_PURPOSE_KEYWORDS,
-  MIN_MATCH_CONFIDENCE,
-  STOP_WORDS,
+    FIELD_PURPOSE_KEYWORDS,
+    MIN_MATCH_CONFIDENCE,
+    STOP_WORDS,
 } from "./constants";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 
@@ -74,8 +74,7 @@ export class FallbackMatcher {
 
     if (confidence < MIN_MATCH_CONFIDENCE) {
       return {
-        fieldOpid: field.fieldOpid,
-        selector: field.selector,
+        fieldOpid: field.opid,
         value: null,
         confidence,
         reasoning: `Low confidence match (${(confidence * 100).toFixed(0)}%). ${bestCandidate.reasons.join(" · ")}`,
@@ -83,8 +82,7 @@ export class FallbackMatcher {
     }
 
     return {
-      fieldOpid: field.fieldOpid,
-      selector: field.selector,
+      fieldOpid: field.opid,
       value: bestCandidate.memory.answer,
       confidence,
       reasoning: bestCandidate.reasons.join(" · "),

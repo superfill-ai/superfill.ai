@@ -1,7 +1,3 @@
-import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
-import { trace } from "@opentelemetry/api";
-import { generateObject } from "ai";
-import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -11,6 +7,10 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
+import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
+import { trace } from "@opentelemetry/api";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
@@ -324,52 +324,13 @@ export class AIMatcher {
       .map((f, idx) => {
         const parts = [
           `**Field ${idx + 1}**`,
-          `- fieldOpid: ${f.fieldOpid}`,
+          `- fieldOpid: ${f.opid}`,
           `- type: ${f.type}`,
           `- purpose: ${f.purpose}`,
-          `- label: ${f.label || "none"}`,
+          `- labels: ${f.labels.length > 0 ? f.labels.join(", ") : "none"}`,
           `- context: ${f.context || "none"}`,
         ];
 
-        switch (f.type) {
-          case "select":
-            if (f.options && f.options.length > 0) {
-              parts.push(
-                `- options: [${f.options.map((o) => `"${o}"`).join(", ")}]`,
-              );
-              parts.push(
-                `This is a SELECT field. The 'value' MUST be an exact string from the 'options' list.`,
-              );
-            } else {
-              parts.push(
-                `This is a SELECT field, but no options were provided. Set value to null.`,
-              );
-            }
-            break;
-
-          case "radio":
-            if (f.radioGroup) {
-              parts.push(`- radioGroup: "${f.radioGroup.name}"`);
-              parts.push(
-                `- radioValues: [${f.radioGroup.values.map((v) => `"${v}"`).join(", ")}]`,
-              );
-              parts.push(
-                `This is a RADIO button. The 'value' MUST be an exact string from the 'radioValues' list.`,
-              );
-            } else {
-              parts.push(
-                `This is a RADIO button, but no values were provided. Set value to null.`,
-              );
-            }
-            break;
-
-          case "checkbox":
-            parts.push(`- currentlyChecked: ${f.isChecked ?? false}`);
-            parts.push(
-              `This is a CHECKBOX. The 'value' MUST be "true" (to check) or "false" (to uncheck).`,
-            );
-            break;
-        }
         return parts.join("\n          ");
       })
       .join("\n");
@@ -428,7 +389,7 @@ export class AIMatcher {
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
   ): FieldMapping[] {
-    const fieldMap = new Map(fields.map((f) => [f.fieldOpid, f]));
+    const fieldMap = new Map(fields.map((f) => [f.opid, f]));
 
     return aiResults.matches.map((aiMatch) => {
       const field = fieldMap.get(aiMatch.fieldOpid);
@@ -437,9 +398,9 @@ export class AIMatcher {
           `AI returned match for unknown field: ${aiMatch.fieldOpid}`,
         );
         return createEmptyMapping<
-          { fieldOpid: string; selector: string },
+          { opid: string },
           FieldMapping
-        >({ fieldOpid: aiMatch.fieldOpid, selector: "" }, "Field not found");
+        >({ opid: aiMatch.fieldOpid }, "Field not found");
       }
 
       const confidence = roundConfidence(aiMatch.confidence);
@@ -447,7 +408,6 @@ export class AIMatcher {
 
       return {
         fieldOpid: aiMatch.fieldOpid,
-        selector: field.selector,
         value,
         confidence,
         reasoning:
