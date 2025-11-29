@@ -328,7 +328,7 @@ export class AIMatcher {
           1. Which memory (if any) is the best match
           2. Your confidence in that match (0-1)
           3. Why you chose that memory (or why no memory fits)
-          4. A 'rephrasedAnswer' ONLY if the context requires it, otherwise null.`;
+          4. The answer in the 'value' field ONLY if the context requires it, otherwise null.`;
   }
 
   private convertAIResultsToMappings(
