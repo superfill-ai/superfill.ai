@@ -4,7 +4,7 @@ import {
   TargetIcon,
   TrophyIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
@@ -42,40 +42,98 @@ import {
 } from "@/components/ui/tooltip";
 import { APP_NAME } from "@/constants";
 import {
-  useInitializeMemory,
+  useMemories,
+  useMemoryMutations,
   useMemoryStats,
   useTopMemories,
-} from "@/hooks/use-memory";
+} from "@/hooks/use-memories";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
 import {
   ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
   ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
 } from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
+import type { AIProvider } from "@/lib/providers/registry";
 import { keyVault } from "@/lib/security/key-vault";
-import { store } from "@/lib/storage";
-import { useMemoryStore } from "@/stores/memory";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
 
 const logger = createLogger("popup");
 
 export const App = () => {
-  useInitializeMemory();
-  const entries = useMemoryStore((state) => state.entries);
-  const loading = useMemoryStore((state) => state.loading);
-  const deleteEntry = useMemoryStore((state) => state.deleteEntry);
-  const initialized = useMemoryStore((state) => state.initialized);
-  const error = useMemoryStore((state) => state.error);
-  const selectedModels = useSettingsStore((state) => state.selectedModels);
-  const selectedProvider = useSettingsStore((state) => state.selectedProvider);
+  const { entries, loading } = useMemories();
+  const { deleteEntry } = useMemoryMutations();
+  const [selectedModels, setSelectedModels] = useState<
+    Partial<Record<AIProvider, string>>
+  >({});
+  const [selectedProvider, setSelectedProvider] = useState<
+    AIProvider | undefined
+  >();
   const stats = useMemoryStats();
   const topMemories = useTopMemories(10);
   const [activeTab, setActiveTab] = useState<
     "autofill" | "memories" | "add-memory"
   >("autofill");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   const hasMemories = entries.length > 0;
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const SKIP_ONBOARDING = import.meta.env.VITE_SKIP_ONBOARDING === "true";
+
+      if (SKIP_ONBOARDING) {
+        setOnboardingCompleted(true);
+        return;
+      }
+
+      const uiSettings = await storage.uiSettings.getValue();
+      const storedMemories = await storage.memories.getValue();
+
+      if (!uiSettings.onboardingCompleted && storedMemories.length === 0) {
+        setOnboardingCompleted(false);
+      } else {
+        setOnboardingCompleted(uiSettings.onboardingCompleted);
+        await storage.uiSettings.setValue({
+          ...uiSettings,
+          onboardingCompleted: true,
+        });
+      }
+    };
+
+    checkOnboarding();
+
+    const unsubscribe = storage.uiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setOnboardingCompleted(newSettings.onboardingCompleted);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchAndWatch = async () => {
+      const settings = await storage.aiSettings.getValue();
+      setSelectedProvider(settings.selectedProvider);
+      setSelectedModels(settings.selectedModels || {});
+    };
+
+    fetchAndWatch();
+
+    const unsubscribe = storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        setSelectedProvider(newSettings.selectedProvider);
+        setSelectedModels(newSettings.selectedModels || {});
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useHotkeys("c", () => {
     setActiveTab("add-memory");
@@ -107,8 +165,7 @@ export const App = () => {
 
   const handleAutofill = async () => {
     try {
-      const aiSettings = await store.aiSettings.getValue();
-      if (!aiSettings.selectedProvider) {
+      if (!selectedProvider) {
         toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use autofill",
@@ -120,7 +177,7 @@ export const App = () => {
         });
         return;
       }
-      const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
+      const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
@@ -168,11 +225,17 @@ export const App = () => {
   };
 
   const handleDelete = async (entryId: string) => {
-    await deleteEntry(entryId);
-    toast.warning("Memory deleted successfully");
+    try {
+      await deleteEntry.mutateAsync(entryId);
+      toast.success("Memory deleted successfully!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete memory",
+      );
+    }
   };
 
-  const handleDuplicate = async (entryId: string) => {
+  const handleDuplicate = (entryId: string) => {
     const entryToDuplicate = entries.find((e) => e.id === entryId);
     if (entryToDuplicate) {
       setEditingEntryId(entryToDuplicate.id);
@@ -184,7 +247,7 @@ export const App = () => {
     setEditingEntryId(null);
   };
 
-  if (!initialized && loading) {
+  if (loading) {
     return (
       <section
         className="relative w-full h-[600px] flex items-center justify-center"
@@ -198,23 +261,30 @@ export const App = () => {
     );
   }
 
-  if (error && !initialized) {
+  if (!onboardingCompleted) {
     return (
       <section
-        className="relative w-full h-[600px] flex items-center justify-center p-4"
-        aria-label="Error"
+        className="relative w-full h-[600px] flex items-center justify-center p-6"
+        aria-label="Onboarding required"
       >
-        <Card className="w-full max-w-md border-destructive">
+        <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-destructive">Failed to Load</CardTitle>
-            <CardDescription>{error}</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <SparklesIcon className="size-5" />
+              Welcome to {APP_NAME}!
+            </CardTitle>
+            <CardDescription>
+              Please complete the initial setup to get started with autofilling
+              forms.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => logger.info("Try Again clicked")}
+              variant="default"
               className="w-full"
+              onClick={handleOpenSettings}
             >
-              Try Again
+              Complete Setup
             </Button>
           </CardContent>
         </Card>
@@ -251,12 +321,6 @@ export const App = () => {
           </Tooltip>
         </div>
       </header>
-
-      {error && initialized && (
-        <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
-          <p className="text-sm text-destructive">{error}</p>
-        </div>
-      )}
 
       <main className="flex-1 overflow-hidden">
         <Tabs

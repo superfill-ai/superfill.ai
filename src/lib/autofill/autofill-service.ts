@@ -2,8 +2,7 @@ import { defineProxyService } from "@webext-core/proxy-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
 import type {
   AutofillResult,
   CompressedFieldData,
@@ -13,8 +12,11 @@ import type {
   FieldMapping,
   PreviewSidebarPayload,
 } from "@/types/autofill";
+import type { WebsiteContext } from "@/types/context";
 import type { MemoryEntry } from "@/types/memory";
+import type { AISettings } from "@/types/settings";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
+import { aiSettings } from "../storage/ai-settings";
 import { AIMatcher } from "./ai-matcher";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
@@ -25,10 +27,28 @@ const logger = createLogger("autofill-service");
 class AutofillService {
   private aiMatcher: AIMatcher;
   private fallbackMatcher: FallbackMatcher;
+  private currentAiSettings: AISettings | null = null;
+  private unwatchAiSettings?: () => void;
 
   constructor() {
     this.aiMatcher = new AIMatcher();
     this.fallbackMatcher = new FallbackMatcher();
+
+    this.unwatchAiSettings = aiSettings.watch((newSettings) => {
+      this.currentAiSettings = newSettings;
+      logger.info("AI settings updated:", newSettings);
+    });
+
+    aiSettings.getValue().then((settings) => {
+      this.currentAiSettings = settings;
+      logger.info("AI settings initialized:", settings);
+    });
+  }
+
+  dispose() {
+    this.unwatchAiSettings?.();
+    this.unwatchAiSettings = undefined;
+    logger.info("AutofillService disposed");
   }
 
   async startAutofillOnActiveTab(apiKey?: string): Promise<{
@@ -63,12 +83,12 @@ class AutofillService {
             state: "detecting",
             message: "Detecting forms...",
           },
-          tabId,
+          tabId
         );
       } catch (error) {
         logger.error("Failed to communicate with content script:", error);
         throw new Error(
-          "Could not connect to page. Please refresh the page and try again.",
+          "Could not connect to page. Please refresh the page and try again."
         );
       }
 
@@ -79,7 +99,7 @@ class AutofillService {
       const result = await contentAutofillMessaging.sendMessage(
         "detectForms",
         undefined,
-        tabId,
+        tabId
       );
 
       if (!result.success) {
@@ -87,7 +107,7 @@ class AutofillService {
       }
 
       logger.info(
-        `Detected ${result.totalFields} fields in ${result.forms.length} forms`,
+        `Detected ${result.totalFields} fields in ${result.forms.length} forms`
       );
 
       await contentAutofillMessaging.sendMessage(
@@ -97,7 +117,7 @@ class AutofillService {
           message: "Analyzing fields...",
           fieldsDetected: result.totalFields,
         },
-        tabId,
+        tabId
       );
 
       await sessionService.updateSessionStatus(sessionId, "matching");
@@ -113,15 +133,20 @@ class AutofillService {
           message: "Matching memories...",
           fieldsDetected: result.totalFields,
         },
-        tabId,
+        tabId
       );
 
-      const processingResult = await this.processForms(forms, pageUrl, apiKey);
+      const processingResult = await this.processForms(
+        forms,
+        pageUrl,
+        result.websiteContext,
+        apiKey
+      );
 
       logger.info("Autofill processing result:", processingResult);
 
       const matchedCount = processingResult.mappings.filter(
-        (mapping) => mapping.memoryId !== null,
+        (mapping) => mapping.memoryId !== null
       ).length;
 
       await sessionService.updateSessionStatus(sessionId, "reviewing");
@@ -134,14 +159,14 @@ class AutofillService {
           fieldsDetected: result.totalFields,
           fieldsMatched: matchedCount,
         },
-        tabId,
+        tabId
       );
 
       try {
         await contentAutofillMessaging.sendMessage(
           "showPreview",
           this.buildPreviewPayload(forms, processingResult, sessionId),
-          tabId,
+          tabId
         );
       } catch (previewError) {
         logger.error("Failed to send preview payload:", previewError);
@@ -152,7 +177,7 @@ class AutofillService {
       }
 
       logger.info(
-        `Processed ${allFields.length} fields and found ${matchedCount} matches`,
+        `Processed ${allFields.length} fields and found ${matchedCount} matches`
       );
 
       return {
@@ -176,7 +201,7 @@ class AutofillService {
               message: "Autofill failed",
               error: error instanceof Error ? error.message : "Unknown error",
             },
-            tabId,
+            tabId
           );
         } catch (progressError) {
           logger.error("Failed to send error progress:", progressError);
@@ -195,7 +220,8 @@ class AutofillService {
   private async processForms(
     forms: DetectedFormSnapshot[],
     _pageUrl: string,
-    apiKey?: string,
+    websiteContext: WebsiteContext,
+    apiKey?: string
   ): Promise<AutofillResult> {
     const startTime = performance.now();
 
@@ -211,7 +237,7 @@ class AutofillService {
       const fields = forms.flatMap((form) => form.fields);
 
       const nonPasswordFields = fields.filter(
-        (field) => field.metadata.fieldType !== "password",
+        (field) => field.metadata.fieldType !== "password"
       );
 
       const passwordFieldsCount = fields.length - nonPasswordFields.length;
@@ -222,11 +248,11 @@ class AutofillService {
       const fieldsToProcess = nonPasswordFields.slice(0, MAX_FIELDS_PER_PAGE);
       if (fieldsToProcess.length < nonPasswordFields.length) {
         logger.warn(
-          `Limited processing to ${MAX_FIELDS_PER_PAGE} fields out of ${nonPasswordFields.length}`,
+          `Limited processing to ${MAX_FIELDS_PER_PAGE} fields out of ${nonPasswordFields.length}`
         );
       }
 
-      const allMemories = await store.memories.getValue();
+      const allMemories = await storage.memories.getValue();
 
       if (allMemories.length === 0) {
         return {
@@ -234,21 +260,41 @@ class AutofillService {
           mappings: fieldsToProcess.map((field) =>
             createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
               field,
-              "No stored memories available",
-            ),
+              "No stored memories available"
+            )
           ),
           processingTime: performance.now() - startTime,
         };
       }
 
       const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
+      const { simpleFields, complexFields } =
+        this.categorizeFields(fieldsToProcess);
 
-      const mappings = await this.matchFields(fields, memories, apiKey);
-      const allMappings = this.combineMappings(fieldsToProcess, mappings);
+      logger.info(
+        `Categorized ${simpleFields.length} simple fields and ${complexFields.length} complex fields`
+      );
+
+      const simpleMappings = await this.matchSimpleFields(
+        simpleFields,
+        memories
+      );
+      const complexMappings = await this.matchComplexFields(
+        complexFields,
+        memories,
+        apiKey
+      );
+      const allMappings = this.combineMappings(
+        fieldsToProcess,
+        simpleMappings,
+        complexMappings
+      );
       const processingTime = performance.now() - startTime;
 
       logger.info(
-        `Autofill completed in ${processingTime.toFixed(2)}ms: ${mappings.length} mappings`,
+        `Autofill completed in ${processingTime.toFixed(2)}ms: ${
+          mappings.length
+        } mappings`
       );
 
       return {
@@ -266,10 +312,138 @@ class AutofillService {
     }
   }
 
-  private async matchFields(
+  private categorizeFields(fields: DetectedFieldSnapshot[]): {
+    simpleFields: DetectedFieldSnapshot[];
+    complexFields: DetectedFieldSnapshot[];
+  } {
+    const simpleFields: DetectedFieldSnapshot[] = [];
+    const complexFields: DetectedFieldSnapshot[] = [];
+
+    for (const field of fields) {
+      const purpose = field.metadata.fieldPurpose;
+
+      if (SIMPLE_FIELD_PURPOSES.includes(purpose)) {
+        simpleFields.push(field);
+      } else {
+        complexFields.push(field);
+      }
+    }
+
+    return { simpleFields, complexFields };
+  }
+
+  private async matchSimpleFields(
+    fields: DetectedFieldSnapshot[],
+    memories: MemoryEntry[]
+  ): Promise<FieldMapping[]> {
+    return fields.map((field) => this.matchSingleSimpleField(field, memories));
+  }
+
+  private matchSingleSimpleField(
+    field: DetectedFieldSnapshot,
+    memories: MemoryEntry[]
+  ): FieldMapping {
+    const purpose = field.metadata.fieldPurpose;
+
+    const relevantMemories = memories.filter((memory) => {
+      const category = memory.category.toLowerCase();
+      const tags = memory.tags.map((t) => t.toLowerCase());
+
+      if (purpose === "email") {
+        return (
+          category.includes("email") ||
+          category.includes("contact") ||
+          tags.some((t) => t.includes("email"))
+        );
+      }
+
+      if (purpose === "phone") {
+        return (
+          category.includes("phone") ||
+          category.includes("contact") ||
+          tags.some((t) => t.includes("phone") || t.includes("tel"))
+        );
+      }
+
+      if (purpose === "name") {
+        return (
+          category.includes("name") ||
+          category.includes("personal") ||
+          tags.some((t) => t.includes("name"))
+        );
+      }
+
+      return false;
+    });
+
+    if (relevantMemories.length === 0) {
+      return createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
+        field,
+        `No ${purpose} memory found`
+      );
+    }
+
+    const scoredMemories = relevantMemories
+      .map((memory) => ({
+        memory,
+        score: this.scoreSimpleFieldMatch(field, memory),
+      }))
+      .filter((scored) => scored.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (scoredMemories.length === 0) {
+      return createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
+        field,
+        `No valid ${purpose} format in memories`
+      );
+    }
+
+    const bestMatch = scoredMemories[0];
+    const alternativeMatches = scoredMemories.slice(1, 4).map((scored) => ({
+      memoryId: scored.memory.id,
+      value: scored.memory.answer,
+      confidence: scored.score,
+    }));
+
+    return {
+      fieldOpid: field.opid,
+      memoryId: bestMatch.memory.id,
+      value: bestMatch.memory.answer,
+      confidence: SIMPLE_FIELD_CONFIDENCE,
+      reasoning: `Direct ${purpose} match with validation`,
+      alternativeMatches,
+    };
+  }
+
+  private scoreSimpleFieldMatch(
+    field: DetectedFieldSnapshot,
+    memory: MemoryEntry
+  ): number {
+    const purpose = field.metadata.fieldPurpose;
+    const value = memory.answer.trim();
+
+    if (purpose === "email") {
+      return AutofillService.EMAIL_SCHEMA.safeParse(value).success ? 1 : 0;
+    }
+
+    if (purpose === "phone") {
+      return AutofillService.PHONE_SCHEMA.safeParse(value).success ? 0.9 : 0;
+    }
+
+    if (purpose === "name") {
+      if (value.length >= 2 && value.length <= 100 && /[a-z]/i.test(value)) {
+        return 0.95;
+      }
+      return 0;
+    }
+
+    return 0;
+  }
+
+  private async matchComplexFields(
     fields: DetectedFieldSnapshot[],
     memories: MemoryEntry[],
-    apiKey?: string,
+    apiKey?: string
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       return [];
@@ -279,42 +453,47 @@ class AutofillService {
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
     try {
-      const settingStore = useSettingsStore.getState();
-      const provider = settingStore.selectedProvider;
+      const settings = this.currentAiSettings;
+      if (!settings) {
+        throw new Error("AI settings not loaded");
+      }
+
+      const provider = settings.selectedProvider;
 
       if (!provider) {
         throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
       }
 
-      const selectedModel = settingStore.selectedModels?.[provider];
+      const selectedModel = settings.selectedModels?.[provider];
 
       logger.info(
         "AutofillService: Using AI provider",
         provider,
         "with model",
-        selectedModel,
+        selectedModel
       );
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");
         return await this.fallbackMatcher.matchFields(
           compressedFields,
-          compressedMemories,
+          compressedMemories
         );
       }
 
       return await this.aiMatcher.matchFields(
         compressedFields,
         compressedMemories,
+        websiteContext,
         provider,
         apiKey,
-        selectedModel,
+        selectedModel
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);
       return await this.fallbackMatcher.matchFields(
         compressedFields,
-        compressedMemories,
+        compressedMemories
       );
     }
   }
@@ -360,7 +539,7 @@ class AutofillService {
 
   private combineMappings(
     originalFields: DetectedFieldSnapshot[],
-    mappings: FieldMapping[],
+    mappings: FieldMapping[]
   ): FieldMapping[] {
     const mappingMap = new Map<string, FieldMapping>();
 
@@ -373,7 +552,7 @@ class AutofillService {
       if (!mapping) {
         return createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
           field,
-          "No mapping generated",
+          "No mapping generated"
         );
       }
       return mapping;
@@ -383,13 +562,13 @@ class AutofillService {
   private buildPreviewPayload(
     forms: DetectedFormSnapshot[],
     processingResult: AutofillResult,
-    sessionId: string,
+    sessionId: string
   ): PreviewSidebarPayload {
-    const aiSettings = useSettingsStore.getState();
-    const confidenceThreshold = aiSettings.confidenceThreshold;
+    const confidenceThreshold =
+      this.currentAiSettings?.confidenceThreshold ?? 0.6;
 
     logger.info(
-      `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,
+      `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`
     );
 
     const mappingsWithThreshold = processingResult.mappings.map((mapping) => {
@@ -400,7 +579,7 @@ class AutofillService {
 
       if (mapping.memoryId !== null) {
         logger.debug(
-          `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
+          `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`
         );
       }
 
@@ -411,12 +590,12 @@ class AutofillService {
     });
 
     const autoEnabledCount = mappingsWithThreshold.filter(
-      (m) => m.autoFill,
+      (m) => m.autoFill
     ).length;
 
     logger.info(
       `${autoEnabledCount} of ${mappingsWithThreshold.length} fields auto-enabled based on threshold`,
-      mappingsWithThreshold,
+      mappingsWithThreshold
     );
 
     return {
@@ -434,5 +613,5 @@ class AutofillService {
 
 export const [registerAutofillService, getAutofillService] = defineProxyService(
   "AutofillService",
-  () => new AutofillService(),
+  () => new AutofillService()
 );

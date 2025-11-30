@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/cn";
 import { logger } from "@/lib/logger";
 import type { AutofillProgress } from "@/types/autofill";
 import {
@@ -51,11 +52,12 @@ export const AutopilotLoader = ({
 
   return (
     <div
-      className={`fixed top-4 right-4 z-9999 transition-all duration-300 ease-out ${
+      className={cn(
+        "fixed top-4 right-4 z-9999 transition-all duration-300 ease-out",
         isVisible
-          ? "opacity-100 translate-x-0 scale-100"
-          : "opacity-0 translate-x-4 scale-95 pointer-events-none"
-      }`}
+          ? "opacity-100 translate-x-0 scale-100 animate-slide-in-right"
+          : "opacity-0 translate-x-4 scale-95 pointer-events-none",
+      )}
       style={{ width: "500px", maxWidth: "calc(100vw - 32px)" }}
     >
       <Card className="w-full shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95">
@@ -79,13 +81,12 @@ export const AutopilotLoader = ({
                 <div className="space-y-2">
                   <Progress
                     value={progressValue}
-                    className={`h-2 transition-colors ${
-                      isError
-                        ? "[&>div]:bg-destructive"
-                        : isComplete
-                          ? "[&>div]:bg-green-500"
-                          : "[&>div]:bg-primary"
-                    }`}
+                    className={`h-2 transition-colors ${isError
+                      ? "[&>div]:bg-destructive"
+                      : isComplete
+                        ? "[&>div]:bg-green-500"
+                        : "[&>div]:bg-primary"
+                      }`}
                   />
 
                   <p className="text-sm text-muted-foreground leading-relaxed">
@@ -102,42 +103,42 @@ export const AutopilotLoader = ({
         <CardFooter>
           {(progress.fieldsDetected ||
             progress.fieldsMatched !== undefined) && (
-            <div className="w-full flex flex-col gap-2">
-              <Separator />
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-4">
-                  {progress.fieldsDetected && (
-                    <span className="text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {progress.fieldsDetected}
-                      </span>{" "}
-                      fields detected
+              <div className="w-full flex flex-col gap-2">
+                <Separator />
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-4">
+                    {progress.fieldsDetected && (
+                      <span className="text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          {progress.fieldsDetected}
+                        </span>{" "}
+                        fields detected
+                      </span>
+                    )}
+                    {progress.fieldsMatched !== undefined && (
+                      <span className="text-muted-foreground">
+                        <span className="font-medium text-green-600">
+                          {progress.fieldsMatched}
+                        </span>{" "}
+                        matches found
+                      </span>
+                    )}
+                  </div>
+
+                  {isComplete && (
+                    <span className="text-xs text-green-600 font-medium">
+                      ✓ Complete
                     </span>
                   )}
-                  {progress.fieldsMatched !== undefined && (
-                    <span className="text-muted-foreground">
-                      <span className="font-medium text-green-600">
-                        {progress.fieldsMatched}
-                      </span>{" "}
-                      matches found
+
+                  {isError && (
+                    <span className="text-xs text-destructive font-medium">
+                      ✗ Failed
                     </span>
                   )}
                 </div>
-
-                {isComplete && (
-                  <span className="text-xs text-green-600 font-medium">
-                    ✓ Complete
-                  </span>
-                )}
-
-                {isError && (
-                  <span className="text-xs text-destructive font-medium">
-                    ✗ Failed
-                  </span>
-                )}
               </div>
-            </div>
-          )}
+            )}
         </CardFooter>
       </Card>
     </div>

@@ -13,7 +13,6 @@ This document guides AI assistants on how to work on this browser extension proj
 - **Framework**: WXT (browser extension framework)
 - **Frontend**: React 19 + TypeScript 5.7+
 - **UI**: shadcn/ui + Tailwind CSS v4
-- **State**: Zustand
 - **AI**: Vercel AI SDK (BYOK for OpenAI/Anthropic)
 - **Storage**: Browser Storage API (Phase 1) via WXT's storage wrapper
 - **Runtime & Package management**: Bun
@@ -122,7 +121,6 @@ The progress file uses this structure:
    │   ├── storage/         # Storage layer
    │   ├── matching/        # Form matching logic
    │   └── utils/           # General utilities
-   ├── stores/              # Zustand stores
    ├── types/               # TypeScript types/interfaces
    ├── hooks/               # React hooks
    └── entrypoints/         # Extension entry points
@@ -249,8 +247,7 @@ Before marking a task complete, verify:
 6. **Don't skip error handling**: All async operations need try-catch
 7. **Don't forget cross-browser testing**: Test in Chrome, Firefox, Edge
 8. **Don't use console.log in production**: Use proper logging utility
-9. **Don't mutate state directly**: Use Zustand's set functions
-10. **Don't create duplicate utilities**: Check if functionality already exists
+9. **Don't create duplicate utilities**: Check if functionality already exists
 
 ## 🎨 UI/UX Guidelines
 

@@ -86,6 +86,7 @@ export class FallbackMatcher {
         confidence,
         reasoning: `Low confidence match (${(confidence * 100).toFixed(0)}%). ${bestCandidate.reasons.join(" · ")}`,
         alternativeMatches,
+        rephrasedValue: null,
       };
     }
 
@@ -96,6 +97,7 @@ export class FallbackMatcher {
       confidence,
       reasoning: bestCandidate.reasons.join(" · "),
       alternativeMatches,
+      rephrasedValue: null,
     };
   }
 

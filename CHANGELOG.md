@@ -1,5 +1,85 @@
 # superfill.ai
 
+## 0.1.5
+
+### Patch Changes
+
+- [`3dcfe9e`](https://github.com/superfill-ai/superfill.ai/commit/3dcfe9e2e9be004f485319f7ffc11c569ac675ab) Thanks [@mikr13](https://github.com/mikr13)! - fix: correct onboarding completion logic based on stored memories
+
+- [`66aec2f`](https://github.com/superfill-ai/superfill.ai/commit/66aec2f26050785db9a6b0cdcad23da811fda767) Thanks [@mikr13](https://github.com/mikr13)! - fix: update onboarding logic to check for stored memories before completion
+
+## 0.1.4
+
+### Patch Changes
+
+- [`89a198b`](https://github.com/superfill-ai/superfill.ai/commit/89a198b3f323727537be4efab8b4a03ef2b71649) Thanks [@mikr13](https://github.com/mikr13)! - fix: update country selection logic to match by name instead of alpha3 code
+
+## 0.1.3
+
+### Patch Changes
+
+- [#15](https://github.com/superfill-ai/superfill.ai/pull/15) [`c5068d3`](https://github.com/superfill-ai/superfill.ai/commit/c5068d36240dbeb15d6af01cb406818046f95444) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement onboarding flow with user data collection and storage
+
+- [`ca23098`](https://github.com/superfill-ai/superfill.ai/commit/ca2309801d20b763f8aec10c4eb1e32bb9523b6b) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - fix: update descriptions for AI provider and autofill settings for clarity
+
+- [`ed5520a`](https://github.com/superfill-ai/superfill.ai/commit/ed5520a99db0e453da7cec9326024b8b354d0271) Thanks [@Andro-human](https://github.com/Andro-human)! - fix: API key visibility toggle in settings
+
+- [`fc95606`](https://github.com/superfill-ai/superfill.ai/commit/fc95606492b382cc6590745940e7add0e0f6f01b) Thanks [@mikr13](https://github.com/mikr13)! - refactor: enable debug logging in AI services and categorization
+
+## 0.1.2
+
+### Patch Changes
+
+- [`851bd03`](https://github.com/superfill-ai/superfill.ai/commit/851bd03517d6a872b12a58d1e2fa12bf4e0f3227) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate AI settings management to storage and remove zustand store
+
+- [`3f58a93`](https://github.com/superfill-ai/superfill.ai/commit/3f58a93d311c7d8c0652cd36a49f17369eaf518a) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate session and form mappings management to storage and remove zustand stores
+
+- [`24d5fcd`](https://github.com/superfill-ai/superfill.ai/commit/24d5fcdfbf45adc6b64c0bb3b5c2a4814f55715a) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate memory management to hooks and remove zustand store
+
+- [`ab49f4b`](https://github.com/superfill-ai/superfill.ai/commit/ab49f4b55f7adadb268eab009f120c31cf65c817) Thanks [@mikr13](https://github.com/mikr13)! - refactor: migrate UI settings management to storage and remove unused store
+
+## 0.1.1
+
+### Patch Changes
+
+- [#12](https://github.com/superfill-ai/superfill.ai/pull/12) [`204b538`](https://github.com/superfill-ai/superfill.ai/commit/204b5386bb9a48e40de9e9f6188e7dab52835292) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement form mappings, memories, sessions, and UI settings stores with zustand
+
+- [`f000856`](https://github.com/superfill-ai/superfill.ai/commit/f000856459704b5cf3e585c1c35f6d5b4518bd32) Thanks [@mikr13](https://github.com/mikr13)! - feat: enhance state management in AI, data, and UI settings stores with storage synchronization
+
+- [#11](https://github.com/superfill-ai/superfill.ai/pull/11) [`408c2bf`](https://github.com/superfill-ai/superfill.ai/commit/408c2bfb6ec1be35c95418bbd0ca6514e820d309) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - Resolved the issue of state mamnagent for autofill service and content index
+  - Updated autofill-services.ts, content/index.tsUpdated autofill-services.ts to read the state directly from local storage
+
+## 0.1.0
+
+### Minor Changes
+
+- [#7](https://github.com/superfill-ai/superfill.ai/pull/7) [`8614481`](https://github.com/superfill-ai/superfill.ai/commit/861448159196c3cee5d83f1ae1114962abb07d31) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - Added feature to fetch website context
+  - Website context is used in ai matching stage to improve the field mapping
+  - Website context is used to rephrase the answers if required
+  - AI prompts have been enhanced with specific rules and instructions for contextual rephrasing
+
+### Patch Changes
+
+- [#10](https://github.com/superfill-ai/superfill.ai/pull/10) [`f1ff97b`](https://github.com/superfill-ai/superfill.ai/commit/f1ff97bb5ef73fd95e2a5580d3960d0b599c65d8) Thanks [@mikr13](https://github.com/mikr13)! - refactor: state management refac of zustand & storage
+
+- [`e00c23f`](https://github.com/superfill-ai/superfill.ai/commit/e00c23fdfca0db5fd95c262530015ec28d116a04) Thanks [@mikr13](https://github.com/mikr13)! - feat: update Tailwind CSS dependencies and integrate Vite plugin
+
+- [#7](https://github.com/superfill-ai/superfill.ai/pull/7) [`8614481`](https://github.com/superfill-ai/superfill.ai/commit/861448159196c3cee5d83f1ae1114962abb07d31) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - feat(autofill): Implement user choice for AI-rephrased memories
+
+  This commit enhances the autofill preview by allowing users to choose between the AI-rephrased suggestion and their original stored memory.
+
+  - **UI Toggle**: The preview component now includes a toggle button to switch between the "AI Rephrased Memory" and "Original Memory" views. The UI dynamically updates labels and styles to reflect the current selection.
+
+  - **Manual Fill**: The manual "Fill Selected" action now respects the user's choice. The `preview-manager` has been updated to fill the form with the value selected in the UI (original or rephrased).
+
+  - **Autopilot Logic**: The `autopilot-manager` is updated to consistently use the `rephrasedValue` when available, ensuring predictable behavior in automated mode.
+
+- [#6](https://github.com/superfill-ai/superfill.ai/pull/6) [`cc999d9`](https://github.com/superfill-ai/superfill.ai/commit/cc999d942c4faac3143f6906227dfd5015733674) Thanks [@sweta-tw](https://github.com/sweta-tw)! - refactor: remove simple field mapping logic for autofill
+
+- [`381837d`](https://github.com/superfill-ai/superfill.ai/commit/381837d4945111b2922c5825b14238d105d6258d) Thanks [@mikr13](https://github.com/mikr13)! - fix: firefox csp issue fixed
+
+- [#8](https://github.com/superfill-ai/superfill.ai/pull/8) [`67f5a7e`](https://github.com/superfill-ai/superfill.ai/commit/67f5a7e726f207b9cb89a4b9de71f923ba65c638) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - Automatically Refresh model list on API key add/change
+
 ## 0.0.8
 
 ### Patch Changes

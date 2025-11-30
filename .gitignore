@@ -32,6 +32,7 @@ internal/
 .env
 .env.local
 .env*.local
+.env.submit
 
 # Development
 development/
@@ -42,3 +43,6 @@ tsconfig.tsbuildinfo
 
 # Build outputs
 *.zip
+
+# Documentation
+docs/

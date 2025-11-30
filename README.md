@@ -54,39 +54,64 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 ---
 
-## 🛠️ Tech Stack
+## 📊 Current Progress
 
-### Core Framework
+### 🚧 In Progress (Phase 1)
 
-- **WXT** - Next-gen browser extension framework with Vite
-- **React 19** - Latest React with concurrent features
-- **TypeScript 5.7+** - Strict type safety throughout
-- **Bun** - Ultra-fast runtime and package manager
+- [x] Memory CRUD operations
+- [x] AI-powered categorization & tagging
+- [x] Encrypted API key storage
+- [x] Extension popup & options UI
+- [x] Search, filter, sort functionality
+- [x] Import/Export (CSV)
+- [x] Theme support (light/dark)
+- [x] Settings management
+- [x] Form detection algorithm
+- [x] Field-to-memory matching
+- [x] Auto-fill engine with confidence scoring
+- [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
+- [x] Autofill directly without preview mode (autopilot mode)
+- [x] Let AI rephrase questions/answers on memory creation
+- [x] Top used tags & click-to-add functionality
+- [x] Ollama AI provider support
+- [x] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
+- [x] Firefox support
 
-### UI & Styling
+### 📋 In Progress (Phase 2, Nov 25th)
 
-- **shadcn/ui** - Copy-paste accessible components
-- **Tailwind CSS v4** - Utility-first styling
-- **Radix UI** - Headless UI primitives
-- **TanStack Form** - Type-safe form management
+#### Free features
 
-### State & Storage
+- [ ] Cache Previous fill results for faster fill on similar form fields/urls
+- [ ] Store unfilled questions along with user filled answers as memories automatically
+- [ ] Parse pdf to extract content for memory creation
+- [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
+- [ ] Browser native autofill integration (bypass extension popup)
+- [ ] Explore alternate modes:
+  - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
+  - [ ] Copilot mode (Sidebar with memory suggestions as you type)
+- [ ] MCP support
+- [ ] Upvote/downvote memory suggestions
+- [ ] Multi page form support
+- [ ] Semantic search across stored data
+- [ ] Customizable autofill shortcuts
+- [ ] Customizable autofill templates (Industry-specific templates)
+- [ ] Custom AI prompts
 
-- **Zustand** - Minimal state management (<1KB)
-- **WXT Storage API** - Cross-browser compatible storage
-- **@tanstack/react-virtual** - Virtual scrolling for performance
+#### Premium features
 
-### AI Integration
-
-- **Vercel AI SDK v5** - Unified LLM interface
-- **Zod** - Runtime type validation
-- **Structured Outputs** - Type-safe AI responses
-
-### Security
-
-- **Web Crypto API** - Native browser encryption
-- **AES-GCM** - Authenticated encryption
-- **PBKDF2** - Key derivation function
+- [x] Cloud AI model integration
+- [x] Sign in & cloud sync
+- [ ] Multi-device support
+- [ ] Reinforcement learning for user corrections
+- [ ] AI model memory prediction improvement
+- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
+- [ ] Team features
+- [ ] Analytics dashboard
+- [ ] SOC 2 Type II certification
+- [ ] GDPR compliance
+- [ ] Data residency options
+- [ ] Audit logs
+- [ ] SSO integration
 
 ---
 
@@ -178,7 +203,7 @@ bun dev
 bun build
 
 # Build for specific browser
-bun build --browser firefox
+bun build:firefox
 
 # Type checking
 bun run typecheck
@@ -193,66 +218,8 @@ bun run lint
 |---------|--------|-------|
 | Chrome | ✅ Fully Supported | Manifest V3 |
 | Edge | ✅ Fully Supported | Chrome-compatible |
-| Firefox | 🚧 Planned | WXT supports MV2/MV3 |
+| Firefox | ✅ Fully Supported | WXT supports MV2/MV3 |
 | Safari | 🚧 Planned | Requires adjustments |
-
----
-
-## 📊 Current Progress
-
-### 🚧 In Progress (Phase 1)
-
-- [x] Memory CRUD operations
-- [x] AI-powered categorization & tagging
-- [x] Encrypted API key storage
-- [x] Extension popup & options UI
-- [x] Search, filter, sort functionality
-- [x] Import/Export (CSV)
-- [x] Theme support (light/dark)
-- [x] Settings management
-- [x] Form detection algorithm
-- [x] Field-to-memory matching
-- [x] Auto-fill engine with confidence scoring
-- [x] Multiple AI provider support (OpenAI, Anthropic, Groq, DeepSeek, Google Gemini)
-- [x] Autofill directly without preview mode (autopilot mode)
-- [x] Let AI rephrase questions/answers on memory creation (Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! 🙏)
-- [x] Top used tags & click-to-add functionality
-- [x] Ollama AI provider support
-- [ ] Let AI rephrase suggested answers on auto-fill based on form, webpage, website & URL context
-- [ ] Firefox support (in-progress, submission made to Firefox Add-ons store)
-- [ ] Semantic search across stored data
-- [ ] Mark memories as favorites
-
-### 📋 In Progress (Phase 2, Nov 15th)
-
-#### Free features
-
-- [ ] Browser native autofill integration (bypass extension popup)
-- [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition
-- [ ] Auto adding memories from filled forms based on user confirmation
-- [ ] MCP support
-- [ ] Upvote/downvote memory suggestions
-- [ ] Multi page form support
-- [ ] Customizable autofill shortcuts
-- [ ] Customizable autofill templates (Industry-specific templates)
-- [ ] Custom AI prompts
-- [ ] Parse pdf to extract content for memory creation
-
-#### Premium features
-
-- [x] Cloud AI model integration
-- [x] Sign in & cloud sync
-- [ ] Multi-device support
-- [ ] Reinforcement learning for user corrections
-- [ ] AI model memory prediction improvement
-- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
-- [ ] Team features
-- [ ] Analytics dashboard
-- [ ] SOC 2 Type II certification
-- [ ] GDPR compliance
-- [ ] Data residency options
-- [ ] Audit logs
-- [ ] SSO integration
 
 ---
 
@@ -283,12 +250,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **shadcn/ui** - Beautiful component library
 - **Vercel AI SDK** - Unified LLM interface
 - **Bun** - Lightning-fast runtime
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/mikr13/superfill.ai/issues)
 
 ---
 

@@ -6,13 +6,13 @@ import {
   getProviderConfig,
   validateProviderKey,
 } from "@/lib/providers/registry";
-import { useSettingsStore } from "@/stores/settings";
+import { keyVault } from "@/lib/security/key-vault";
+import { storage } from "@/lib/storage";
+import type { AISettings } from "@/types/settings";
 
 export const PROVIDER_KEYS_QUERY_KEY = ["provider-keys"] as const;
 
 export function useProviderKeyStatuses() {
-  const getApiKey = useSettingsStore((state) => state.getApiKey);
-
   return useQuery({
     queryKey: PROVIDER_KEYS_QUERY_KEY,
     queryFn: async () => {
@@ -20,7 +20,7 @@ export function useProviderKeyStatuses() {
 
       await Promise.all(
         AI_PROVIDERS.map(async (provider) => {
-          const key = await getApiKey(provider);
+          const key = await keyVault.getKey(provider);
           statuses[provider] = key !== null;
         }),
       );
@@ -33,11 +33,6 @@ export function useProviderKeyStatuses() {
 
 export function useSaveApiKeyWithModel() {
   const queryClient = useQueryClient();
-  const setApiKey = useSettingsStore((state) => state.setApiKey);
-  const setSelectedProvider = useSettingsStore(
-    (state) => state.setSelectedProvider,
-  );
-  const setSelectedModel = useSettingsStore((state) => state.setSelectedModel);
 
   return useMutation({
     mutationFn: async ({
@@ -55,8 +50,24 @@ export function useSaveApiKeyWithModel() {
         throw new Error(`Invalid ${config.name} API key format`);
       }
 
-      await setApiKey(provider, key);
-      await setSelectedModel(provider, defaultModel);
+      if (await keyVault.validateKey(provider, key)) {
+        await keyVault.storeKey(provider, key);
+
+        const currentSettings = await storage.aiSettings.getValue();
+        const updatedModels = {
+          ...currentSettings.selectedModels,
+          [provider]: defaultModel,
+        };
+        const updatedSettings: AISettings = {
+          ...currentSettings,
+          selectedProvider: provider,
+          selectedModels: updatedModels,
+        };
+
+        await storage.aiSettings.setValue(updatedSettings);
+      } else {
+        throw new Error("Invalid API key");
+      }
 
       return { provider, key, defaultModel };
     },
@@ -68,7 +79,6 @@ export function useSaveApiKeyWithModel() {
       });
 
       await queryClient.invalidateQueries({ queryKey: ["models", provider] });
-      await setSelectedProvider(provider);
 
       toast.success(`${config.name} API key saved successfully`);
     },
@@ -80,11 +90,10 @@ export function useSaveApiKeyWithModel() {
 
 export function useDeleteApiKey() {
   const queryClient = useQueryClient();
-  const deleteApiKey = useSettingsStore((state) => state.deleteApiKey);
 
   return useMutation({
     mutationFn: async (provider: AIProvider) => {
-      await deleteApiKey(provider);
+      await keyVault.deleteKey(provider);
       return provider;
     },
     onSuccess: async (provider) => {

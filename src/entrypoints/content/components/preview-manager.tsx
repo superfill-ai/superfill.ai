@@ -6,11 +6,9 @@ import {
 } from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
-import { useSettingsStore } from "@/stores/settings";
+import { storage } from "@/lib/storage";
 import type { AutofillProgress } from "@/types/autofill";
 import type { FormField, FormMapping } from "@/types/memory";
-import { Theme } from "@/types/theme";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -22,8 +20,7 @@ import type {
   PreviewFieldData,
   PreviewSidebarPayload,
 } from "../../../types/autofill";
-import { AutofillLoading } from "./autofill-loading";
-import { AutofillPreview } from "./autofill-preview";
+import { AutofillContainer } from "./autofill-container";
 
 const logger = createLogger("preview-manager");
 
@@ -88,6 +85,7 @@ const buildPreviewFields = (
           fieldOpid: field.opid,
           memoryId: null,
           value: null,
+          rephrasedValue: null,
           confidence: 0,
           reasoning: "No suggestion generated",
           alternativeMatches: [],
@@ -133,6 +131,9 @@ export class PreviewSidebarManager {
   private highlightedElement: HTMLElement | null = null;
   private mappingLookup: Map<string, FieldMapping> = new Map();
   private sessionId: string | null = null;
+  private currentMode: "loading" | "preview" = "loading";
+  private currentProgress: AutofillProgress | null = null;
+  private currentData: PreviewRenderData | null = null;
 
   constructor(options: PreviewSidebarManagerOptions) {
     this.options = options;
@@ -146,9 +147,14 @@ export class PreviewSidebarManager {
     }
 
     this.sessionId = payload.sessionId;
+    this.currentMode = "preview";
+    this.currentData = renderData;
 
     const ui = await this.ensureUi();
-    ui.mount();
+
+    if (!ui.mounted) {
+      ui.mount();
+    }
 
     const root = ui.mounted ?? this.reactRoot;
 
@@ -157,21 +163,18 @@ export class PreviewSidebarManager {
     }
 
     this.reactRoot = root;
-
-    root.render(
-      <AutofillPreview
-        data={renderData}
-        onClose={() => this.destroy()}
-        onFill={(selected: FieldOpId[]) => this.handleFill(selected)}
-        onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
-        onUnhighlight={() => this.clearHighlight()}
-      />,
-    );
+    this.renderCurrentState();
   }
 
   async showProgress(progress: AutofillProgress) {
+    this.currentMode = "loading";
+    this.currentProgress = progress;
+
     const ui = await this.ensureUi();
-    ui.mount();
+
+    if (!ui.mounted) {
+      ui.mount();
+    }
 
     const root = ui.mounted ?? this.reactRoot;
 
@@ -180,9 +183,24 @@ export class PreviewSidebarManager {
     }
 
     this.reactRoot = root;
+    this.renderCurrentState();
+  }
 
-    root.render(
-      <AutofillLoading progress={progress} onClose={() => this.destroy()} />,
+  private renderCurrentState() {
+    if (!this.reactRoot) {
+      return;
+    }
+
+    this.reactRoot.render(
+      <AutofillContainer
+        mode={this.currentMode}
+        progress={this.currentProgress ?? undefined}
+        data={this.currentData ?? undefined}
+        onClose={() => this.destroy()}
+        onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
+        onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
+        onUnhighlight={() => this.clearHighlight()}
+      />,
     );
   }
 
@@ -196,25 +214,25 @@ export class PreviewSidebarManager {
     this.mappingLookup.clear();
   }
 
-  private async handleFill(selectedFieldOpids: FieldOpId[]) {
+  private async handleFill(
+    fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
+  ) {
     const memoryIds: string[] = [];
+    const filledFieldOpids: FieldOpId[] = [];
 
-    for (const fieldOpid of selectedFieldOpids) {
+    for (const { fieldOpid, value } of fieldsToFill) {
       const detected = this.options.getFieldMetadata(fieldOpid);
 
       if (!detected) {
         continue;
       }
 
+      this.applyValueToElement(detected.element, value);
+      filledFieldOpids.push(fieldOpid);
+
       const mapping = this.mappingLookup.get(fieldOpid);
 
-      if (!mapping || !mapping.value) {
-        continue;
-      }
-
-      this.applyValueToElement(detected.element, mapping.value);
-
-      if (mapping.memoryId) {
+      if (mapping?.memoryId) {
         memoryIds.push(mapping.memoryId);
       }
     }
@@ -238,7 +256,7 @@ export class PreviewSidebarManager {
           status: "filling",
         });
 
-        const formMappings = await this.buildFormMappings(selectedFieldOpids);
+        const formMappings = await this.buildFormMappings(filledFieldOpids);
 
         if (formMappings.length > 0) {
           await contentAutofillMessaging.sendMessage("saveFormMappings", {
@@ -254,12 +272,8 @@ export class PreviewSidebarManager {
         await this.showProgress({
           state: "completed",
           message: "Auto-fill completed successfully",
-          fieldsDetected: selectedFieldOpids.length,
+          fieldsDetected: filledFieldOpids.length,
           fieldsMatched: memoryIds.length,
-        });
-        await contentAutofillMessaging.sendMessage("updateSessionStatus", {
-          sessionId: this.sessionId,
-          status: "completed",
         });
 
         logger.info("Session completed:", this.sessionId);
@@ -277,7 +291,7 @@ export class PreviewSidebarManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await store.memories.getValue();
+      const memories = await storage.memories.getValue();
       const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
@@ -452,7 +466,6 @@ export class PreviewSidebarManager {
       onMount: (uiContainer, _shadow, host) => {
         host.id = HOST_ID;
         host.setAttribute("data-ui-type", "preview");
-        uiContainer.innerHTML = "";
 
         const mountPoint = document.createElement("div");
         mountPoint.id = "superfill-autofill-preview-root";
@@ -468,11 +481,11 @@ export class PreviewSidebarManager {
 
         this.reactRoot = root;
 
-        const currentTheme = useSettingsStore.getState().theme;
+        (async () => {
+          const uiSettings = await storage.uiSettings.getValue();
 
-        uiContainer.classList.add(
-          currentTheme === Theme.DARK ? "dark" : "light",
-        );
+          uiContainer.classList.add(uiSettings.theme);
+        })();
 
         return root;
       },

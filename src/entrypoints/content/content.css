@@ -1,5 +1,5 @@
 /* biome-ignore-all lint: reason: CSS files in content scripts require all rules to have !important */
-@import "../../styles/globals.css";
+@import "~/assets/globals.css";
 
 :host {
   position: fixed !important;

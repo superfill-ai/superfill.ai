@@ -1,6 +1,6 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
-import { store } from "@/lib/storage";
+import { storage } from "@/lib/storage";
 import { ERROR_MESSAGE_API_KEY_NOT_CONFIGURED } from "../errors";
 import {
   type AnalysisResult,
@@ -24,7 +24,7 @@ class CategorizationService {
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
-      const aiSettings = await store.aiSettings.getValue();
+      const aiSettings = await storage.aiSettings.getValue();
       const { selectedProvider, selectedModels } = aiSettings;
 
       if (!selectedProvider) {
@@ -59,7 +59,7 @@ class CategorizationService {
     }
 
     try {
-      const aiSettings = await store.aiSettings.getValue();
+      const aiSettings = await storage.aiSettings.getValue();
       const { selectedProvider, selectedModels } = aiSettings;
 
       if (!selectedProvider) {
