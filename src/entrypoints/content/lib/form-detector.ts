@@ -209,6 +209,9 @@ export class FormDetector {
   private createDetectedField(element: FormFieldElement): DetectedField {
     const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
 
+    // Add opid as data attribute to the DOM element for later querying
+    element.setAttribute("data-wxt-field-opid", opid);
+
     const field: DetectedField = {
       opid,
       element,

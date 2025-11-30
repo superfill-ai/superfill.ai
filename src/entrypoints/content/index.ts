@@ -16,6 +16,7 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import { AutopilotManager } from "./components/autopilot-manager";
+import { FillTriggerManager } from "./components/fill-trigger-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { FormDetector } from "./lib/form-detector";
@@ -27,6 +28,7 @@ const fieldCache = new Map<FieldOpId, DetectedField>();
 let serializedFormCache: DetectedFormSnapshot[] = [];
 let previewManager: PreviewSidebarManager | null = null;
 let autopilotManager: AutopilotManager | null = null;
+let fillTriggerManager: FillTriggerManager | null = null;
 
 const cacheDetectedForms = (forms: DetectedForm[]) => {
   formCache.clear();
@@ -106,6 +108,10 @@ export default defineContentScript({
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
 
+    // Initialize fill trigger manager
+    fillTriggerManager = new FillTriggerManager();
+    fillTriggerManager.initialize();
+
     contentAutofillMessaging.onMessage(
       "detectForms",
       async (): Promise<DetectFormsResult> => {
@@ -139,7 +145,7 @@ export default defineContentScript({
 
           const totalFields = forms.reduce(
             (sum, form) => sum + form.fields.length,
-            0,
+            0
           );
 
           logger.info("Detected forms and fields:", forms.length, totalFields);
@@ -174,7 +180,7 @@ export default defineContentScript({
           logger.info("Extracted website context:", websiteContext);
 
           logger.info(
-            `Detected ${forms.length} forms with ${totalFields} total fields`,
+            `Detected ${forms.length} forms with ${totalFields} total fields`
           );
 
           return {
@@ -192,7 +198,7 @@ export default defineContentScript({
             error: error instanceof Error ? error.message : "Unknown error",
           };
         }
-      },
+      }
     );
 
     contentAutofillMessaging.onMessage(
@@ -220,13 +226,13 @@ export default defineContentScript({
           logger.error("Error updating progress:", error);
           return false;
         }
-      },
+      }
     );
 
     contentAutofillMessaging.onMessage(
       "showPreview",
       async ({ data }: { data: PreviewSidebarPayload }) => {
-        logger.info("Received preview payload from background", {
+        logger.info("🟡 showPreview handler called - WILL SHOW SIDEBAR", {
           mappings: data.mappings.length,
           forms: data.forms.length,
         });
@@ -254,7 +260,7 @@ export default defineContentScript({
             await manager.processAutofillData(
               data.mappings,
               settingStore.confidenceThreshold,
-              data.sessionId,
+              data.sessionId
             );
 
             logger.info("Autopilot manager processed data successfully");
@@ -281,7 +287,7 @@ export default defineContentScript({
           });
           throw error;
         }
-      },
+      }
     );
 
     contentAutofillMessaging.onMessage("closePreview", async () => {
@@ -291,6 +297,10 @@ export default defineContentScript({
 
       if (autopilotManager) {
         autopilotManager.hide();
+      }
+
+      if (fillTriggerManager) {
+        fillTriggerManager.destroy();
       }
 
       return true;
