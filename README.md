@@ -118,7 +118,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 ### Prerequisites
 
 - **Bun** v1.1+ ([Install Bun](https://bun.sh/))
-- **Node.js** 20+ (for compatibility)
+- **Node.js** 24+ (for compatibility)
 - Modern browser (Chrome, Edge, Firefox)
 
 ### Installation
@@ -155,8 +155,6 @@ bun dev
 4. Select your preferred provider
 5. Click "Save API Keys"
 
----
-
 ## 🎮 Usage
 
 ### Adding a Memory
@@ -186,8 +184,6 @@ bun dev
    - **API Keys**: Set provider credentials
    - **Trigger Mode**: Popup (default, others coming soon)
    - **Copilot Mode**: Enable/disable (coming soon)
-
----
 
 ## 🧪 Development
 
@@ -219,8 +215,6 @@ bun run lint
 | Firefox | ✅ Fully Supported | WXT supports MV2/MV3 |
 | Safari | 🚧 Planned | Requires adjustments |
 
----
-
 ## 🤝 Contributing
 
 Contributions are welcome! This is an open-source project (Core features will always remain free & open-source).
@@ -233,13 +227,9 @@ Contributions are welcome! This is an open-source project (Core features will al
 
 Please read our [AI Development Guide](AGENTS.md) for code style and architecture guidelines.
 
----
-
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
----
 
 ## 🙏 Acknowledgments
 
@@ -248,7 +238,5 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **shadcn/ui** - Beautiful component library
 - **Vercel AI SDK** - Unified LLM interface
 - **Bun** - Lightning-fast runtime
-
----
 
 **Built with ❤️ by [mikr13](https://mikr13.com) using AI-first principles**. Give this repo a ⭐ if you found it helpful!
