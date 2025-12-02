@@ -44,5 +44,8 @@ tsconfig.tsbuildinfo
 # Build outputs
 *.zip
 
+# Safari xcode project
+Superfill.ai
+
 # Documentation
 docs/
