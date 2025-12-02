@@ -27,7 +27,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - **Contextual Matching**: AI matches form fields to stored memories based on context
 - **Auto-Fill Suggestions**: AI suggests the best answer for each form field
 - **Multiple Providers**: Support for OpenAI, Anthropic, Google, Groq, and DeepSeek
-- **Auto-Categorization**: AI analyzes your answers and suggests categories
+- **AI Categorization**: AI analyzes your answers and suggests categories
 - **Rephrasing**: AI can rephrase questions and answers for clarity and relevance
 - **Smart Tags**: Automatically extracts relevant keywords from content
 - **Confidence Scoring**: Every memory gets a confidence score (0-1)
@@ -137,10 +137,33 @@ bun dev
 
 ### Load Extension in Chrome/Edge
 
-1. Open `chrome://extensions/` (or `edge://extensions/`)
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked"
-4. Select the `.output/chrome-mv3` directory
+Wxt handles loading automatically in development mode. To persist browser data in Chrome/Edge:
+
+1. Create a file named `wxt-ext.config.ts` in the project root with the following content:
+
+   ```ts
+    import { existsSync, mkdirSync } from 'node:fs';
+
+    import { resolve } from 'node:path';
+    import { defineWebExtConfig } from 'wxt';
+
+    export default defineWebExtConfig({
+      binaries: {
+        chrome: "PATH TO YOUR CHROME/CHROMIUM BROWSER",
+      },
+      chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
+      firefoxProfile: resolve('.wxt/firefox-profile'),
+      keepProfileChanges: true,
+    });
+
+    const _firefoxProfileDir = resolve('.wxt/firefox-profile');
+    if (!existsSync(_firefoxProfileDir)) {
+      mkdirSync(_firefoxProfileDir, { recursive: true });
+    }
+   ```
+
+2. Replace `PATH TO YOUR CHROME/CHROMIUM BROWSER` with the actual path to your browser executable.
+3. Restart the development server: `bun dev`
 
 ### Configure API Keys
 
@@ -162,7 +185,7 @@ bun dev
 1. Click the extension icon
 2. Go to "Add Memory" tab
 3. Enter your answer (question is optional)
-4. AI will auto-suggest tags and category
+4. AI can suggest tags and category
 5. Press `Cmd+Enter` (Mac) / `Ctrl+Enter` (Windows) to save
 
 ### Managing Memories
@@ -183,7 +206,7 @@ bun dev
    - **Autofill**: Enable/disable + confidence threshold
    - **API Keys**: Set provider credentials
    - **Trigger Mode**: Popup (default, others coming soon)
-   - **Copilot Mode**: Enable/disable (coming soon)
+   - **Copilot Mode**: Enable/disable
 
 ## 🧪 Development
 
