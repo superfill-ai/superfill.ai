@@ -11,6 +11,8 @@
 
 Superfill.ai is a cross-browser memory extension that eliminates repetitive data entry by creating an intelligent memory layer. Using AI-powered categorization and matching, it understands form context and provides accurate, relevant answers across job applications, dating sites, rental forms, surveys, and more.
 
+**Current Status**: Phase 1 is complete! Core memory management and AI auto-fill features are live but only for input & textarea fields. Phase 2 (in progress) will add advanced features like select/radio/checkbox/date/async selection options support, alternate fill modes, Safari support, and premium cloud sync features one by one.
+
 (人◕ω◕) Please give this repo a ⭐. Thank you \(★ω★)/
 
 ## ✨ Features
