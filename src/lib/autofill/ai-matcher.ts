@@ -301,7 +301,7 @@ export class AIMatcher {
         (m, idx) => `
           **Memory ${idx + 1}**
           - question: ${m.question || "none"}
-          - answer: ${m.answer.substring(0, 100)}
+          - answer: ${m.answer}
           - category: ${m.category}`,
       )
       .join("\n");
