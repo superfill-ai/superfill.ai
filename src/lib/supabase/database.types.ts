@@ -188,6 +188,122 @@ export type Database = {
         };
         Relationships: [];
       };
+      payments: {
+        Row: {
+          amount: number;
+          created_at: string;
+          currency: string;
+          dodo_payment_id: string;
+          id: string;
+          invoice_url: string | null;
+          payment_method: string | null;
+          status: string;
+          subscription_id: string | null;
+          user_id: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          currency?: string;
+          dodo_payment_id: string;
+          id?: string;
+          invoice_url?: string | null;
+          payment_method?: string | null;
+          status: string;
+          subscription_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          dodo_payment_id?: string;
+          id?: string;
+          invoice_url?: string | null;
+          payment_method?: string | null;
+          status?: string;
+          subscription_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payments_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      subscriptions: {
+        Row: {
+          amount: number;
+          billing_interval: string;
+          cancel_at_period_end: boolean;
+          cancelled_at: string | null;
+          created_at: string;
+          currency: string;
+          current_period_end: string;
+          current_period_start: string;
+          dodo_customer_id: string;
+          dodo_subscription_id: string;
+          id: string;
+          product_id: string;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          amount: number;
+          billing_interval: string;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          current_period_end: string;
+          current_period_start: string;
+          dodo_customer_id: string;
+          dodo_subscription_id: string;
+          id?: string;
+          product_id: string;
+          status: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          billing_interval?: string;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          current_period_end?: string;
+          current_period_start?: string;
+          dodo_customer_id?: string;
+          dodo_subscription_id?: string;
+          id?: string;
+          product_id?: string;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       sync_logs: {
         Row: {
           conflict_resolution_strategy: string | null;
@@ -230,6 +346,7 @@ export type Database = {
       users: {
         Row: {
           created_at: string;
+          dodo_customer_id: string | null;
           id: string;
           is_active: boolean;
           last_synced_at: string | null;
@@ -239,6 +356,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          dodo_customer_id?: string | null;
           id: string;
           is_active?: boolean;
           last_synced_at?: string | null;
@@ -248,12 +366,49 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          dodo_customer_id?: string | null;
           id?: string;
           is_active?: boolean;
           last_synced_at?: string | null;
           plan?: string;
           settings?: Json | null;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      webhook_logs: {
+        Row: {
+          attempts: number;
+          created_at: string;
+          error_message: string | null;
+          event_type: string;
+          id: string;
+          payload: Json;
+          processed: boolean;
+          processed_at: string | null;
+          webhook_id: string;
+        };
+        Insert: {
+          attempts?: number;
+          created_at?: string;
+          error_message?: string | null;
+          event_type: string;
+          id?: string;
+          payload: Json;
+          processed?: boolean;
+          processed_at?: string | null;
+          webhook_id: string;
+        };
+        Update: {
+          attempts?: number;
+          created_at?: string;
+          error_message?: string | null;
+          event_type?: string;
+          id?: string;
+          payload?: Json;
+          processed?: boolean;
+          processed_at?: string | null;
+          webhook_id?: string;
         };
         Relationships: [];
       };
@@ -265,6 +420,7 @@ export type Database = {
       cleanup_expired_login_tokens: { Args: never; Returns: undefined };
       cleanup_expired_pkce_codes: { Args: never; Returns: undefined };
       cleanup_old_sync_logs: { Args: never; Returns: undefined };
+      cleanup_old_webhook_logs: { Args: never; Returns: undefined };
       get_memories_since: {
         Args: { since_timestamp?: string };
         Returns: {
@@ -284,6 +440,21 @@ export type Database = {
           updated_at: string;
           usage_count: number;
         }[];
+      };
+      get_user_active_subscription: {
+        Args: { p_user_id: string };
+        Returns: {
+          billing_interval: string;
+          cancel_at_period_end: boolean;
+          current_period_end: string;
+          id: string;
+          product_id: string;
+          status: string;
+        }[];
+      };
+      has_active_subscription: {
+        Args: { p_user_id: string };
+        Returns: boolean;
       };
       upsert_memory: {
         Args: {

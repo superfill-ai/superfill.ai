@@ -2,8 +2,8 @@ import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getAuthService } from "@/lib/auth/auth-service";
 import { getAIModel } from "@/lib/ai/model-factory";
+import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
