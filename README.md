@@ -7,34 +7,30 @@
 [![WXT](https://img.shields.io/badge/WXT-Framework-orange.svg)](https://wxt.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
----
-
 ## 🎯 Overview
 
 Superfill.ai is a cross-browser memory extension that eliminates repetitive data entry by creating an intelligent memory layer. Using AI-powered categorization and matching, it understands form context and provides accurate, relevant answers across job applications, dating sites, rental forms, surveys, and more.
 
-**Current Status**: Phase 1 In-progress - Local storage with BYOK (Bring Your Own Key) AI integration
-
 (人◕ω◕) Please give this repo a ⭐. Thank you \(★ω★)/
-
----
 
 ## ✨ Features
 
 ### 🧠 Memory Management
 
-- **Create & Edit Memories**: Question-answer pairs with AI-powered auto-categorization
+- **Create & Edit Memories**: Question-answer pairs with AI-powered auto-categorization and rephrasing
 - **Smart Tagging**: Multi-tag system with intelligent tag suggestions
 - **Advanced Filtering**: Search, sort, and filter by category, tags, or content
-- **Virtual Scrolling**: Handle 1000+ memories without performance issues
 - **Import/Export**: CSV support for bulk operations and backups
 
 ### 🤖 AI-Powered Intelligence
 
+- **Contextual Matching**: AI matches form fields to stored memories based on context
+- **Auto-Fill Suggestions**: AI suggests the best answer for each form field
+- **Multiple Providers**: Support for OpenAI, Anthropic, Google, Groq, and DeepSeek
 - **Auto-Categorization**: AI analyzes your answers and suggests categories
+- **Rephrasing**: AI can rephrase questions and answers for clarity and relevance
 - **Smart Tags**: Automatically extracts relevant keywords from content
 - **Confidence Scoring**: Every memory gets a confidence score (0-1)
-- **Multiple Providers**: Support for OpenAI, Anthropic, Google, Groq, and DeepSeek
 
 ### 🔒 Privacy & Security
 
@@ -52,11 +48,9 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - **shadcn/ui Components**: Beautiful, accessible UI components
 - **Real-time Updates**: Instant feedback with optimistic updates
 
----
-
 ## 📊 Current Progress
 
-### 🚧 In Progress (Phase 1)
+### ✅ Completed (Phase 1)
 
 - [x] Memory CRUD operations
 - [x] AI-powered categorization & tagging
@@ -82,15 +76,18 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 #### Free features
 
 ##### WIP
-- [ ] Cache Previous fill results for faster fill on similar form fields/urls
+
 - [ ] Store unfilled questions along with user filled answers as memories automatically
 - [ ] Parse pdf to extract content for memory creation. Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition.
 
 ##### NOT STARTED
+
+- [ ] Cache Previous fill results for faster fill on similar form fields/urls
 - [ ] Explore alternate modes:
   - [ ] Browser native autofill integration (bypass extension popup)
   - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
   - [ ] Copilot mode (Sidebar with memory suggestions as you type)
+- [ ] Support for select, radio, checkbox fields
 - [ ] Prompt caching for faster AI responses
 - [ ] MCP support
 - [ ] Upvote/downvote memory suggestions
@@ -98,15 +95,16 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - [ ] Customizable autofill shortcuts
 - [ ] Customizable autofill templates (Industry-specific templates)
 - [ ] Custom AI prompts
+- [ ] Safari support
+- [ ] Automated testing suite
 
 #### Premium features
 
 - [x] Cloud AI model integration
 - [x] Sign in & cloud sync
-- [ ] Multi-device support
 - [ ] Reinforcement learning for user corrections
 - [ ] AI model memory prediction improvement
-- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
+- [ ] Agentic RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
 - [ ] Team features
 - [ ] Analytics dashboard
 - [ ] SOC 2 Type II certification
@@ -114,8 +112,6 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - [ ] Data residency options
 - [ ] Audit logs
 - [ ] SSO integration
-
----
 
 ## 🚀 Quick Start
 
