@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.1.8
+
+### Patch Changes
+
+- [`f5e21fb`](https://github.com/superfill-ai/superfill.ai/commit/f5e21fb5e9a6e8430acb88c31ab1be66806f9fd7) Thanks [@mikr13](https://github.com/mikr13)! - fix: update answer display in AIMatcher to show full answer instead of truncated version
+
 ## 0.1.7
 
 ### Patch Changes
