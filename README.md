@@ -1,4 +1,4 @@
-# <img src="./public/favicon.svg" alt="Superfill.ai favicon" width="32"/> &nbsp; [Superfill.ai](https://superfill.ai)
+# <img src="./public/favicon.svg" alt="Superfill.ai favicon" width="32"/> &nbsp; [Superfill.ai](https://superfill.ai) 
 
 > An AI-powered browser extension that stores your information once and intelligently auto-fills forms across any website.
 
