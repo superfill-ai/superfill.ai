@@ -1,4 +1,4 @@
-# <img src="./public/favicon.svg" alt="Superfill.ai favicon" width="32"/> &nbsp; [Superfill.ai](https://superfill.ai) 
+# <img src="./public/favicon.svg" alt="Superfill.ai favicon" width="32"/> &nbsp; [Superfill.ai](https://superfill.ai)
 
 > An AI-powered browser extension that stores your information once and intelligently auto-fills forms across any website.
 
@@ -93,8 +93,10 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - [ ] Safari support
 
 ##### NOT STARTED
+
+- [ ] Cache Previous fill results for faster fill on similar form fields/urls
+- [ ] Image based matching algorithm for better context understanding
 - [ ] Explore alternate modes:
-  - [ ] Image based matching algorithm for better context understanding
   - [ ] Browser native autofill integration (bypass extension popup)
   - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
   - [ ] Enhanced Copilot mode (Sidebar with memory suggestions as you type)
