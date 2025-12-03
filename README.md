@@ -112,32 +112,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Bun** v1.1+ ([Install Bun](https://bun.sh/))
-- **Node.js** 24+ (for compatibility)
-- Modern browser (Chrome, Edge, Firefox)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/mikr13/superfill.ai.git
-cd superfill.ai
-
-# Install dependencies
-bun install
-
-# Start development mode
-bun dev
-```
-
-### Load Extension in Chrome/Edge
-
-1. Open `chrome://extensions/` (or `edge://extensions/`)
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked"
-4. Select the `.output/chrome-mv3` directory
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup instructions.
 
 ### Configure API Keys
 
@@ -151,57 +126,6 @@ bun dev
    - **Gemini (Google)**: Get key at [cloud.google.com/ai-generate](https://aistudio.google.com/)
 4. Select your preferred provider
 5. Click "Save API Keys"
-
-## 🎮 Usage
-
-### Adding a Memory
-
-1. Click the extension icon
-2. Go to "Add Memory" tab
-3. Enter your answer (question is optional)
-4. AI will auto-suggest tags and category
-5. Press `Cmd+Enter` (Mac) / `Ctrl+Enter` (Windows) to save
-
-### Managing Memories
-
-1. Open extension options page (Settings → Full Page)
-2. Go to "Memory" tab
-3. Search, filter, or sort memories
-4. Click any memory card to edit/delete/duplicate
-5. Use Import/Export for bulk operations
-6. Download CSV template for correct format
-
-### Configuring Settings
-
-1. Open extension options page
-2. Go to "Settings" tab
-3. Configure:
-   - **Theme**: Light/Dark/System
-   - **Autofill**: Enable/disable + confidence threshold
-   - **API Keys**: Set provider credentials
-   - **Trigger Mode**: Popup (default, others coming soon)
-   - **Copilot Mode**: Enable/disable (coming soon)
-
-## 🧪 Development
-
-### Commands
-
-```bash
-# Development mode with HMR
-bun dev
-
-# Build for production
-bun build
-
-# Build for specific browser
-bun build:firefox
-
-# Type checking
-bun run typecheck
-
-# Lint code
-bun run lint
-```
 
 ### Browser Support
 
