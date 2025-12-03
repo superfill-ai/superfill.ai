@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a new feature or enhancement.
+title: "[FEATURE] "
+labels: ["enhancement", "triage"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Short summary
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why is this needed?
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution / API / UI
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Small (docs / minor change)
+        - Medium (API change)
+        - Large (major feature)

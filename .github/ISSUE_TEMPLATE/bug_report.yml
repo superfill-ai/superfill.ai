@@ -1,0 +1,46 @@
+name: Bug report
+description: Use this template to report reproducible bugs. Provide exact steps and environment.
+title: "[BUG] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill in fields below. Attach logs and small repro if possible.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment (OS, browser, version)
+      description: e.g. "macOS 14.2, Chrome 121.0"
+      placeholder: "OS, browser, extension version"
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide numbered steps.
+      placeholder: "1. ...\n2. ..."
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs, stack traces, or error messages
+      description: Paste full logs or attach a gist.
+  - type: checkboxes
+    id: attachments
+    attributes:
+      label: Attachments
+      options:
+        - label: screenshot
+        - label: repro repository
+        - label: test case

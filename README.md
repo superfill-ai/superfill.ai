@@ -110,55 +110,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Bun** v1.1+ ([Install Bun](https://bun.sh/))
-- **Node.js** 24+ (for compatibility)
-- Modern browser (Chrome, Edge, Firefox)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/mikr13/superfill.ai.git
-cd superfill.ai
-
-# Install dependencies
-bun install
-
-# Start development mode
-bun dev
-```
-
-### Load Extension in Chrome/Edge
-
-Wxt handles loading automatically in development mode. To persist browser data in Chrome/Edge:
-
-1. Create a file named `wxt-ext.config.ts` in the project root with the following content:
-
-   ```ts
-    import { existsSync, mkdirSync } from 'node:fs';
-
-    import { resolve } from 'node:path';
-    import { defineWebExtConfig } from 'wxt';
-
-    export default defineWebExtConfig({
-      binaries: {
-        chrome: "PATH TO YOUR CHROME/CHROMIUM BROWSER",
-      },
-      chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
-      firefoxProfile: resolve('.wxt/firefox-profile'),
-      keepProfileChanges: true,
-    });
-
-    const _firefoxProfileDir = resolve('.wxt/firefox-profile');
-    if (!existsSync(_firefoxProfileDir)) {
-      mkdirSync(_firefoxProfileDir, { recursive: true });
-    }
-   ```
-
-2. Replace `PATH TO YOUR CHROME/CHROMIUM BROWSER` with the actual path to your browser executable.
-3. Restart the development server: `bun dev`
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup instructions.
 
 ### Configure API Keys
 
@@ -172,57 +124,6 @@ Wxt handles loading automatically in development mode. To persist browser data i
    - **Gemini (Google)**: Get key at [cloud.google.com/ai-generate](https://aistudio.google.com/)
 4. Select your preferred provider
 5. Click "Save API Keys"
-
-## 🎮 Usage
-
-### Adding a Memory
-
-1. Click the extension icon
-2. Go to "Add Memory" tab
-3. Enter your answer (question is optional)
-4. AI can suggest tags and category
-5. Press `Cmd+Enter` (Mac) / `Ctrl+Enter` (Windows) to save
-
-### Managing Memories
-
-1. Open extension options page (Settings → Full Page)
-2. Go to "Memory" tab
-3. Search, filter, or sort memories
-4. Click any memory card to edit/delete/duplicate
-5. Use Import/Export for bulk operations
-6. Download CSV template for correct format
-
-### Configuring Settings
-
-1. Open extension options page
-2. Go to "Settings" tab
-3. Configure:
-   - **Theme**: Light/Dark/System
-   - **Autofill**: Enable/disable + confidence threshold
-   - **API Keys**: Set provider credentials
-   - **Trigger Mode**: Popup (default, others coming soon)
-   - **Copilot Mode**: Enable/disable
-
-## 🧪 Development
-
-### Commands
-
-```bash
-# Development mode with HMR
-bun dev
-
-# Build for production
-bun build
-
-# Build for specific browser
-bun build:firefox
-
-# Type checking
-bun run typecheck
-
-# Lint code
-bun run lint
-```
 
 ### Browser Support
 
@@ -239,7 +140,7 @@ Contributions are welcome! This is an open-source project (Core features will al
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
+3. Commit changes (`git commit -m 'feat: add amazing feature'`)
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
