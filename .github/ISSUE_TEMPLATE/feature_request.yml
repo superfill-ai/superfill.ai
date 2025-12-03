@@ -1,27 +1,41 @@
 name: Feature request
-description: Propose a new feature or enhancement.
+description: Suggest an idea for this project
 title: "[FEATURE] "
-labels: ["enhancement", "triage"]
+labels: ["enhancement"]
 body:
-  - type: input
-    id: summary
+  - type: markdown
     attributes:
-      label: Short summary
-      required: true
+      value: |
+        Thank you for suggesting a new feature! Please describe your idea in detail below.
+
   - type: textarea
-    id: motivation
+    id: problem
     attributes:
-      label: Why is this needed?
+      label: Is your feature request related to a problem? Please describe.
+      description: A clear and concise description of what the problem is.
+      placeholder: Ex. I'm always frustrated when...
+    validations:
       required: true
+
   - type: textarea
-    id: proposal
+    id: solution
     attributes:
-      label: Proposed solution / API / UI
-  - type: dropdown
-    id: scope
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+      placeholder: What feature or enhancement would solve your problem?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
     attributes:
-      label: Scope
-      options:
-        - Small (docs / minor change)
-        - Medium (API change)
-        - Large (major feature)
+      label: Describe alternatives you've considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+      placeholder: What other approaches have you thought about?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context or screenshots about the feature request here.
+      placeholder: Any mockups, examples, or additional details...
