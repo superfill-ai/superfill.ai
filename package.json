@@ -80,7 +80,7 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.546.0",
-    "react": "^19.2.0",
+    "react": "^19.2.1",
     "react-circle-flags": "^0.0.24",
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.2.0",
