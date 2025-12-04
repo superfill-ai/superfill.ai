@@ -35,7 +35,7 @@ const entryFormSchema = z.object({
   question: z.string(),
   answer: z.string().min(1, "Answer is required"),
   tags: z.array(z.string()),
-  category: z.string().min(1, "Category is required"),
+  category: z.enum(allowedCategories),
 });
 
 interface EntryFormProps {
@@ -56,12 +56,9 @@ export function EntryForm({
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
-
   const { addEntry, updateEntry } = useMemoryMutations();
   const top10Tags = useTopUsedTags(10);
-
   const categorizationService = getCategorizationService();
-
   const form = useForm({
     defaultValues: {
       question: initialData?.question || "",
@@ -78,32 +75,36 @@ export function EntryForm({
           try {
             if (
               initialData &&
+              mode === "edit" &&
               allowedCategories.includes(initialData.category)
             ) {
-              if (mode === "edit") {
-                await updateEntry.mutateAsync({
-                  id: initialData.id,
-                  updates: {
-                    question: value.question,
-                    answer: value.answer,
-                    tags: value.tags,
-                    category: value.category as typeof initialData.category,
-                  },
-                });
-              } else {
-                await addEntry.mutateAsync({
+              await updateEntry.mutateAsync({
+                id: initialData.id,
+                updates: {
                   question: value.question,
                   answer: value.answer,
                   tags: value.tags,
-                  category: value.category as typeof initialData.category,
-                  confidence: 1.0,
-                });
-              }
-              onSuccess?.();
-              form.reset();
+                  category:
+                    value.category as (typeof allowedCategories)[number],
+                },
+              });
+            } else if (
+              mode === "create" &&
+              // @ts-expect-error: Dynamic check against allowed categories
+              allowedCategories.includes(value.category)
+            ) {
+              await addEntry.mutateAsync({
+                question: value.question,
+                answer: value.answer,
+                tags: value.tags,
+                category: value.category as (typeof allowedCategories)[number],
+                confidence: 1.0,
+              });
             } else {
-              throw new Error("Invalid initial data provided for editing.");
+              throw new Error("Invalid category selected.");
             }
+            onSuccess?.();
+            form.reset();
           } catch (error) {
             logger.error("Failed to save entry:", error);
             throw error;
