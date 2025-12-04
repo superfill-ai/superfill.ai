@@ -20,12 +20,7 @@ export function isCrypticString(str: string | null): boolean {
 }
 
 export function hasLabelsWithoutPlaceholder(metadata: FieldMetadata): boolean {
-  return (
-    !!metadata.labelTag ||
-    !!metadata.labelAria ||
-    !!metadata.labelTop ||
-    !!metadata.labelLeft
-  );
+  return !!metadata.labelTag || !!metadata.labelAria;
 }
 
 export function hasAnyLabel(metadata: FieldMetadata): boolean {
@@ -33,13 +28,7 @@ export function hasAnyLabel(metadata: FieldMetadata): boolean {
 }
 
 export function getPrimaryLabel(metadata: FieldMetadata): string | null {
-  return (
-    metadata.labelTag ||
-    metadata.labelAria ||
-    metadata.labelTop ||
-    metadata.labelLeft ||
-    null
-  );
+  return metadata.labelTag || metadata.labelAria || null;
 }
 
 export function hasValidContext(metadata: FieldMetadata): boolean {

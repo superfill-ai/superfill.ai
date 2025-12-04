@@ -1,5 +1,7 @@
 type MappingBase = {
-  fieldOpid: string;
+  selector: string;
+  /** @deprecated Use selector instead */
+  fieldOpid?: string;
   value: string | null;
   confidence: number;
   reasoning: string;
@@ -7,15 +9,15 @@ type MappingBase = {
 };
 
 export const createEmptyMapping = <
-  TField extends { opid: string },
+  TField extends { selector: string },
   TMapping extends MappingBase,
 >(
   field: TField,
   reason: string,
-  overrides?: Omit<Partial<TMapping>, "fieldOpid">,
+  overrides?: Omit<Partial<TMapping>, "selector">,
 ): TMapping => {
   const base: MappingBase = {
-    fieldOpid: field.opid,
+    selector: field.selector,
     value: null,
     confidence: 0,
     reasoning: reason,
@@ -24,7 +26,7 @@ export const createEmptyMapping = <
   return {
     ...base,
     ...(overrides ?? {}),
-    fieldOpid: field.opid,
+    selector: field.selector,
   } as TMapping;
 };
 

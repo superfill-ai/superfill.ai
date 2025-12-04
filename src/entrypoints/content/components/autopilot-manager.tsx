@@ -15,7 +15,7 @@ import type {
   FieldOpId,
   FormOpId,
 } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
+import type { FilledField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
 import { AutopilotLoader } from "./autopilot-loader";
 
@@ -35,9 +35,6 @@ const getPrimaryLabel = (
   const candidates = [
     metadata.labelTag,
     metadata.labelAria,
-    metadata.labelData,
-    metadata.labelTop,
-    metadata.labelLeft,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -168,7 +165,7 @@ export class AutopilotManager {
       }
 
       this.mappingLookup = new Map(
-        mappings.map((mapping: FieldMapping) => [mapping.fieldOpid, mapping]),
+        mappings.map((mapping: FieldMapping) => [mapping.selector, mapping]),
       );
       this.showProgress({
         state: "detecting",
@@ -186,7 +183,7 @@ export class AutopilotManager {
           mapping.autoFill !== false
         ) {
           fieldsToFill.push({
-            fieldOpid: mapping.fieldOpid,
+            fieldOpid: mapping.selector,
             value: valueToFill,
             confidence: mapping.confidence,
           });
@@ -353,8 +350,6 @@ export class AutopilotManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await storage.memories.getValue();
-      const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
       for (const fieldOpid of selectedFieldOpids) {
@@ -370,41 +365,29 @@ export class AutopilotManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
+        const formSelector = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const filledFields: FilledField[] = [];
 
         for (const field of fields) {
-          const mapping = this.mappingLookup.get(field.opid);
-          if (!mapping) continue;
+          const mapping = this.mappingLookup.get(field.selector);
+          if (!mapping || !mapping.value) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: field.selector,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value,
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.value !== null) {
-            const memory = memoryMap.get(mapping.value);
-            if (memory) {
-              matches.set(formField.name, memory);
-            }
-          }
+          filledFields.push(filledField);
         }
 
-        if (formFields.length > 0) {
+        if (filledFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
-            fields: formFields,
-            matches,
+            pageTitle: document.title,
+            formSelector,
+            fields: filledFields,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });
@@ -423,7 +406,7 @@ export class AutopilotManager {
     let count = 0;
 
     for (const field of fields) {
-      const mapping = this.mappingLookup.get(field.opid);
+      const mapping = this.mappingLookup.get(field.selector);
       if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;

@@ -268,12 +268,19 @@ class AutofillService {
         };
       }
 
+      // Combine DOM contexts from all forms (typically there's just one)
+      const domContext = forms
+        .map((form) => form.domContext)
+        .filter(Boolean)
+        .join("\n---\n");
+
       const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
       const mappings = await this.matchFields(
         fields,
         memories,
         websiteContext,
         apiKey,
+        domContext || undefined,
       );
       const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
@@ -302,6 +309,7 @@ class AutofillService {
     memories: MemoryEntry[],
     websiteContext: WebsiteContext,
     apiKey?: string,
+    domContext?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       return [];
@@ -346,6 +354,7 @@ class AutofillService {
         provider,
         apiKey,
         selectedModel,
+        domContext,
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);
@@ -357,15 +366,9 @@ class AutofillService {
   }
 
   private compressField(field: DetectedFieldSnapshot): CompressedFieldData {
-    const allLabels = [
-      field.metadata.labelTag,
-      field.metadata.labelAria,
-      field.metadata.labelData,
-      field.metadata.labelLeft,
-      field.metadata.labelTop,
-    ].filter(Boolean) as string[];
+    // Use primary label: prefer <label> tag, fall back to aria-label
+    const label = field.metadata.labelTag || field.metadata.labelAria || null;
 
-    const labels = Array.from(new Set(allLabels));
     const contextParts = [
       field.metadata.placeholder,
       field.metadata.helperText,
@@ -380,13 +383,37 @@ class AutofillService {
 
     const context = contextParts.filter(Boolean).join(" ");
 
-    return {
-      opid: field.opid,
+    const result: CompressedFieldData = {
+      selector: field.selector,
       type: field.metadata.fieldType,
       purpose: field.metadata.fieldPurpose,
-      labels,
+      label,
       context,
     };
+
+    // Add options for select fields (just the labels for AI matching)
+    if (field.metadata.options && field.metadata.options.length > 0) {
+      result.options = field.metadata.options.map(
+        (opt) => opt.label || opt.value,
+      );
+    }
+
+    // Add radio group info
+    if (field.metadata.radioGroup) {
+      result.radioGroup = {
+        name: field.metadata.radioGroup.name,
+        values: field.metadata.radioGroup.options.map(
+          (opt) => opt.label || opt.value,
+        ),
+      };
+    }
+
+    // Add checked state for checkboxes
+    if (field.metadata.fieldType === "checkbox") {
+      result.isChecked = field.metadata.isChecked;
+    }
+
+    return result;
   }
 
   private compressMemory(memory: MemoryEntry): CompressedMemoryData {
@@ -405,11 +432,11 @@ class AutofillService {
     const mappingMap = new Map<string, FieldMapping>();
 
     for (const mapping of mappings) {
-      mappingMap.set(mapping.fieldOpid, mapping);
+      mappingMap.set(mapping.selector, mapping);
     }
 
     return originalFields.map((field) => {
-      const mapping = mappingMap.get(field.opid);
+      const mapping = mappingMap.get(field.selector);
       if (!mapping) {
         return createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
           field,
@@ -438,7 +465,7 @@ class AutofillService {
 
       if (mapping.value !== null) {
         logger.debug(
-          `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
+          `Field ${mapping.selector}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
         );
       }
 

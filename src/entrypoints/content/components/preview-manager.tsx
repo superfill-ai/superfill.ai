@@ -8,7 +8,7 @@ import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messag
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type { AutofillProgress } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
+import type { FilledField, FormMapping } from "@/types/memory";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -55,9 +55,6 @@ const getPrimaryLabel = (
   const candidates = [
     metadata.labelTag,
     metadata.labelAria,
-    metadata.labelData,
-    metadata.labelTop,
-    metadata.labelLeft,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -79,9 +76,9 @@ const buildPreviewFields = (
   form.fields.map(
     (field: DetectedFormSnapshot["fields"][number]): PreviewFieldData => {
       const mapping =
-        mappingLookup.get(field.opid) ??
+        mappingLookup.get(field.selector) ??
         ({
-          fieldOpid: field.opid,
+          selector: field.selector,
           value: null,
           confidence: 0,
           reasoning: "No suggestion generated",
@@ -89,7 +86,8 @@ const buildPreviewFields = (
         } satisfies FieldMapping);
 
       return {
-        fieldOpid: field.opid,
+        selector: field.selector,
+        fieldOpid: field.opid, // For backward compatibility with UI
         formOpid: field.formOpid,
         metadata: field.metadata,
         mapping,
@@ -139,6 +137,21 @@ export class PreviewSidebarManager {
   async show({ payload }: PreviewShowParams) {
     const renderData = this.buildRenderData(payload);
     if (!renderData) {
+      // Show "no fields detected" message and auto-close
+      await this.showProgress({
+        state: "failed",
+        message: "No matching fields detected on this page",
+        fieldsDetected: payload.forms.reduce(
+          (sum, form) => sum + form.fields.length,
+          0,
+        ),
+        fieldsMatched: 0,
+      });
+
+      // Auto-close after 3 seconds
+      setTimeout(() => {
+        this.destroy();
+      }, 3000);
       return;
     }
 
@@ -244,9 +257,13 @@ export class PreviewSidebarManager {
           sessionId: this.sessionId,
         });
 
-        const matchedCount = filledFieldOpids.filter(
-          (opid) => this.mappingLookup.get(opid)?.value !== null,
-        ).length;
+        const matchedCount = filledFieldOpids.filter((opid) => {
+          const detected = this.options.getFieldMetadata(opid);
+          return (
+            detected &&
+            this.mappingLookup.get(detected.selector)?.value !== null
+          );
+        }).length;
 
         await this.showProgress({
           state: "completed",
@@ -269,6 +286,7 @@ export class PreviewSidebarManager {
   ): Promise<FormMapping[]> {
     try {
       const pageUrl = window.location.href;
+      const pageTitle = document.title;
       const formMappings: FormMapping[] = [];
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
@@ -285,38 +303,29 @@ export class PreviewSidebarManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
+        const formSelector = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const filledFields: FilledField[] = [];
 
         for (const field of fields) {
-          const mapping = this.mappingLookup.get(field.opid);
-          if (!mapping) continue;
+          const mapping = this.mappingLookup.get(field.selector);
+          if (!mapping || !mapping.value) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: field.selector,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value,
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.value) {
-            matches.set(formField.name, mapping.value);
-          }
+          filledFields.push(filledField);
         }
 
-        if (formFields.length > 0) {
+        if (filledFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
-            fields: formFields,
-            matches,
+            pageTitle,
+            formSelector,
+            fields: filledFields,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });
@@ -335,7 +344,7 @@ export class PreviewSidebarManager {
     let count = 0;
 
     for (const field of fields) {
-      const mapping = this.mappingLookup.get(field.opid);
+      const mapping = this.mappingLookup.get(field.selector);
       if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
@@ -352,8 +361,13 @@ export class PreviewSidebarManager {
     if (element instanceof HTMLInputElement) {
       element.focus({ preventScroll: true });
 
-      if (element.type === "checkbox" || element.type === "radio") {
-        element.checked = value === "true" || value === "on" || value === "1";
+      if (element.type === "checkbox") {
+        // Handle checkbox - normalize boolean-like values
+        const shouldCheck = this.parseBooleanValue(value);
+        element.checked = shouldCheck;
+      } else if (element.type === "radio") {
+        // Handle radio button - find and check the right option in the group
+        this.applyRadioValue(element, value);
       } else {
         element.value = value;
       }
@@ -372,27 +386,185 @@ export class PreviewSidebarManager {
     }
 
     if (element instanceof HTMLSelectElement) {
-      const normalizedValue = value.toLowerCase();
-      let matched = false;
+      this.applySelectValue(element, value);
+    }
+  }
 
-      for (const option of Array.from(element.options)) {
-        if (
-          option.value.toLowerCase() === normalizedValue ||
-          option.text.toLowerCase() === normalizedValue
-        ) {
-          option.selected = true;
-          matched = true;
+  /**
+   * Parse boolean-like values for checkbox fields
+   */
+  private parseBooleanValue(value: string): boolean {
+    const trueValues = ["true", "yes", "1", "on", "checked"];
+    return trueValues.includes(value.toLowerCase().trim());
+  }
+
+  /**
+   * Apply value to a radio button group
+   * Finds the radio with matching value/label and checks it
+   */
+  private applyRadioValue(element: HTMLInputElement, value: string) {
+    const radioName = element.name;
+    if (!radioName) {
+      // If no name, just check/uncheck this radio
+      element.checked = this.parseBooleanValue(value);
+      return;
+    }
+
+    // Find all radios in this group
+    const form = element.form;
+    const radios = form
+      ? Array.from(
+          form.querySelectorAll<HTMLInputElement>(
+            `input[type="radio"][name="${radioName}"]`,
+          ),
+        )
+      : Array.from(
+          document.querySelectorAll<HTMLInputElement>(
+            `input[type="radio"][name="${radioName}"]`,
+          ),
+        );
+
+    const valueLower = value.toLowerCase().trim();
+
+    // First, try exact match on value
+    let matched = radios.find(
+      (r) => r.value.toLowerCase().trim() === valueLower,
+    );
+
+    // If no exact match, try matching by label text
+    if (!matched) {
+      for (const radio of radios) {
+        const label = this.getRadioLabel(radio);
+        if (label && label.toLowerCase().trim() === valueLower) {
+          matched = radio;
           break;
         }
       }
-
-      if (!matched) {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
     }
+
+    // If still no match, try fuzzy matching
+    if (!matched) {
+      let bestScore = 0;
+      for (const radio of radios) {
+        const label = this.getRadioLabel(radio) || radio.value;
+        const score = this.fuzzyMatch(value, label);
+        if (score > bestScore && score >= 0.6) {
+          bestScore = score;
+          matched = radio;
+        }
+      }
+    }
+
+    if (matched) {
+      matched.checked = true;
+      matched.dispatchEvent(new Event("input", { bubbles: true }));
+      matched.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  /**
+   * Get the label text for a radio button
+   */
+  private getRadioLabel(radio: HTMLInputElement): string | null {
+    // Check for associated label via for attribute
+    if (radio.id) {
+      const label = document.querySelector<HTMLLabelElement>(
+        `label[for="${radio.id}"]`,
+      );
+      if (label) return label.textContent?.trim() || null;
+    }
+
+    // Check for wrapping label
+    const parentLabel = radio.closest("label");
+    if (parentLabel) {
+      // Get text content excluding the radio itself
+      const clone = parentLabel.cloneNode(true) as HTMLLabelElement;
+      const radioInClone = clone.querySelector('input[type="radio"]');
+      if (radioInClone) radioInClone.remove();
+      return clone.textContent?.trim() || null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Apply value to a select element with fuzzy matching
+   */
+  private applySelectValue(element: HTMLSelectElement, value: string) {
+    const valueLower = value.toLowerCase().trim();
+
+    // First try exact match on value or text
+    for (const option of Array.from(element.options)) {
+      if (
+        option.value.toLowerCase().trim() === valueLower ||
+        option.text.toLowerCase().trim() === valueLower
+      ) {
+        element.value = option.value;
+        element.dispatchEvent(new Event("input", { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+      }
+    }
+
+    // Try fuzzy matching
+    let bestMatch: HTMLOptionElement | null = null;
+    let bestScore = 0;
+
+    for (const option of Array.from(element.options)) {
+      const textScore = this.fuzzyMatch(value, option.text);
+      const valueScore = this.fuzzyMatch(value, option.value);
+      const score = Math.max(textScore, valueScore);
+
+      if (score > bestScore && score >= 0.6) {
+        bestScore = score;
+        bestMatch = option;
+      }
+    }
+
+    if (bestMatch) {
+      element.value = bestMatch.value;
+    } else {
+      // Fallback to direct assignment
+      element.value = value;
+    }
+
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /**
+   * Simple fuzzy match score between two strings (0-1)
+   */
+  private fuzzyMatch(a: string, b: string): number {
+    const aLower = a.toLowerCase().trim();
+    const bLower = b.toLowerCase().trim();
+
+    if (aLower === bLower) return 1;
+    if (aLower.includes(bLower) || bLower.includes(aLower)) return 0.85;
+
+    // Levenshtein-based similarity
+    const maxLen = Math.max(aLower.length, bLower.length);
+    if (maxLen === 0) return 0;
+
+    const matrix: number[][] = [];
+    for (let i = 0; i <= bLower.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= aLower.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= bLower.length; i++) {
+      for (let j = 1; j <= aLower.length; j++) {
+        if (bLower.charAt(i - 1) === aLower.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1,
+          );
+        }
+      }
+    }
+
+    return 1 - matrix[bLower.length][aLower.length] / maxLen;
   }
 
   private highlightField(fieldOpid: FieldOpId) {
@@ -481,7 +653,7 @@ export class PreviewSidebarManager {
 
     this.mappingLookup = new Map(
       payload.mappings.map((mapping: FieldMapping) => [
-        mapping.fieldOpid,
+        mapping.selector,
         mapping,
       ]),
     );
@@ -499,6 +671,12 @@ export class PreviewSidebarManager {
     const matchedFields = payload.mappings.filter(
       (mapping: FieldMapping) => mapping.value !== null,
     ).length;
+
+    // Don't show preview if no fields were matched
+    if (matchedFields === 0) {
+      logger.info("No fields matched, not showing preview");
+      return null;
+    }
 
     return {
       forms,
