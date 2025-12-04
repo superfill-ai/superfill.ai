@@ -2,6 +2,7 @@ import { defineProxyService } from "@webext-core/proxy-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
+import { getKeyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import type {
   AutofillResult,
@@ -52,7 +53,7 @@ class AutofillService {
     logger.info("AutofillService disposed");
   }
 
-  async startAutofillOnActiveTab(apiKey?: string): Promise<{
+  async startAutofillOnActiveTab(): Promise<{
     success: boolean;
     fieldsDetected: number;
     mappingsFound: number;
@@ -62,7 +63,20 @@ class AutofillService {
     let tabId: number | undefined;
     const sessionService = getSessionService();
 
-    logger.info("Starting autofill with API key present:", !!apiKey);
+    const aiSettings = this.currentAiSettings;
+
+    if (!aiSettings?.selectedProvider) {
+      throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
+    }
+
+    const keyVault = getKeyVault();
+    const apiKey = await keyVault.getKey(aiSettings.selectedProvider);
+
+    if (!apiKey) {
+      throw new Error("Failed to retrieve API key");
+    }
+
+    logger.info("Starting autofill with API key retrieved from keyVault");
 
     try {
       const [tab] = await browser.tabs.query({

@@ -356,6 +356,8 @@ export class PreviewSidebarManager {
         element.checked = value === "true" || value === "on" || value === "1";
       } else {
         element.value = value;
+        element.setAttribute("data-superfill-filled", "true");
+        element.setAttribute("data-superfill-original", value);
       }
 
       element.dispatchEvent(new Event("input", { bubbles: true }));
@@ -366,6 +368,8 @@ export class PreviewSidebarManager {
     if (element instanceof HTMLTextAreaElement) {
       element.focus({ preventScroll: true });
       element.value = value;
+      element.setAttribute("data-superfill-filled", "true");
+      element.setAttribute("data-superfill-original", value);
       element.dispatchEvent(new Event("input", { bubbles: true }));
       element.dispatchEvent(new Event("change", { bubbles: true }));
       return;

@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { getModelService, type ModelInfo } from "@/lib/providers/model-service";
 import type { AIProvider } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVault } from "@/lib/security/key-vault";
 
 export const useProviderModels = (provider: AIProvider) => {
   return useQuery({
     queryKey: ["models", provider],
     queryFn: async (): Promise<ModelInfo[]> => {
       const modelService = getModelService();
+      const keyVault = getKeyVault();
       const apiKey = await keyVault.getKey(provider);
 
       return modelService.getModels(provider, apiKey || undefined);

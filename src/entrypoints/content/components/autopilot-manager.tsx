@@ -71,6 +71,10 @@ export class AutopilotManager {
     this.options = options;
   }
 
+  getFieldMappings(): Map<FieldOpId, FieldMapping> {
+    return this.mappingLookup as Map<FieldOpId, FieldMapping>;
+  }
+
   async initialize(): Promise<void> {
     if (this.ui) return;
 
@@ -254,7 +258,8 @@ export class AutopilotManager {
 
           if (element && element.type !== "password") {
             element.value = field.value;
-            element.setAttribute("data-autopilot-filled", "true");
+            element.setAttribute("data-superfill-filled", "true");
+            element.setAttribute("data-superfill-original", field.value);
 
             element.dispatchEvent(new Event("input", { bubbles: true }));
             element.dispatchEvent(new Event("change", { bubbles: true }));

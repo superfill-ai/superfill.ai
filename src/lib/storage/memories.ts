@@ -183,8 +183,9 @@ export const importFromCSV = async (csvContent: string): Promise<number> => {
             .split(";")
             .map((t) => t.trim())
             .filter(Boolean);
+      // @ts-expect-error: Dynamic check against allowed categories
       const category = allowedCategories.includes(row.category)
-        ? row.category
+        ? (row.category as (typeof allowedCategories)[number])
         : "general";
       const confidence = Math.max(
         0,

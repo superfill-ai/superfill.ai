@@ -25,7 +25,7 @@ import {
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVault } from "@/lib/security/key-vault";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
 
@@ -35,7 +35,7 @@ const entryFormSchema = z.object({
   question: z.string(),
   answer: z.string().min(1, "Answer is required"),
   tags: z.array(z.string()),
-  category: z.string().min(1, "Category is required"),
+  category: z.enum(allowedCategories),
 });
 
 interface EntryFormProps {
@@ -56,12 +56,9 @@ export function EntryForm({
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
-
   const { addEntry, updateEntry } = useMemoryMutations();
   const top10Tags = useTopUsedTags(10);
-
   const categorizationService = getCategorizationService();
-
   const form = useForm({
     defaultValues: {
       question: initialData?.question || "",
@@ -76,26 +73,36 @@ export function EntryForm({
       toast.promise(
         async () => {
           try {
-            if (mode === "edit" && initialData) {
+            if (
+              initialData &&
+              mode === "edit" &&
+              allowedCategories.includes(initialData.category)
+            ) {
               await updateEntry.mutateAsync({
                 id: initialData.id,
                 updates: {
                   question: value.question,
                   answer: value.answer,
                   tags: value.tags,
-                  category: value.category,
+                  category:
+                    value.category as (typeof allowedCategories)[number],
                 },
               });
-            } else {
+            } else if (
+              mode === "create" &&
+              // @ts-expect-error: Dynamic check against allowed categories
+              allowedCategories.includes(value.category)
+            ) {
               await addEntry.mutateAsync({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
-                category: value.category,
+                category: value.category as (typeof allowedCategories)[number],
                 confidence: 1.0,
               });
+            } else {
+              throw new Error("Invalid category selected.");
             }
-
             onSuccess?.();
             form.reset();
           } catch (error) {
@@ -138,6 +145,7 @@ export function EntryForm({
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
+      const keyVault = getKeyVault();
       const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey) {
@@ -180,6 +188,7 @@ export function EntryForm({
           dismissible: true,
         });
       }
+      const keyVault = getKeyVault();
       const apiKey = await keyVault.getKey(selectedProvider ?? "openai");
 
       if (!apiKey) {
