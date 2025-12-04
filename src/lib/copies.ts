@@ -5,7 +5,7 @@ export const allowedCategories = [
   "work",
   "personal",
   "education",
-];
+] as const;
 
 export const TRACKABLE_FIELD_TYPES = [
   "text",
@@ -13,4 +13,4 @@ export const TRACKABLE_FIELD_TYPES = [
   "tel",
   "textarea",
   "url",
-];
+] as const;

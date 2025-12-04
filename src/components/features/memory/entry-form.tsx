@@ -76,28 +76,34 @@ export function EntryForm({
       toast.promise(
         async () => {
           try {
-            if (mode === "edit" && initialData) {
-              await updateEntry.mutateAsync({
-                id: initialData.id,
-                updates: {
+            if (
+              initialData &&
+              allowedCategories.includes(initialData.category)
+            ) {
+              if (mode === "edit") {
+                await updateEntry.mutateAsync({
+                  id: initialData.id,
+                  updates: {
+                    question: value.question,
+                    answer: value.answer,
+                    tags: value.tags,
+                    category: value.category as typeof initialData.category,
+                  },
+                });
+              } else {
+                await addEntry.mutateAsync({
                   question: value.question,
                   answer: value.answer,
                   tags: value.tags,
-                  category: value.category,
-                },
-              });
+                  category: value.category as typeof initialData.category,
+                  confidence: 1.0,
+                });
+              }
+              onSuccess?.();
+              form.reset();
             } else {
-              await addEntry.mutateAsync({
-                question: value.question,
-                answer: value.answer,
-                tags: value.tags,
-                category: value.category,
-                confidence: 1.0,
-              });
+              throw new Error("Invalid initial data provided for editing.");
             }
-
-            onSuccess?.();
-            form.reset();
           } catch (error) {
             logger.error("Failed to save entry:", error);
             throw error;

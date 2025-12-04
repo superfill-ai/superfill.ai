@@ -1,6 +1,7 @@
 import { createLogger } from "../logger";
 
 const logger = createLogger("offscreen-messaging");
+let creationPromise: Promise<void> | null = null;
 
 export async function getFingerprintFromOffscreen(): Promise<string> {
   const existingContexts = await browser.runtime.getContexts({
@@ -8,11 +9,24 @@ export async function getFingerprintFromOffscreen(): Promise<string> {
   });
 
   if (existingContexts.length === 0) {
-    await browser.offscreen.createDocument({
-      url: "offscreen.html",
-      reasons: ["DOM_PARSER" as Browser.offscreen.Reason],
-      justification: "Generate browser fingerprint for encryption",
-    });
+    if (!creationPromise) {
+      creationPromise = browser.offscreen
+        .createDocument({
+          url: "offscreen.html",
+          reasons: ["DOM_PARSER" as Browser.offscreen.Reason],
+          justification: "Generate browser fingerprint for encryption",
+        })
+        .finally(() => {
+          creationPromise = null;
+        });
+    }
+
+    try {
+      await creationPromise;
+    } catch (error) {
+      logger.error("Failed to create offscreen document:", error);
+      throw new Error("Offscreen document creation failed");
+    }
   }
 
   try {

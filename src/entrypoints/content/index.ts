@@ -412,6 +412,11 @@ export default defineContentScript({
       }
     });
 
+    ctx.onInvalidated(() => {
+      fieldTracker.dispose();
+      submissionMonitor.dispose();
+    });
+
     // Temporarily show contentAutofill permanent UI for testing
     // const manager = ensureAutopilotManager(ctx);
     // await manager.showProgress({

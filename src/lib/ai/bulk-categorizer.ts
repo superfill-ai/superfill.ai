@@ -7,7 +7,7 @@ import type { AIProvider } from "@/lib/providers/registry";
 
 const logger = createLogger("bulk-categorizer");
 
-const CategorySchema = z.enum(allowedCategories as [string, ...string[]]);
+const CategorySchema = z.enum(allowedCategories);
 
 const BulkCategorizationResultSchema = z.object({
   categories: z.array(

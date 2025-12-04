@@ -55,10 +55,11 @@ export class FormSubmissionMonitor {
     logger.info("Form submission monitor started");
   }
 
-  stop(): void {
+  dispose(): void {
     if (!this.isMonitoring) return;
 
     this.removeAllListeners();
+
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;

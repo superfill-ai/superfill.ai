@@ -1,3 +1,4 @@
+import { TRACKABLE_FIELD_TYPES } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type {
   CaptureSession,
@@ -87,23 +88,15 @@ export class FieldDataTracker {
 
     if (type === "password") return false;
 
-    if (
-      type !== "text" &&
-      type !== "email" &&
-      type !== "tel" &&
-      type !== "textarea" &&
-      type !== "url"
-    ) {
-      return false;
-    }
-
-    return true;
+    // @ts-expect-error: Dynamic check against allowed types
+    return TRACKABLE_FIELD_TYPES.includes(type);
   }
 
   private findFieldElement(
     opid: FieldOpId,
   ): HTMLInputElement | HTMLTextAreaElement | null {
     const selector = `input[data-superfill-opid="${opid}"], textarea[data-superfill-opid="${opid}"]`;
+
     return document.querySelector(selector);
   }
 
@@ -115,6 +108,7 @@ export class FieldDataTracker {
     if (!this.session) return;
 
     const value = element.value.trim();
+
     if (!value) return;
 
     const wasAIFilled =
@@ -145,6 +139,7 @@ export class FieldDataTracker {
 
   async getCapturedFields(): Promise<TrackedFieldData[]> {
     const session = await this.getSession();
+
     if (!session) return [];
 
     return Array.from(session.trackedFields.values());
@@ -152,19 +147,23 @@ export class FieldDataTracker {
 
   async getSession(): Promise<CaptureSession | null> {
     if (this.session) return this.session;
+
     await this.loadSession();
+
     return this.session;
   }
 
   async clearSession(): Promise<void> {
     this.removeAllListeners();
     this.session = null;
+
     await browser.storage.local.remove(STORAGE_KEY);
     logger.info("Cleared capture session");
   }
 
   dispose(): void {
     this.removeAllListeners();
+
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;

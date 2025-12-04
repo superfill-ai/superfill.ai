@@ -72,6 +72,7 @@ export class CaptureService {
   }
 
   private isTrackableFieldType(fieldType: string): boolean {
+    // @ts-expect-error: Dynamic check against allowed types
     return TRACKABLE_FIELD_TYPES.includes(fieldType);
   }
 
