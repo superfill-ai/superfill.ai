@@ -92,6 +92,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 - [ ] Store unfilled questions along with user filled answers as memories automatically
 - [ ] Parse pdf to extract content for memory creation. Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition.
+- [ ] Support for select, radio, checkbox fields
 - [ ] Safari support
 
 ##### NOT STARTED
@@ -102,7 +103,6 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
   - [ ] Browser native autofill integration (bypass extension popup)
   - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
   - [ ] Enhanced Copilot mode (Sidebar with memory suggestions as you type)
-- [ ] Support for select, radio, checkbox fields
 - [ ] Prompt caching for faster AI responses
 - [ ] MCP support
 - [ ] Upvote/downvote memory suggestions
