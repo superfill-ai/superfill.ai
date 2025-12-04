@@ -49,3 +49,9 @@ export const STOP_WORDS = new Set<string>([
   "optional",
   "required",
 ]);
+
+/**
+ * Minimum quality score threshold for form field detection
+ * Range: 0 (unusable) to 1 (high quality)
+ */
+export const MIN_FIELD_QUALITY = 0.3;

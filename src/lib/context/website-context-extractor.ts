@@ -32,7 +32,6 @@ export class WebsiteContextExtractor {
 
     const websiteType = this.classifier.classify(metadata);
 
-    // Basic form purpose inference (can be improved later)
     let formPurpose = "unknown";
     if (websiteType === "job_portal") formPurpose = "job_application";
     if (websiteType === "dating") formPurpose = "profile_creation";

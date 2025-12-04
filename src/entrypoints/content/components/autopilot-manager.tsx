@@ -27,7 +27,6 @@ export interface AutopilotFillData {
   fieldOpid: string;
   value: string;
   confidence: number;
-  memoryId: string;
 }
 
 const getPrimaryLabel = (
@@ -39,7 +38,6 @@ const getPrimaryLabel = (
     metadata.labelData,
     metadata.labelTop,
     metadata.labelLeft,
-    metadata.labelRight,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -180,11 +178,10 @@ export class AutopilotManager {
 
       const fieldsToFill: AutopilotFillData[] = [];
       for (const mapping of mappings) {
-        const valueToFill = mapping.rephrasedValue ?? mapping.value;
+        const valueToFill = mapping.value;
 
         if (
           valueToFill !== null &&
-          mapping.memoryId !== null &&
           mapping.confidence >= confidenceThreshold &&
           mapping.autoFill !== false
         ) {
@@ -192,7 +189,6 @@ export class AutopilotManager {
             fieldOpid: mapping.fieldOpid,
             value: valueToFill,
             confidence: mapping.confidence,
-            memoryId: mapping.memoryId,
           });
         }
       }
@@ -318,23 +314,6 @@ export class AutopilotManager {
     }
 
     try {
-      const usedMemoryIds = Array.from(
-        new Set(this.fieldsToFill.map((field) => field.memoryId)),
-      );
-
-      logger.info(
-        `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,
-      );
-
-      if (usedMemoryIds.length > 0) {
-        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
-          memoryIds: usedMemoryIds,
-        });
-        logger.info(
-          `Incremented usage count for ${usedMemoryIds.length} memories`,
-        );
-      }
-
       await contentAutofillMessaging.sendMessage("completeSession", {
         sessionId: this.sessionId,
       });
@@ -412,8 +391,8 @@ export class AutopilotManager {
           };
           formFields.push(formField);
 
-          if (mapping.memoryId) {
-            const memory = memoryMap.get(mapping.memoryId);
+          if (mapping.value !== null) {
+            const memory = memoryMap.get(mapping.value);
             if (memory) {
               matches.set(formField.name, memory);
             }
@@ -445,7 +424,7 @@ export class AutopilotManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.memoryId) {
+      if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
       }

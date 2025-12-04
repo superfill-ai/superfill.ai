@@ -21,7 +21,6 @@ export const addEntry = async (
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         source: "manual",
-        usageCount: 0,
       },
     };
 
@@ -48,7 +47,6 @@ export const addEntries = async (
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         source: "manual",
-        usageCount: 0,
       },
     }));
 
@@ -120,35 +118,6 @@ export const getEntryById = async (
   }
 };
 
-export const incrementUsageCount = async (id: string): Promise<void> => {
-  try {
-    const currentEntries = await storage.memories.getValue();
-    const entry = currentEntries.find((e) => e.id === id);
-
-    if (!entry) {
-      throw new Error(`Entry with id ${id} not found`);
-    }
-
-    const updatedEntry: MemoryEntry = {
-      ...entry,
-      metadata: {
-        ...entry.metadata,
-        usageCount: entry.metadata.usageCount + 1,
-        lastUsed: new Date().toISOString(),
-      },
-    };
-
-    const updatedEntries = currentEntries.map((e) =>
-      e.id === id ? updatedEntry : e,
-    );
-
-    await storage.memories.setValue(updatedEntries);
-  } catch (error) {
-    logger.error("Failed to increment usage count:", error);
-    throw error;
-  }
-};
-
 export const exportToCSV = async (): Promise<void> => {
   try {
     const entries = await storage.memories.getValue();
@@ -159,8 +128,6 @@ export const exportToCSV = async (): Promise<void> => {
       | "tags"
       | "category"
       | "confidence"
-      | "usageCount"
-      | "lastUsed"
       | "createdAt"
       | "updatedAt"
     > = [
@@ -169,8 +136,6 @@ export const exportToCSV = async (): Promise<void> => {
       "category",
       "tags",
       "confidence",
-      "usageCount",
-      "lastUsed",
       "createdAt",
       "updatedAt",
     ];
@@ -181,8 +146,6 @@ export const exportToCSV = async (): Promise<void> => {
       category: entry.category,
       tags: entry.tags,
       confidence: entry.confidence,
-      usageCount: entry.metadata.usageCount,
-      lastUsed: entry.metadata.lastUsed || "",
       createdAt: entry.metadata.createdAt,
       updatedAt: entry.metadata.updatedAt,
     }));
@@ -205,8 +168,6 @@ export const importFromCSV = async (csvContent: string): Promise<number> => {
       category: string;
       tags: string | string[];
       confidence: string;
-      usageCount: string;
-      lastUsed: string;
       createdAt: string;
       updatedAt: string;
     }>(csvContent);
@@ -229,10 +190,8 @@ export const importFromCSV = async (csvContent: string): Promise<number> => {
         0,
         Math.min(1, Number.parseFloat(row.confidence) || 0.8),
       );
-      const usageCount = Number.parseInt(row.usageCount, 10) || 0;
       const createdAt = row.createdAt || new Date().toISOString();
       const updatedAt = row.updatedAt || new Date().toISOString();
-      const lastUsed = row.lastUsed || undefined;
 
       return {
         id: uuidv7(),
@@ -245,8 +204,6 @@ export const importFromCSV = async (csvContent: string): Promise<number> => {
           createdAt,
           updatedAt,
           source: "import" as const,
-          usageCount,
-          lastUsed,
         },
       };
     });
@@ -270,8 +227,6 @@ export const downloadCSVTemplate = (): void => {
     | "category"
     | "tags"
     | "confidence"
-    | "usageCount"
-    | "lastUsed"
     | "createdAt"
     | "updatedAt"
   > = [
@@ -280,8 +235,6 @@ export const downloadCSVTemplate = (): void => {
     "category",
     "tags",
     "confidence",
-    "usageCount",
-    "lastUsed",
     "createdAt",
     "updatedAt",
   ];

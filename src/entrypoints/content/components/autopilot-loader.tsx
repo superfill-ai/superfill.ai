@@ -81,12 +81,14 @@ export const AutopilotLoader = ({
                 <div className="space-y-2">
                   <Progress
                     value={progressValue}
-                    className={`h-2 transition-colors ${isError
-                      ? "[&>div]:bg-destructive"
-                      : isComplete
-                        ? "[&>div]:bg-green-500"
-                        : "[&>div]:bg-primary"
-                      }`}
+                    className={cn(
+                      "h-2 transition-colors",
+                      isError
+                        ? "[&>div]:bg-destructive"
+                        : isComplete
+                          ? "[&>div]:bg-green-500"
+                          : "[&>div]:bg-primary",
+                    )}
                   />
 
                   <p className="text-sm text-muted-foreground leading-relaxed">
@@ -103,42 +105,42 @@ export const AutopilotLoader = ({
         <CardFooter>
           {(progress.fieldsDetected ||
             progress.fieldsMatched !== undefined) && (
-              <div className="w-full flex flex-col gap-2">
-                <Separator />
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-4">
-                    {progress.fieldsDetected && (
-                      <span className="text-muted-foreground">
-                        <span className="font-medium text-foreground">
-                          {progress.fieldsDetected}
-                        </span>{" "}
-                        fields detected
-                      </span>
-                    )}
-                    {progress.fieldsMatched !== undefined && (
-                      <span className="text-muted-foreground">
-                        <span className="font-medium text-green-600">
-                          {progress.fieldsMatched}
-                        </span>{" "}
-                        matches found
-                      </span>
-                    )}
-                  </div>
-
-                  {isComplete && (
-                    <span className="text-xs text-green-600 font-medium">
-                      ✓ Complete
+            <div className="w-full flex flex-col gap-2">
+              <Separator />
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-4">
+                  {progress.fieldsDetected && (
+                    <span className="text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {progress.fieldsDetected}
+                      </span>{" "}
+                      fields detected
                     </span>
                   )}
-
-                  {isError && (
-                    <span className="text-xs text-destructive font-medium">
-                      ✗ Failed
+                  {progress.fieldsMatched !== undefined && (
+                    <span className="text-muted-foreground">
+                      <span className="font-medium text-green-600">
+                        {progress.fieldsMatched}
+                      </span>{" "}
+                      matches found
                     </span>
                   )}
                 </div>
+
+                {isComplete && (
+                  <span className="text-xs text-green-600 font-medium">
+                    ✓ Complete
+                  </span>
+                )}
+
+                {isError && (
+                  <span className="text-xs text-destructive font-medium">
+                    ✗ Failed
+                  </span>
+                )}
               </div>
-            )}
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>

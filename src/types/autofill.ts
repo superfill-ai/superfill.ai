@@ -54,7 +54,6 @@ export interface FieldMetadata {
   labelData: string | null;
   labelAria: string | null;
   labelLeft: string | null;
-  labelRight: string | null;
   labelTop: string | null;
 
   placeholder: string | null;
@@ -122,16 +121,9 @@ export interface CompressedMemoryData {
 
 export interface FieldMapping {
   fieldOpid: string;
-  memoryId: string | null;
   value: string | null;
-  rephrasedValue: string | null;
   confidence: number;
   reasoning: string;
-  alternativeMatches: Array<{
-    memoryId: string;
-    value: string;
-    confidence: number;
-  }>;
   autoFill?: boolean;
 }
 
@@ -173,4 +165,14 @@ export interface AutofillProgress {
   fieldsDetected?: number;
   fieldsMatched?: number;
   error?: string;
+}
+
+export interface FilterStats {
+  total: number;
+  filtered: number;
+  reasons: {
+    noQuality: number;
+    duplicate: number;
+    unknownUnlabeled: number;
+  };
 }

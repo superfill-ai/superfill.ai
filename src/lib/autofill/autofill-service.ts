@@ -20,6 +20,7 @@ import { aiSettings } from "../storage/ai-settings";
 import { AIMatcher } from "./ai-matcher";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
+import { isCrypticString } from "./field-quality";
 import { createEmptyMapping } from "./mapping-utils";
 
 const logger = createLogger("autofill-service");
@@ -146,7 +147,7 @@ class AutofillService {
       logger.info("Autofill processing result:", processingResult);
 
       const matchedCount = processingResult.mappings.filter(
-        (mapping) => mapping.memoryId !== null,
+        (mapping) => mapping.value !== null,
       ).length;
 
       await sessionService.updateSessionStatus(sessionId, "reviewing");
@@ -361,20 +362,23 @@ class AutofillService {
       field.metadata.labelAria,
       field.metadata.labelData,
       field.metadata.labelLeft,
-      field.metadata.labelRight,
       field.metadata.labelTop,
     ].filter(Boolean) as string[];
 
     const labels = Array.from(new Set(allLabels));
-
-    const context = [
+    const contextParts = [
       field.metadata.placeholder,
       field.metadata.helperText,
-      field.metadata.name,
-      field.metadata.id,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    ];
+
+    if (field.metadata.name && !isCrypticString(field.metadata.name)) {
+      contextParts.push(field.metadata.name);
+    }
+    if (field.metadata.id && !isCrypticString(field.metadata.id)) {
+      contextParts.push(field.metadata.id);
+    }
+
+    const context = contextParts.filter(Boolean).join(" ");
 
     return {
       opid: field.opid,
@@ -430,11 +434,9 @@ class AutofillService {
 
     const mappingsWithThreshold = processingResult.mappings.map((mapping) => {
       const meetsThreshold =
-        mapping.memoryId !== null &&
-        mapping.value !== null &&
-        mapping.confidence >= confidenceThreshold;
+        mapping.value !== null && mapping.confidence >= confidenceThreshold;
 
-      if (mapping.memoryId !== null) {
+      if (mapping.value !== null) {
         logger.debug(
           `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
         );

@@ -12,6 +12,7 @@ export class FormDetector {
   private formOpidCounter = 0;
   private fieldOpidCounter = 0;
   private shadowRootFields: DetectedField[] = [];
+  private detectedElements = new Set<FormFieldElement>();
 
   constructor(private analyzer: FieldAnalyzer) {}
 
@@ -29,6 +30,7 @@ export class FormDetector {
   detectAll(): DetectedForm[] {
     const forms: DetectedForm[] = [];
     this.shadowRootFields = [];
+    this.detectedElements.clear();
 
     const formElements = this.findFormElements();
 
@@ -93,8 +95,12 @@ export class FormDetector {
     const fields: DetectedField[] = [];
 
     for (const element of Array.from(form.elements)) {
-      if (this.isValidField(element as HTMLElement)) {
-        fields.push(this.createDetectedField(element as FormFieldElement));
+      const fieldElement = element as FormFieldElement;
+      if (
+        this.isValidField(fieldElement) &&
+        !this.detectedElements.has(fieldElement)
+      ) {
+        fields.push(this.createDetectedField(fieldElement));
       }
     }
 
@@ -114,7 +120,7 @@ export class FormDetector {
       const element = node as FormFieldElement;
 
       if (!element.form && !this.isInsideForm(element, existingForms)) {
-        if (this.isValidField(element)) {
+        if (this.isValidField(element) && !this.detectedElements.has(element)) {
           fields.push(this.createDetectedField(element));
         }
       }
@@ -166,7 +172,7 @@ export class FormDetector {
     while (node) {
       const element = node as FormFieldElement;
 
-      if (this.isValidField(element)) {
+      if (this.isValidField(element) && !this.detectedElements.has(element)) {
         this.shadowRootFields.push(this.createDetectedField(element));
       }
 
@@ -217,6 +223,7 @@ export class FormDetector {
     };
 
     field.metadata = this.analyzer.analyzeField(field);
+    this.detectedElements.add(element);
 
     return field;
   }

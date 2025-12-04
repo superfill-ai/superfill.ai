@@ -1,0 +1,102 @@
+# Dependabot configuration for Superfill.ai browser extension
+# This file configures automated dependency updates for npm packages and GitHub Actions
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Monitor Bun dependencies (main extension dependencies)
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    # Group minor and patch updates together to reduce PR noise
+    groups:
+      # Group all non-major development dependencies
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group all non-major production dependencies
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group React and related packages
+      react-ecosystem:
+        patterns:
+          - "react*"
+          - "@types/react*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group shadcn/ui and Radix UI packages
+      ui-dependencies:
+        patterns:
+          - "@radix-ui/*"
+          - "class-variance-authority"
+          - "clsx"
+          - "tailwind-merge"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group AI SDK packages
+      ai-dependencies:
+        patterns:
+          - "ai"
+          - "@ai-sdk/*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group WXT and related build tools
+      build-tools:
+        patterns:
+          - "wxt*"
+          - "@webext-core/*"
+          - "vite"
+          - "typescript"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Ignore specific packages that require manual review
+    ignore:
+      # Ignore major version updates for React (requires manual testing)
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      # Ignore major TypeScript updates (can have breaking changes)
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+    # Allow both direct and indirect dependency updates
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+
+  # Monitor GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

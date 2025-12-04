@@ -57,7 +57,6 @@ export class FieldAnalyzer {
       labelData: element.getAttribute("data-label") || null,
       labelAria: this.findAriaLabel(element),
       labelLeft: this.findPositionalLabel(element, "left"),
-      labelRight: this.findPositionalLabel(element, "right"),
       labelTop: this.findPositionalLabel(element, "top"),
       helperText: this.findHelperText(element),
     };
@@ -105,7 +104,7 @@ export class FieldAnalyzer {
 
   private findPositionalLabel(
     element: FormFieldElement,
-    direction: "left" | "right" | "top",
+    direction: "left" | "top",
   ): string | null {
     if (this.labelCache.has(element)) {
       return this.labelCache.get(element) || null;
@@ -205,7 +204,7 @@ export class FieldAnalyzer {
   private calculateDistance(
     fieldRect: DOMRect,
     labelRect: DOMRect,
-    direction: "left" | "right" | "top",
+    direction: "left" | "top",
   ): number | null {
     const verticalOverlap =
       Math.max(
@@ -218,10 +217,6 @@ export class FieldAnalyzer {
       case "left":
         if (!verticalOverlap || labelRect.right > fieldRect.left) return null;
         return fieldRect.left - labelRect.right;
-
-      case "right":
-        if (!verticalOverlap || labelRect.left < fieldRect.right) return null;
-        return labelRect.left - fieldRect.right;
 
       case "top": {
         if (labelRect.bottom > fieldRect.top) return null;
@@ -348,7 +343,6 @@ export class FieldAnalyzer {
       metadata.labelAria,
       metadata.labelData,
       metadata.labelLeft,
-      metadata.labelRight,
       metadata.labelTop,
       metadata.placeholder,
       metadata.name,
