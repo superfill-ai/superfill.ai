@@ -2,7 +2,7 @@
   "name": "superfill.ai",
   "description": "AI-powered form filling browser extension",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.8",
   "type": "module",
   "author": {
     "email": "mihirpandey.13@gmail.com",
@@ -11,12 +11,16 @@
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
+    "dev:safari": "wxt -b safari",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
+    "build:safari": "wxt build -b safari",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
+    "zip:safari": "wxt zip -b safari",
     "type-check": "tsc --noEmit",
     "postinstall": "wxt prepare",
+    "prepare": "simple-git-hooks",
     "format": "biome check --write",
     "lint": "bun run format",
     "changeset": "changeset",
@@ -75,7 +79,7 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.546.0",
-    "react": "^19.2.0",
+    "react": "^19.2.1",
     "react-circle-flags": "^0.0.24",
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.2.0",
@@ -100,11 +104,15 @@
     "@wxt-dev/module-react": "^1.1.3",
     "autoprefixer": "^10.4.21",
     "babel-plugin-react-compiler": "^1.0.0",
+    "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
     "wxt": "^0.20.6"
   },
   "overrides": {
     "@wxt-dev/storage": "1.2.0"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bun run biome check --staged --write --no-errors-on-unmatched && bun type-check"
   }
 }

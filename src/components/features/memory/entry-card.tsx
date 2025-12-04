@@ -163,12 +163,7 @@ export function EntryCard({
         </CardContent>
 
         <CardFooter className="justify-between py-0 my-0">
-          <span className="text-xs text-muted-foreground">
-            {entry.metadata.lastUsed
-              ? `Used ${formatDistanceToNow(new Date(entry.metadata.lastUsed), { addSuffix: true })}`
-              : "Never used"}
-          </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             {isHovered && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Kbd>e</Kbd> to edit
@@ -278,15 +273,6 @@ export function EntryCard({
 
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
             <div className="flex items-center gap-4">
-              <span>
-                Used: {entry.metadata.usageCount}{" "}
-                {entry.metadata.usageCount === 1 ? "time" : "times"}
-              </span>
-              <span>
-                {entry.metadata.lastUsed
-                  ? `Last used ${formatDistanceToNow(new Date(entry.metadata.lastUsed), { addSuffix: true })}`
-                  : "Never used"}
-              </span>
               <span>
                 Created{" "}
                 {formatDistanceToNow(new Date(entry.metadata.createdAt), {

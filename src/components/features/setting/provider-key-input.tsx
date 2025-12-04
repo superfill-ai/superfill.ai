@@ -1,6 +1,7 @@
 import {
   AlertCircleIcon,
   CheckCircle2,
+  ExternalLinkIcon,
   EyeIcon,
   EyeOffIcon,
   Trash2,
@@ -14,6 +15,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { ProviderConfig } from "@/lib/providers/registry";
 import { getKeyValidationService } from "@/lib/security/key-validation-service";
+import { OllamaCorsDialog } from "./ollama-cors-dialog";
 
 interface ProviderKeyInputProps {
   providerId: string;
@@ -134,15 +136,7 @@ export const ProviderKeyInput = ({
                 <span className="text-destructive text-xs">
                   <AlertCircleIcon className="inline-block size-4" /> To use
                   Ollama with this extension, please ensure that{" "}
-                  <a
-                    href="https://medium.com/dcoderai/how-to-handle-cors-settings-in-ollama-a-comprehensive-guide-ee2a5a1beef0"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-foreground"
-                  >
-                    CORS settings are properly configured
-                  </a>
-                  .
+                  <OllamaCorsDialog />
                 </span>
               </AlertDescription>
             </Alert>
@@ -230,9 +224,22 @@ export const ProviderKeyInput = ({
         <FieldDescription>
           API key is already configured. Enter a new key to update it.
         </FieldDescription>
-      ) : config.description ? (
-        <FieldDescription>{config.description}</FieldDescription>
-      ) : null}
+      ) : (
+        <FieldDescription className="inline-flex justify-between items-center">
+          {config.description && <span>{config.description}. </span>}
+          {config.apiKeyUrl && (
+            <a
+              href={config.apiKeyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary text-xs hover:underline"
+            >
+              Get your API key here
+              <ExternalLinkIcon className="size-3" />
+            </a>
+          )}
+        </FieldDescription>
+      )}
     </Field>
   );
 };

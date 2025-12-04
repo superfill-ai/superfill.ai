@@ -85,7 +85,6 @@ export class CaptureService {
       metadata.labelData,
       metadata.labelTop,
       metadata.labelLeft,
-      metadata.labelRight,
       metadata.placeholder,
       metadata.name,
       metadata.id,
@@ -106,7 +105,6 @@ export class CaptureService {
       metadata.labelAria,
       metadata.labelData,
       metadata.labelLeft,
-      metadata.labelRight,
       metadata.labelTop,
     ].filter((label): label is string => Boolean(label?.trim()));
 

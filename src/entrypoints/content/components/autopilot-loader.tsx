@@ -81,13 +81,14 @@ export const AutopilotLoader = ({
                 <div className="space-y-2">
                   <Progress
                     value={progressValue}
-                    className={`h-2 transition-colors ${
+                    className={cn(
+                      "h-2 transition-colors",
                       isError
                         ? "[&>div]:bg-destructive"
                         : isComplete
                           ? "[&>div]:bg-green-500"
-                          : "[&>div]:bg-primary"
-                    }`}
+                          : "[&>div]:bg-primary",
+                    )}
                   />
 
                   <p className="text-sm text-muted-foreground leading-relaxed">
