@@ -17,10 +17,13 @@ export class FieldDataTracker {
   private session: CaptureSession | null = null;
   private activeListeners = new Map<FieldOpId, () => void>();
   private cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+  private initialized = false;
 
-  constructor() {
-    this.loadSession();
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+    await this.loadSession();
     this.startCleanupTimer();
+    this.initialized = true;
   }
 
   async startTracking(
@@ -28,7 +31,6 @@ export class FieldDataTracker {
     pageTitle: string,
     sessionId: string,
   ): Promise<void> {
-    // If we already have a session for this URL, keep it to preserve tracked fields
     if (this.session && this.session.url === url) {
       logger.info("Reusing existing tracking session for URL:", url);
       return;
@@ -58,8 +60,6 @@ export class FieldDataTracker {
     let attachedCount = 0;
     for (const field of fields) {
       if (!this.isTrackableField(field)) continue;
-
-      // Skip if we already have a listener for this field
       if (this.activeListeners.has(field.opid)) continue;
 
       const element = this.findFieldElement(field.opid);
@@ -114,7 +114,6 @@ export class FieldDataTracker {
     const wasAIFilled =
       element.getAttribute("data-superfill-filled") === "true";
     const originalAIValue = element.getAttribute("data-superfill-original");
-    const aiMemoryId = element.getAttribute("data-superfill-memoryid");
 
     const trackedData: TrackedFieldData = {
       fieldOpid: field.opid,
@@ -123,7 +122,6 @@ export class FieldDataTracker {
       timestamp: Date.now(),
       wasAIFilled,
       originalAIValue: originalAIValue || undefined,
-      aiMemoryId: aiMemoryId || undefined,
       aiConfidence: mapping?.confidence,
       metadata: field.metadata,
     };
@@ -245,10 +243,20 @@ export class FieldDataTracker {
 }
 
 let trackerInstance: FieldDataTracker | null = null;
+let initPromise: Promise<FieldDataTracker> | null = null;
 
-export function getFieldDataTracker(): FieldDataTracker {
-  if (!trackerInstance) {
-    trackerInstance = new FieldDataTracker();
+export async function getFieldDataTracker(): Promise<FieldDataTracker> {
+  if (trackerInstance) {
+    return trackerInstance;
   }
-  return trackerInstance;
+
+  if (!initPromise) {
+    initPromise = (async () => {
+      trackerInstance = new FieldDataTracker();
+      await trackerInstance.initialize();
+      return trackerInstance;
+    })();
+  }
+
+  return initPromise;
 }

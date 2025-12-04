@@ -175,7 +175,6 @@ export interface CapturedFieldData {
   timestamp: number;
   wasAIFilled: boolean;
   originalAIValue?: string;
-  aiMemoryId?: string;
   aiConfidence?: number;
   fieldMetadata: {
     type: FieldType;
@@ -193,7 +192,6 @@ export interface TrackedFieldData {
   timestamp: number;
   wasAIFilled: boolean;
   originalAIValue?: string;
-  aiMemoryId?: string;
   aiConfidence?: number;
   metadata: FieldMetadataSnapshot;
 }

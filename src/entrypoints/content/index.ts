@@ -28,7 +28,10 @@ import type {
 import { AutopilotManager } from "./components/autopilot-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
 import { FieldAnalyzer } from "./lib/field-analyzer";
-import { getFieldDataTracker } from "./lib/field-data-tracker";
+import {
+  type FieldDataTracker,
+  getFieldDataTracker,
+} from "./lib/field-data-tracker";
 import { FormDetector } from "./lib/form-detector";
 import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 
@@ -108,7 +111,7 @@ const ensureAutopilotManager = (ctx: ContentScriptContext) => {
 
 const initializeAutoTracking = async (
   formDetector: FormDetector,
-  fieldTracker: ReturnType<typeof getFieldDataTracker>,
+  fieldTracker: FieldDataTracker,
 ) => {
   try {
     const allForms = formDetector.detectAll();
@@ -161,7 +164,7 @@ export default defineContentScript({
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
-    const fieldTracker = getFieldDataTracker();
+    const fieldTracker = await getFieldDataTracker();
     const submissionMonitor = getFormSubmissionMonitor();
     const captureService = new CaptureService();
 
