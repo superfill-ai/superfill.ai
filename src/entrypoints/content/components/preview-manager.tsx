@@ -76,8 +76,9 @@ const buildPreviewFields = (
   form.fields.map(
     (field: DetectedFormSnapshot["fields"][number]): PreviewFieldData => {
       const mapping =
-        mappingLookup.get(field.selector) ??
+        mappingLookup.get(field.opid) ??
         ({
+          fieldOpid: field.opid,
           selector: field.selector,
           value: null,
           confidence: 0,
@@ -86,8 +87,8 @@ const buildPreviewFields = (
         } satisfies FieldMapping);
 
       return {
+        fieldOpid: field.opid,
         selector: field.selector,
-        fieldOpid: field.opid, // For backward compatibility with UI
         formOpid: field.formOpid,
         metadata: field.metadata,
         mapping,
@@ -260,8 +261,7 @@ export class PreviewSidebarManager {
         const matchedCount = filledFieldOpids.filter((opid) => {
           const detected = this.options.getFieldMetadata(opid);
           return (
-            detected &&
-            this.mappingLookup.get(detected.selector)?.value !== null
+            detected && this.mappingLookup.get(detected.opid)?.value !== null
           );
         }).length;
 
@@ -308,7 +308,7 @@ export class PreviewSidebarManager {
         const filledFields: FilledField[] = [];
 
         for (const field of fields) {
-          const mapping = this.mappingLookup.get(field.selector);
+          const mapping = this.mappingLookup.get(field.opid);
           if (!mapping || !mapping.value) continue;
 
           const filledField: FilledField = {
@@ -344,7 +344,7 @@ export class PreviewSidebarManager {
     let count = 0;
 
     for (const field of fields) {
-      const mapping = this.mappingLookup.get(field.selector);
+      const mapping = this.mappingLookup.get(field.opid);
       if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
@@ -653,7 +653,7 @@ export class PreviewSidebarManager {
 
     this.mappingLookup = new Map(
       payload.mappings.map((mapping: FieldMapping) => [
-        mapping.selector,
+        mapping.fieldOpid,
         mapping,
       ]),
     );

@@ -127,7 +127,9 @@ export type FormFieldElement =
   | HTMLSelectElement;
 
 export interface CompressedFieldData {
-  /** CSS selector for the field */
+  /** Field operation ID - unique runtime identifier */
+  fieldOpid: string;
+  /** CSS selector for the field (kept for DOM queries) */
   selector: string;
   type: FieldType;
   purpose: FieldPurpose;
@@ -147,10 +149,10 @@ export interface CompressedMemoryData {
 }
 
 export interface FieldMapping {
-  /** CSS selector for the field */
+  /** Field operation ID - unique runtime identifier (primary key) */
+  fieldOpid: string;
+  /** CSS selector for the field (kept for DOM queries) */
   selector: string;
-  /** @deprecated Use selector instead. Kept for backward compatibility */
-  fieldOpid?: string;
   value: string | null;
   confidence: number;
   reasoning: string;
@@ -165,10 +167,10 @@ export interface AutofillResult {
 }
 
 export interface PreviewFieldData {
-  /** CSS selector for the field (primary identifier for storage) */
-  selector: string;
-  /** Runtime field identifier (used for live DOM operations) */
+  /** Field operation ID - unique runtime identifier (primary key) */
   fieldOpid: FieldOpId;
+  /** CSS selector for the field (kept for DOM queries) */
+  selector: string;
   formOpid: FormOpId;
   metadata: FieldMetadataSnapshot;
   mapping: FieldMapping;

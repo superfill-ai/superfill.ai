@@ -384,6 +384,7 @@ class AutofillService {
     const context = contextParts.filter(Boolean).join(" ");
 
     const result: CompressedFieldData = {
+      fieldOpid: field.opid,
       selector: field.selector,
       type: field.metadata.fieldType,
       purpose: field.metadata.fieldPurpose,
@@ -432,11 +433,11 @@ class AutofillService {
     const mappingMap = new Map<string, FieldMapping>();
 
     for (const mapping of mappings) {
-      mappingMap.set(mapping.selector, mapping);
+      mappingMap.set(mapping.fieldOpid, mapping);
     }
 
     return originalFields.map((field) => {
-      const mapping = mappingMap.get(field.selector);
+      const mapping = mappingMap.get(field.opid);
       if (!mapping) {
         return createEmptyMapping<DetectedFieldSnapshot, FieldMapping>(
           field,
@@ -465,7 +466,7 @@ class AutofillService {
 
       if (mapping.value !== null) {
         logger.debug(
-          `Field ${mapping.selector}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
+          `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
         );
       }
 

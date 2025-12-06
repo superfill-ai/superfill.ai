@@ -18,7 +18,7 @@ import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 const logger = createLogger("ai-matcher");
 
 const AIMatchSchema = z.object({
-  selector: z.string().describe("The CSS selector of the field being matched"),
+  fieldOpid: z.string().describe("The unique field operation ID being matched"),
   value: z
     .string()
     .nullable()
@@ -324,7 +324,7 @@ export class AIMatcher {
       .map((f, idx) => {
         const parts = [
           `**Field ${idx + 1}**`,
-          `- selector: ${f.selector}`,
+          `- fieldOpid: ${f.fieldOpid}`,
           `- type: ${f.type}`,
           `- purpose: ${f.purpose}`,
           `- label: ${f.label || "none"}`,
@@ -412,23 +412,26 @@ export class AIMatcher {
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
   ): FieldMapping[] {
-    const fieldMap = new Map(fields.map((f) => [f.selector, f]));
+    const fieldMap = new Map(fields.map((f) => [f.fieldOpid, f]));
 
     return aiResults.matches.map((aiMatch) => {
-      const field = fieldMap.get(aiMatch.selector);
+      const field = fieldMap.get(aiMatch.fieldOpid);
       if (!field) {
-        logger.warn(`AI returned match for unknown field: ${aiMatch.selector}`);
-        return createEmptyMapping<{ selector: string }, FieldMapping>(
-          { selector: aiMatch.selector },
-          "Field not found",
+        logger.warn(
+          `AI returned match for unknown field: ${aiMatch.fieldOpid}`,
         );
+        return createEmptyMapping<
+          { fieldOpid: string; selector: string },
+          FieldMapping
+        >({ fieldOpid: aiMatch.fieldOpid, selector: "" }, "Field not found");
       }
 
       const confidence = roundConfidence(aiMatch.confidence);
       const value = aiMatch.value;
 
       return {
-        selector: aiMatch.selector,
+        fieldOpid: aiMatch.fieldOpid,
+        selector: field.selector,
         value,
         confidence,
         reasoning:

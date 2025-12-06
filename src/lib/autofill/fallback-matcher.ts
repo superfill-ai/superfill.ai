@@ -74,6 +74,7 @@ export class FallbackMatcher {
 
     if (confidence < MIN_MATCH_CONFIDENCE) {
       return {
+        fieldOpid: field.fieldOpid,
         selector: field.selector,
         value: null,
         confidence,
@@ -82,6 +83,7 @@ export class FallbackMatcher {
     }
 
     return {
+      fieldOpid: field.fieldOpid,
       selector: field.selector,
       value: bestCandidate.memory.answer,
       confidence,

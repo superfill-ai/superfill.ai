@@ -165,7 +165,7 @@ export class AutopilotManager {
       }
 
       this.mappingLookup = new Map(
-        mappings.map((mapping: FieldMapping) => [mapping.selector, mapping]),
+        mappings.map((mapping: FieldMapping) => [mapping.fieldOpid, mapping]),
       );
       this.showProgress({
         state: "detecting",
@@ -183,7 +183,7 @@ export class AutopilotManager {
           mapping.autoFill !== false
         ) {
           fieldsToFill.push({
-            fieldOpid: mapping.selector,
+            fieldOpid: mapping.fieldOpid,
             value: valueToFill,
             confidence: mapping.confidence,
           });
@@ -370,7 +370,7 @@ export class AutopilotManager {
         const filledFields: FilledField[] = [];
 
         for (const field of fields) {
-          const mapping = this.mappingLookup.get(field.selector);
+          const mapping = this.mappingLookup.get(field.opid);
           if (!mapping || !mapping.value) continue;
 
           const filledField: FilledField = {
@@ -406,7 +406,7 @@ export class AutopilotManager {
     let count = 0;
 
     for (const field of fields) {
-      const mapping = this.mappingLookup.get(field.selector);
+      const mapping = this.mappingLookup.get(field.opid);
       if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
