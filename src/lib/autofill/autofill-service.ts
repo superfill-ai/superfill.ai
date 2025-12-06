@@ -10,6 +10,7 @@ import type {
   CompressedMemoryData,
   DetectedFieldSnapshot,
   DetectedFormSnapshot,
+  DetectFormsResult,
   FieldMapping,
   PreviewSidebarPayload,
 } from "@/types/autofill";
@@ -98,33 +99,100 @@ class AutofillService {
       sessionId = session.id;
       logger.info("Started autofill session:", sessionId);
 
-      const result = await contentAutofillMessaging.sendMessage(
-        "detectForms",
-        undefined,
-        tabId,
-      );
+      const requestId = `autofill-${sessionId}-${Date.now()}`;
+      const collectedResults: DetectFormsResult[] = [];
 
-      if (!result.success) {
-        throw new Error(result.error || "Failed to detect forms");
+      const collectionPromise = new Promise<void>((resolve) => {
+        const messageListener = (message: {
+          type?: string;
+          requestId?: string;
+          result?: DetectFormsResult;
+        }) => {
+          if (
+            message.type === "FRAME_FORMS_DETECTED" &&
+            message.requestId === requestId &&
+            message.result
+          ) {
+            collectedResults.push(message.result);
+            logger.info(`Received forms from frame:`, message.result.frameInfo);
+          }
+        };
+
+        browser.runtime.onMessage.addListener(messageListener);
+
+        setTimeout(() => {
+          browser.runtime.onMessage.removeListener(messageListener);
+          resolve();
+        }, 2000);
+      });
+
+      try {
+        await contentAutofillMessaging.sendMessage(
+          "collectAllFrameForms",
+          { requestId },
+          tabId,
+        );
+      } catch (error) {
+        logger.error("Failed to send collectAllFrameForms:", error);
       }
 
-      logger.info(
-        `Detected ${result.totalFields} fields in ${result.forms.length} forms`,
+      await collectionPromise;
+
+      logger.info(`Collected results from ${collectedResults.length} frames`);
+
+      const successfulResults = collectedResults.filter(
+        (result) => result.success === true,
       );
+
+      if (successfulResults.length === 0) {
+        await contentAutofillMessaging.sendMessage(
+          "closePreview",
+          undefined,
+          tabId,
+        );
+        throw new Error("No forms detected in any frame");
+      }
+
+      const allForms = successfulResults.flatMap((result) => result.forms);
+      const totalFields = successfulResults.reduce(
+        (sum, result) => sum + result.totalFields,
+        0,
+      );
+
+      const mainFrameResult = successfulResults.find(
+        (r) => r.frameInfo.isMainFrame,
+      );
+      const websiteContext =
+        mainFrameResult?.websiteContext || successfulResults[0].websiteContext;
+
+      logger.info(
+        `Detected ${totalFields} fields in ${allForms.length} forms across ${successfulResults.length} frames`,
+      );
+
+      successfulResults.forEach((result) => {
+        logger.info(
+          `Frame ${result.frameInfo.isMainFrame ? "main" : "iframe"}:`,
+          {
+            url: result.frameInfo.frameUrl,
+            forms: result.forms.length,
+            fields: result.totalFields,
+          },
+        );
+      });
 
       await contentAutofillMessaging.sendMessage(
         "updateProgress",
         {
           state: "analyzing",
           message: "Analyzing fields...",
-          fieldsDetected: result.totalFields,
+          fieldsDetected: totalFields,
         },
         tabId,
       );
 
       await sessionService.updateSessionStatus(sessionId, "matching");
 
-      const forms = result.forms;
+      const forms = allForms;
       const allFields = forms.flatMap((form) => form.fields);
       const pageUrl = tab.url || "";
 
@@ -133,7 +201,7 @@ class AutofillService {
         {
           state: "matching",
           message: "Matching memories...",
-          fieldsDetected: result.totalFields,
+          fieldsDetected: totalFields,
         },
         tabId,
       );
@@ -141,7 +209,7 @@ class AutofillService {
       const processingResult = await this.processForms(
         forms,
         pageUrl,
-        result.websiteContext,
+        websiteContext,
       );
 
       logger.info("Autofill processing result:", processingResult);
@@ -157,7 +225,7 @@ class AutofillService {
         {
           state: "showing-preview",
           message: "Preparing preview...",
-          fieldsDetected: result.totalFields,
+          fieldsDetected: totalFields,
           fieldsMatched: matchedCount,
         },
         tabId,
@@ -183,7 +251,7 @@ class AutofillService {
 
       return {
         success: true,
-        fieldsDetected: result.totalFields,
+        fieldsDetected: totalFields,
         mappingsFound: matchedCount,
       };
     } catch (error) {
@@ -195,6 +263,12 @@ class AutofillService {
 
       if (tabId) {
         try {
+          await contentAutofillMessaging.sendMessage(
+            "closePreview",
+            undefined,
+            tabId,
+          );
+
           await contentAutofillMessaging.sendMessage(
             "updateProgress",
             {
