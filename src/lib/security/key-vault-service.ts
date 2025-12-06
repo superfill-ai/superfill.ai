@@ -1,38 +1,31 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import { createLogger } from "../logger";
-import { decrypt, encrypt, generateSalt } from "./encryption";
-import { getBrowserFingerprint } from "./fingerprint";
 import { getKeyValidationService } from "./key-validation-service";
+import {
+  getOffscreenFingerprint,
+  offscreenDecrypt,
+  offscreenEncrypt,
+  offscreenGenerateSalt,
+} from "./offscreen-utils";
 
 interface ValidationCache {
   timestamp: number;
   isValid: boolean;
 }
 
-const logger = createLogger("key-vault");
+const logger = createLogger("key-vault-service");
 
-/**
- * KeyVault - Secure API key storage with device-bound encryption
- *
- * IMPORTANT: All methods MUST be called from a browser context (popup/options/content script)
- * DO NOT call from background/service worker context due to fingerprinting requirements.
- *
- * Usage Pattern:
- * 1. In browser context: Decrypt API key using keyVault.getKey()
- * 2. Pass decrypted key to background services as needed
- * 3. Background services use the plain key temporarily for API calls
- */
-export class KeyVault {
+class KeyVaultService {
   private validationCache = new Map<string, ValidationCache>();
   private CACHE_DURATION = 3600000;
 
   async storeKey(provider: AIProvider, key: string): Promise<void> {
-    const fingerprint = await getBrowserFingerprint();
-    const salt = await generateSalt();
-    const encrypted = await encrypt(key, fingerprint, salt);
-
+    const salt = await offscreenGenerateSalt();
+    const encrypted = await offscreenEncrypt(key, salt);
     const currentKeys = await storage.apiKeys.getValue();
+
     await storage.apiKeys.setValue({
       ...currentKeys,
       [provider]: { encrypted, salt },
@@ -47,12 +40,10 @@ export class KeyVault {
     }
 
     const encryptedData = keys[provider];
-    const fingerprint = await getBrowserFingerprint();
 
     try {
-      return await decrypt(
+      return await offscreenDecrypt(
         encryptedData.encrypted,
-        fingerprint,
         encryptedData.salt,
       );
     } catch {
@@ -88,6 +79,18 @@ export class KeyVault {
       return false;
     }
   }
+
+  async hasKey(provider: AIProvider): Promise<boolean> {
+    const keys = await storage.apiKeys.getValue();
+    return !!keys[provider];
+  }
+
+  async getFingerprint(): Promise<string> {
+    return getOffscreenFingerprint();
+  }
 }
 
-export const keyVault = new KeyVault();
+export const [registerKeyVaultService, getKeyVaultService] = defineProxyService(
+  "KeyVaultService",
+  () => new KeyVaultService(),
+);

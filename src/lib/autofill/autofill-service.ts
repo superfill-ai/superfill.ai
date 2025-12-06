@@ -2,6 +2,7 @@ import { defineProxyService } from "@webext-core/proxy-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type {
   AutofillResult,
@@ -52,7 +53,7 @@ class AutofillService {
     logger.info("AutofillService disposed");
   }
 
-  async startAutofillOnActiveTab(apiKey?: string): Promise<{
+  async startAutofillOnActiveTab(): Promise<{
     success: boolean;
     fieldsDetected: number;
     mappingsFound: number;
@@ -62,7 +63,7 @@ class AutofillService {
     let tabId: number | undefined;
     const sessionService = getSessionService();
 
-    logger.info("Starting autofill with API key present:", !!apiKey);
+    logger.info("Starting autofill");
 
     try {
       const [tab] = await browser.tabs.query({
@@ -141,7 +142,6 @@ class AutofillService {
         forms,
         pageUrl,
         result.websiteContext,
-        apiKey,
       );
 
       logger.info("Autofill processing result:", processingResult);
@@ -222,7 +222,6 @@ class AutofillService {
     forms: DetectedFormSnapshot[],
     _pageUrl: string,
     websiteContext: WebsiteContext,
-    apiKey?: string,
   ): Promise<AutofillResult> {
     const startTime = performance.now();
 
@@ -269,12 +268,7 @@ class AutofillService {
       }
 
       const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
-      const mappings = await this.matchFields(
-        fields,
-        memories,
-        websiteContext,
-        apiKey,
-      );
+      const mappings = await this.matchFields(fields, memories, websiteContext);
       const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
 
@@ -301,7 +295,6 @@ class AutofillService {
     fields: DetectedFieldSnapshot[],
     memories: MemoryEntry[],
     websiteContext: WebsiteContext,
-    apiKey?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       return [];
@@ -330,6 +323,9 @@ class AutofillService {
         "with model",
         selectedModel,
       );
+
+      const keyVaultService = getKeyVaultService();
+      const apiKey = await keyVaultService.getKey(provider);
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");

@@ -1,8 +1,19 @@
+let cachedFingerprint: string | null = null;
+let fingerprintCacheTime: number = 0;
+const FINGERPRINT_CACHE_DURATION = 3600000;
+
 export async function getBrowserFingerprint(): Promise<string> {
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error(
-      "getBrowserFingerprint must be called from a browser context (popup/options/content script), not from background script",
+      "getBrowserFingerprint must be called from a browser context with DOM access",
     );
+  }
+
+  if (
+    cachedFingerprint &&
+    Date.now() - fingerprintCacheTime < FINGERPRINT_CACHE_DURATION
+  ) {
+    return cachedFingerprint;
   }
 
   const components = [
@@ -21,9 +32,14 @@ export async function getBrowserFingerprint(): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(fingerprint);
   const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash))
+  const result = Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+
+  cachedFingerprint = result;
+  fingerprintCacheTime = Date.now();
+
+  return result;
 }
 
 async function getCanvasFingerprint(): Promise<string> {
@@ -42,9 +58,16 @@ async function getWebGLFingerprint(): Promise<string> {
   const gl = canvas.getContext("webgl");
   if (!gl) return "";
 
-  return [
-    gl.getParameter(gl.VENDOR),
-    gl.getParameter(gl.RENDERER),
-    gl.getParameter(gl.VERSION),
-  ].join("|");
+  try {
+    return [
+      gl.getParameter(gl.VENDOR),
+      gl.getParameter(gl.RENDERER),
+      gl.getParameter(gl.VERSION),
+    ].join("|");
+  } finally {
+    const ext = gl.getExtension("WEBGL_lose_context");
+    if (ext) {
+      ext.loseContext();
+    }
+  }
 }
