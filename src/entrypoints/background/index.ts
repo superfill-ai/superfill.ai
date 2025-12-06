@@ -9,6 +9,7 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
+import { registerKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 
 const logger = createLogger("background");
@@ -21,6 +22,7 @@ export default defineBackground({
     }
     registerCategorizationService();
     registerKeyValidationService();
+    registerKeyVaultService();
     registerModelService();
     const autofillService = registerAutofillService();
     registerSessionService();
