@@ -64,6 +64,23 @@ export default defineBackground({
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
 
+    browser.runtime.onMessage.addListener((message, sender) => {
+      if (message.type === "FILL_ALL_FRAMES" && sender.tab?.id) {
+        const tabId = sender.tab.id;
+        const fieldsToFill = message.fieldsToFill;
+
+        logger.info(
+          `Broadcasting fill command to all frames in tab ${tabId} for ${fieldsToFill.length} fields`,
+        );
+
+        contentAutofillMessaging
+          .sendMessage("fillFields", { fieldsToFill }, tabId)
+          .catch((error) => {
+            logger.error("Failed to broadcast fill command:", error);
+          });
+      }
+    });
+
     logger.info("Background script initialized with all services");
 
     if (import.meta.hot) {

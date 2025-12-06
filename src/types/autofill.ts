@@ -11,8 +11,22 @@ export type DetectFormsResult =
       forms: DetectedFormSnapshot[];
       totalFields: number;
       websiteContext: WebsiteContext;
+      frameInfo: FrameInfo;
     }
-  | { success: false; forms: never[]; totalFields: 0; error: string };
+  | {
+      success: false;
+      forms: never[];
+      totalFields: 0;
+      error: string;
+      frameInfo: FrameInfo;
+    };
+
+export interface FrameInfo {
+  isMainFrame: boolean;
+  frameUrl: string;
+  parentUrl: string;
+  frameDepth: number;
+}
 
 export interface DetectedForm {
   opid: FormOpId;
@@ -41,6 +55,7 @@ export interface FieldMetadataSnapshot extends Omit<FieldMetadata, "rect"> {
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
+  frameId?: number;
   metadata: FieldMetadataSnapshot;
 }
 
