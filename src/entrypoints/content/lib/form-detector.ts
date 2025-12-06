@@ -1,3 +1,5 @@
+import { serializeFormContext } from "@/lib/autofill/dom-serializer";
+import { generateSelector } from "@/lib/autofill/selector-generator";
 import type {
   DetectedField,
   DetectedForm,
@@ -13,9 +15,11 @@ export class FormDetector {
   private fieldOpidCounter = 0;
   private shadowRootFields: DetectedField[] = [];
   private detectedElements = new Set<FormFieldElement>();
+  private processedRadioGroups = new Set<string>();
 
   constructor(private analyzer: FieldAnalyzer) {}
 
+  // Removed checkbox and radio from ignored types to enable support
   private ignoredTypes = new Set([
     "hidden",
     "submit",
@@ -23,14 +27,13 @@ export class FormDetector {
     "button",
     "image",
     "file",
-    "checkbox",
-    "radio",
   ]);
 
   detectAll(): DetectedForm[] {
     const forms: DetectedForm[] = [];
     this.shadowRootFields = [];
     this.detectedElements.clear();
+    this.processedRadioGroups.clear();
 
     const formElements = this.findFormElements();
 
@@ -42,12 +45,16 @@ export class FormDetector {
         formElement.getAttribute("id") ||
         "";
 
+      // Generate serialized DOM context for the form
+      const domContext = serializeFormContext(formElement);
+
       forms.push({
         opid: formOpid,
         element: formElement,
         action: formElement.action || "",
         method: formElement.method || "get",
         name: formName,
+        domContext,
         fields: fields.map((f) => ({
           ...f,
           formOpid,
@@ -59,12 +66,16 @@ export class FormDetector {
     const allStandaloneFields = [...standaloneFields, ...this.shadowRootFields];
 
     if (allStandaloneFields.length > 0) {
+      // Generate DOM context for standalone fields (no form element)
+      const domContext = serializeFormContext(null);
+
       forms.push({
         opid: "__form__standalone" as FormOpId,
         element: null,
         action: "",
         method: "",
         name: "Standalone Fields",
+        domContext,
         fields: allStandaloneFields.map((f) => ({
           ...f,
           formOpid: "__form__standalone" as FormOpId,
@@ -98,13 +109,44 @@ export class FormDetector {
       const fieldElement = element as FormFieldElement;
       if (
         this.isValidField(fieldElement) &&
-        !this.detectedElements.has(fieldElement)
+        !this.detectedElements.has(fieldElement) &&
+        !this.isRadioGroupAlreadyProcessed(fieldElement)
       ) {
         fields.push(this.createDetectedField(fieldElement));
+        this.markRadioGroupAsProcessed(fieldElement);
       }
     }
 
     return fields;
+  }
+
+  /**
+   * Checks if this radio button's group has already been processed.
+   * We only want one field per radio group since the group info contains all options.
+   */
+  private isRadioGroupAlreadyProcessed(element: FormFieldElement): boolean {
+    if (!(element instanceof HTMLInputElement) || element.type !== "radio") {
+      return false;
+    }
+    const groupKey = this.getRadioGroupKey(element);
+    return groupKey ? this.processedRadioGroups.has(groupKey) : false;
+  }
+
+  private markRadioGroupAsProcessed(element: FormFieldElement): void {
+    if (!(element instanceof HTMLInputElement) || element.type !== "radio") {
+      return;
+    }
+    const groupKey = this.getRadioGroupKey(element);
+    if (groupKey) {
+      this.processedRadioGroups.add(groupKey);
+    }
+  }
+
+  private getRadioGroupKey(element: HTMLInputElement): string | null {
+    if (!element.name) return null;
+    // Use form ID + name to create unique group key
+    const formId = element.form?.id || element.form?.name || "standalone";
+    return `${formId}:${element.name}`;
   }
 
   private findStandaloneFields(
@@ -120,8 +162,13 @@ export class FormDetector {
       const element = node as FormFieldElement;
 
       if (!element.form && !this.isInsideForm(element, existingForms)) {
-        if (this.isValidField(element) && !this.detectedElements.has(element)) {
+        if (
+          this.isValidField(element) &&
+          !this.detectedElements.has(element) &&
+          !this.isRadioGroupAlreadyProcessed(element)
+        ) {
           fields.push(this.createDetectedField(element));
+          this.markRadioGroupAsProcessed(element);
         }
       }
 
@@ -214,9 +261,11 @@ export class FormDetector {
 
   private createDetectedField(element: FormFieldElement): DetectedField {
     const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
+    const selector = generateSelector(element);
 
     const field: DetectedField = {
       opid,
+      selector,
       element,
       metadata: {} as FieldMetadata,
       formOpid: "" as FormOpId,

@@ -21,15 +21,21 @@ export interface DetectedForm {
   method: string;
   name: string;
   fields: DetectedField[];
+  /** Serialized DOM context for AI matching */
+  domContext?: string;
 }
 
 export interface DetectedFormSnapshot
   extends Omit<DetectedForm, "element" | "fields"> {
   fields: DetectedFieldSnapshot[];
+  /** Serialized DOM context for AI matching */
+  domContext?: string;
 }
 
 export interface DetectedField {
   opid: FieldOpId;
+  /** CSS selector for querying this field */
+  selector: string;
   element: FormFieldElement;
   metadata: FieldMetadata;
   formOpid: FormOpId;
@@ -41,7 +47,20 @@ export interface FieldMetadataSnapshot extends Omit<FieldMetadata, "rect"> {
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
+  /** CSS selector for querying this field */
+  selector: string;
   metadata: FieldMetadataSnapshot;
+}
+
+export interface SelectOption {
+  value: string;
+  label: string;
+  selected?: boolean;
+}
+
+export interface RadioGroupInfo {
+  name: string;
+  options: Array<{ value: string; label: string; checked: boolean }>;
 }
 
 export interface FieldMetadata {
@@ -50,11 +69,9 @@ export interface FieldMetadata {
   className: string | null;
   type: string;
 
+  // Primary label sources (simplified)
   labelTag: string | null;
-  labelData: string | null;
   labelAria: string | null;
-  labelLeft: string | null;
-  labelTop: string | null;
 
   placeholder: string | null;
   helperText: string | null;
@@ -71,6 +88,11 @@ export interface FieldMetadata {
 
   fieldType: FieldType;
   fieldPurpose: FieldPurpose;
+
+  // Select/Radio/Checkbox specific
+  options?: SelectOption[];
+  radioGroup?: RadioGroupInfo;
+  isChecked?: boolean;
 }
 
 export type FieldType =
@@ -105,11 +127,18 @@ export type FormFieldElement =
   | HTMLSelectElement;
 
 export interface CompressedFieldData {
-  opid: string;
+  /** Field operation ID - unique runtime identifier */
+  fieldOpid: string;
+  /** CSS selector for the field (kept for DOM queries) */
+  selector: string;
   type: FieldType;
   purpose: FieldPurpose;
-  labels: string[];
+  label: string | null;
   context: string;
+  // For select/radio/checkbox fields
+  options?: string[];
+  radioGroup?: { name: string; values: string[] };
+  isChecked?: boolean;
 }
 
 export interface CompressedMemoryData {
@@ -120,7 +149,10 @@ export interface CompressedMemoryData {
 }
 
 export interface FieldMapping {
+  /** Field operation ID - unique runtime identifier (primary key) */
   fieldOpid: string;
+  /** CSS selector for the field (kept for DOM queries) */
+  selector: string;
   value: string | null;
   confidence: number;
   reasoning: string;
@@ -135,7 +167,10 @@ export interface AutofillResult {
 }
 
 export interface PreviewFieldData {
+  /** Field operation ID - unique runtime identifier (primary key) */
   fieldOpid: FieldOpId;
+  /** CSS selector for the field (kept for DOM queries) */
+  selector: string;
   formOpid: FormOpId;
   metadata: FieldMetadataSnapshot;
   mapping: FieldMapping;
