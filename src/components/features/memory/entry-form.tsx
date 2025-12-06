@@ -79,7 +79,7 @@ export function EntryForm({
             if (
               initialData &&
               mode === "edit" &&
-              allowedCategories.includes(initialData.category)
+              allowedCategories.includes(value.category)
             ) {
               await updateEntry.mutateAsync({
                 id: initialData.id,
@@ -195,7 +195,7 @@ export function EntryForm({
         if (!apiKey) {
           toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
             description:
-              "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
+              "Please configure an AI key in settings to use categorization. Using fallback categorization instead!",
             action: {
               label: "Open Settings",
               onClick: () => browser.runtime.openOptionsPage(),

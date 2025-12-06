@@ -56,7 +56,10 @@ async function sendOffscreenMessage<T>(
   });
 
   if (!response.success) {
-    throw new Error(response.error || "Offscreen operation failed");
+    throw new Error(
+      response.error ||
+        `Offscreen operation '${type}' failed with unknown error`,
+    );
   }
 
   return response.data as T;
