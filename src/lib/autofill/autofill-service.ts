@@ -158,7 +158,6 @@ class AutofillService {
         (sum, result) => sum + result.totalFields,
         0,
       );
-
       const mainFrameResult = successfulResults.find(
         (r) => r.frameInfo.isMainFrame,
       );
@@ -168,17 +167,6 @@ class AutofillService {
       logger.info(
         `Detected ${totalFields} fields in ${allForms.length} forms across ${successfulResults.length} frames`,
       );
-
-      successfulResults.forEach((result) => {
-        logger.info(
-          `Frame ${result.frameInfo.isMainFrame ? "main" : "iframe"}:`,
-          {
-            url: result.frameInfo.frameUrl,
-            forms: result.forms.length,
-            fields: result.totalFields,
-          },
-        );
-      });
 
       await contentAutofillMessaging.sendMessage(
         "updateProgress",
@@ -192,8 +180,7 @@ class AutofillService {
 
       await sessionService.updateSessionStatus(sessionId, "matching");
 
-      const forms = allForms;
-      const allFields = forms.flatMap((form) => form.fields);
+      const allFields = allForms.flatMap((form) => form.fields);
       const pageUrl = tab.url || "";
 
       await contentAutofillMessaging.sendMessage(
@@ -207,7 +194,7 @@ class AutofillService {
       );
 
       const processingResult = await this.processForms(
-        forms,
+        allForms,
         pageUrl,
         websiteContext,
       );
@@ -234,7 +221,7 @@ class AutofillService {
       try {
         await contentAutofillMessaging.sendMessage(
           "showPreview",
-          this.buildPreviewPayload(forms, processingResult, sessionId),
+          this.buildPreviewPayload(allForms, processingResult, sessionId),
           tabId,
         );
       } catch (previewError) {
