@@ -213,16 +213,25 @@ export class PreviewSidebarManager {
   private async handleFill(
     fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
   ) {
-    const filledFieldOpids: FieldOpId[] = [];
-
-    for (const { fieldOpid, value } of fieldsToFill) {
-      const detected = this.options.getFieldMetadata(fieldOpid);
-
-      if (detected) {
-        this.applyValueToElement(detected.element, value);
-        filledFieldOpids.push(fieldOpid);
-      }
+    try {
+      await browser.runtime.sendMessage({
+        type: "FILL_ALL_FRAMES",
+        fieldsToFill: fieldsToFill.map((f) => ({
+          fieldOpid: f.fieldOpid,
+          value: f.value,
+        })),
+      });
+    } catch (error) {
+      logger.error("Failed to send fill request to background:", error);
+      await this.showProgress({
+        state: "failed",
+        message: "Failed to auto-fill fields. Please try again.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return;
     }
+
+    const filledFieldOpids = fieldsToFill.map((f) => f.fieldOpid);
 
     if (this.sessionId) {
       try {
@@ -343,56 +352,6 @@ export class PreviewSidebarManager {
     }
 
     return count > 0 ? totalConfidence / count : 0;
-  }
-
-  private applyValueToElement(
-    element: DetectedField["element"],
-    value: string,
-  ) {
-    if (element instanceof HTMLInputElement) {
-      element.focus({ preventScroll: true });
-
-      if (element.type === "checkbox" || element.type === "radio") {
-        element.checked = value === "true" || value === "on" || value === "1";
-      } else {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLTextAreaElement) {
-      element.focus({ preventScroll: true });
-      element.value = value;
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLSelectElement) {
-      const normalizedValue = value.toLowerCase();
-      let matched = false;
-
-      for (const option of Array.from(element.options)) {
-        if (
-          option.value.toLowerCase() === normalizedValue ||
-          option.text.toLowerCase() === normalizedValue
-        ) {
-          option.selected = true;
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-    }
   }
 
   private highlightField(fieldOpid: FieldOpId) {
