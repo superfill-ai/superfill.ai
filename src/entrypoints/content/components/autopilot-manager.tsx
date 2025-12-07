@@ -243,6 +243,12 @@ export class AutopilotManager {
         });
       } catch (error) {
         logger.error("Failed to send fill request to background:", error);
+        await this.showProgress({
+          state: "failed",
+          message: "Auto-fill failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        return false;
       }
 
       const filledCount = this.fieldsToFill.length;

@@ -65,7 +65,12 @@ export default defineBackground({
     });
 
     browser.runtime.onMessage.addListener((message, sender) => {
-      if (message.type === "FILL_ALL_FRAMES" && sender.tab?.id) {
+      if (
+        message.type === "FILL_ALL_FRAMES" &&
+        sender.tab?.id &&
+        sender.url &&
+        sender.frameId !== undefined
+      ) {
         const tabId = sender.tab.id;
         const fieldsToFill = message.fieldsToFill;
 
@@ -79,6 +84,7 @@ export default defineBackground({
             logger.error("Failed to broadcast fill command:", error);
           });
       }
+      return true;
     });
 
     logger.info("Background script initialized with all services");

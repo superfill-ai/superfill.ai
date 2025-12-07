@@ -204,7 +204,11 @@ export default defineContentScript({
             .filter((form) => form.fields.length > 0);
 
           cacheDetectedForms(forms);
-          serializedFormCache = serializeForms(forms, undefined);
+          const serializedForms = serializeForms(forms, undefined);
+
+          if (isMainFrame) {
+            serializedFormCache = serializedForms;
+          }
 
           const totalFields = forms.reduce(
             (sum, form) => sum + form.fields.length,
@@ -222,7 +226,7 @@ export default defineContentScript({
             requestId: data.requestId,
             result: {
               success: true,
-              forms: serializedFormCache,
+              forms: serializedForms,
               totalFields,
               websiteContext,
               frameInfo,

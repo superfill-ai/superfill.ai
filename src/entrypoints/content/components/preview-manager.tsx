@@ -223,6 +223,12 @@ export class PreviewSidebarManager {
       });
     } catch (error) {
       logger.error("Failed to send fill request to background:", error);
+      await this.showProgress({
+        state: "failed",
+        message: "Failed to auto-fill fields. Please try again.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return;
     }
 
     const filledFieldOpids = fieldsToFill.map((f) => f.fieldOpid);
