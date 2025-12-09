@@ -9,6 +9,7 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
+import { registerKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 
 const logger = createLogger("background");
@@ -21,6 +22,7 @@ export default defineBackground({
     }
     registerCategorizationService();
     registerKeyValidationService();
+    registerKeyVaultService();
     registerModelService();
     const autofillService = registerAutofillService();
     registerSessionService();
@@ -60,6 +62,29 @@ export default defineBackground({
 
     contentAutofillMessaging.onMessage("saveFormMappings", async ({ data }) => {
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
+    });
+
+    browser.runtime.onMessage.addListener((message, sender) => {
+      if (
+        message.type === "FILL_ALL_FRAMES" &&
+        sender.tab?.id &&
+        sender.url &&
+        sender.frameId !== undefined
+      ) {
+        const tabId = sender.tab.id;
+        const fieldsToFill = message.fieldsToFill;
+
+        logger.info(
+          `Broadcasting fill command to all frames in tab ${tabId} for ${fieldsToFill.length} fields`,
+        );
+
+        contentAutofillMessaging
+          .sendMessage("fillFields", { fieldsToFill }, tabId)
+          .catch((error) => {
+            logger.error("Failed to broadcast fill command:", error);
+          });
+      }
+      return true;
     });
 
     logger.info("Background script initialized with all services");

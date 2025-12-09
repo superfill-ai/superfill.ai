@@ -2,6 +2,7 @@ import { defineProxyService } from "@webext-core/proxy-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type {
   AutofillResult,
@@ -9,6 +10,7 @@ import type {
   CompressedMemoryData,
   DetectedFieldSnapshot,
   DetectedFormSnapshot,
+  DetectFormsResult,
   FieldMapping,
   PreviewSidebarPayload,
 } from "@/types/autofill";
@@ -52,7 +54,7 @@ class AutofillService {
     logger.info("AutofillService disposed");
   }
 
-  async startAutofillOnActiveTab(apiKey?: string): Promise<{
+  async startAutofillOnActiveTab(): Promise<{
     success: boolean;
     fieldsDetected: number;
     mappingsFound: number;
@@ -62,7 +64,7 @@ class AutofillService {
     let tabId: number | undefined;
     const sessionService = getSessionService();
 
-    logger.info("Starting autofill with API key present:", !!apiKey);
+    logger.info("Starting autofill");
 
     try {
       const [tab] = await browser.tabs.query({
@@ -97,18 +99,73 @@ class AutofillService {
       sessionId = session.id;
       logger.info("Started autofill session:", sessionId);
 
-      const result = await contentAutofillMessaging.sendMessage(
-        "detectForms",
-        undefined,
-        tabId,
-      );
+      const requestId = `autofill-${sessionId}-${Date.now()}`;
+      const collectedResults: DetectFormsResult[] = [];
 
-      if (!result.success) {
-        throw new Error(result.error || "Failed to detect forms");
+      const collectionPromise = new Promise<void>((resolve) => {
+        const messageListener = (message: {
+          type?: string;
+          requestId?: string;
+          result?: DetectFormsResult;
+        }) => {
+          if (
+            message.type === "FRAME_FORMS_DETECTED" &&
+            message.requestId === requestId &&
+            message.result
+          ) {
+            collectedResults.push(message.result);
+            logger.info(`Received forms from frame:`, message.result.frameInfo);
+          }
+        };
+
+        browser.runtime.onMessage.addListener(messageListener);
+
+        setTimeout(() => {
+          browser.runtime.onMessage.removeListener(messageListener);
+          resolve();
+        }, 2000);
+      });
+
+      try {
+        await contentAutofillMessaging.sendMessage(
+          "collectAllFrameForms",
+          { requestId },
+          tabId,
+        );
+      } catch (error) {
+        logger.error("Failed to send collectAllFrameForms:", error);
       }
 
+      await collectionPromise;
+
+      logger.info(`Collected results from ${collectedResults.length} frames`);
+
+      const successfulResults = collectedResults.filter(
+        (result) => result.success === true,
+      );
+
+      if (successfulResults.length === 0) {
+        await contentAutofillMessaging.sendMessage(
+          "closePreview",
+          undefined,
+          tabId,
+        );
+        throw new Error("No forms detected in any frame");
+      }
+
+      const allForms = successfulResults.flatMap((result) => result.forms);
+      const totalFields = successfulResults.reduce(
+        (sum, result) => sum + result.totalFields,
+        0,
+      );
+      const mainFrameResult = successfulResults.find(
+        (r) => r.frameInfo.isMainFrame,
+      );
+      const websiteContext =
+        mainFrameResult?.websiteContext || successfulResults[0].websiteContext;
+
       logger.info(
-        `Detected ${result.totalFields} fields in ${result.forms.length} forms`,
+        `Detected ${totalFields} fields in ${allForms.length} forms across ${successfulResults.length} frames`,
       );
 
       await contentAutofillMessaging.sendMessage(
@@ -116,15 +173,14 @@ class AutofillService {
         {
           state: "analyzing",
           message: "Analyzing fields...",
-          fieldsDetected: result.totalFields,
+          fieldsDetected: totalFields,
         },
         tabId,
       );
 
       await sessionService.updateSessionStatus(sessionId, "matching");
 
-      const forms = result.forms;
-      const allFields = forms.flatMap((form) => form.fields);
+      const allFields = allForms.flatMap((form) => form.fields);
       const pageUrl = tab.url || "";
 
       await contentAutofillMessaging.sendMessage(
@@ -132,16 +188,15 @@ class AutofillService {
         {
           state: "matching",
           message: "Matching memories...",
-          fieldsDetected: result.totalFields,
+          fieldsDetected: totalFields,
         },
         tabId,
       );
 
       const processingResult = await this.processForms(
-        forms,
+        allForms,
         pageUrl,
-        result.websiteContext,
-        apiKey,
+        websiteContext,
       );
 
       logger.info("Autofill processing result:", processingResult);
@@ -157,7 +212,7 @@ class AutofillService {
         {
           state: "showing-preview",
           message: "Preparing preview...",
-          fieldsDetected: result.totalFields,
+          fieldsDetected: totalFields,
           fieldsMatched: matchedCount,
         },
         tabId,
@@ -166,7 +221,7 @@ class AutofillService {
       try {
         await contentAutofillMessaging.sendMessage(
           "showPreview",
-          this.buildPreviewPayload(forms, processingResult, sessionId),
+          this.buildPreviewPayload(allForms, processingResult, sessionId),
           tabId,
         );
       } catch (previewError) {
@@ -183,7 +238,7 @@ class AutofillService {
 
       return {
         success: true,
-        fieldsDetected: result.totalFields,
+        fieldsDetected: totalFields,
         mappingsFound: matchedCount,
       };
     } catch (error) {
@@ -195,6 +250,12 @@ class AutofillService {
 
       if (tabId) {
         try {
+          await contentAutofillMessaging.sendMessage(
+            "closePreview",
+            undefined,
+            tabId,
+          );
+
           await contentAutofillMessaging.sendMessage(
             "updateProgress",
             {
@@ -222,7 +283,6 @@ class AutofillService {
     forms: DetectedFormSnapshot[],
     _pageUrl: string,
     websiteContext: WebsiteContext,
-    apiKey?: string,
   ): Promise<AutofillResult> {
     const startTime = performance.now();
 
@@ -269,12 +329,7 @@ class AutofillService {
       }
 
       const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
-      const mappings = await this.matchFields(
-        fields,
-        memories,
-        websiteContext,
-        apiKey,
-      );
+      const mappings = await this.matchFields(fields, memories, websiteContext);
       const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
 
@@ -301,7 +356,6 @@ class AutofillService {
     fields: DetectedFieldSnapshot[],
     memories: MemoryEntry[],
     websiteContext: WebsiteContext,
-    apiKey?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       return [];
@@ -330,6 +384,9 @@ class AutofillService {
         "with model",
         selectedModel,
       );
+
+      const keyVaultService = getKeyVaultService();
+      const apiKey = await keyVaultService.getKey(provider);
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");
