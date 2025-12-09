@@ -24,9 +24,9 @@ export default defineConfig({
 
     const baseManifest = {
       name: APP_NAME,
-      version: "0.1.5",
+      version: "0.1.8",
       description: "AI-powered form filling browser extension",
-      permissions: ["activeTab", "storage"],
+      permissions: ["activeTab", "storage", "offscreen", "contextMenus"],
       host_permissions: [
         "https://api.openai.com/*",
         "https://api.anthropic.com/*",

@@ -11,8 +11,22 @@ export type DetectFormsResult =
       forms: DetectedFormSnapshot[];
       totalFields: number;
       websiteContext: WebsiteContext;
+      frameInfo: FrameInfo;
     }
-  | { success: false; forms: never[]; totalFields: 0; error: string };
+  | {
+      success: false;
+      forms: never[];
+      totalFields: 0;
+      error: string;
+      frameInfo: FrameInfo;
+    };
+
+export interface FrameInfo {
+  isMainFrame: boolean;
+  frameUrl: string;
+  parentUrl: string;
+  frameDepth: number;
+}
 
 export interface DetectedForm {
   opid: FormOpId;
@@ -41,6 +55,7 @@ export interface FieldMetadataSnapshot extends Omit<FieldMetadata, "rect"> {
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
+  frameId?: number;
   metadata: FieldMetadataSnapshot;
 }
 
@@ -54,7 +69,6 @@ export interface FieldMetadata {
   labelData: string | null;
   labelAria: string | null;
   labelLeft: string | null;
-  labelRight: string | null;
   labelTop: string | null;
 
   placeholder: string | null;
@@ -122,16 +136,9 @@ export interface CompressedMemoryData {
 
 export interface FieldMapping {
   fieldOpid: string;
-  memoryId: string | null;
   value: string | null;
-  rephrasedValue: string | null;
   confidence: number;
   reasoning: string;
-  alternativeMatches: Array<{
-    memoryId: string;
-    value: string;
-    confidence: number;
-  }>;
   autoFill?: boolean;
 }
 
@@ -173,4 +180,14 @@ export interface AutofillProgress {
   fieldsDetected?: number;
   fieldsMatched?: number;
   error?: string;
+}
+
+export interface FilterStats {
+  total: number;
+  filtered: number;
+  reasons: {
+    noQuality: number;
+    duplicate: number;
+    unknownUnlabeled: number;
+  };
 }

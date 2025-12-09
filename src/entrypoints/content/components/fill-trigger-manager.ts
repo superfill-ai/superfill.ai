@@ -1,7 +1,7 @@
 import { getAutofillService } from "@/lib/autofill/autofill-service";
 import { createLogger } from "@/lib/logger";
-import { keyVault } from "@/lib/security/key-vault";
-import { store } from "@/lib/storage";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
+import { storage } from "@/lib/storage";
 import { FillTriggerButton } from "./fill-trigger-button";
 
 const logger = createLogger("content:fill-trigger-manager");
@@ -140,6 +140,8 @@ export class FillTriggerManager {
   }
 
   private async showButton(field: HTMLElement): Promise<void> {
+    // Don't show button while autofill is running
+    if (this.isProcessing) return;
     if (this.currentField === field && this.button) return;
 
     this.hideButton();
@@ -150,10 +152,14 @@ export class FillTriggerManager {
         if (this.isProcessing) return;
         this.isProcessing = true;
 
+        // Hide the button immediately when autofill starts
+        this.hideButton();
+
         try {
-          const aiSettings = await store.aiSettings.getValue();
+          const aiSettings = await storage.aiSettings.getValue();
+          const keyVaultService = getKeyVaultService();
           const apiKey = aiSettings.selectedProvider
-            ? await keyVault.getKey(aiSettings.selectedProvider)
+            ? await keyVaultService.getKey(aiSettings.selectedProvider)
             : null;
 
           if (!apiKey) {
@@ -162,10 +168,9 @@ export class FillTriggerManager {
           }
 
           const autofillService = getAutofillService();
-          await autofillService.startAutofillOnActiveTab(apiKey);
+          await autofillService.startAutofillOnActiveTab();
         } finally {
           this.isProcessing = false;
-          this.hideButton();
         }
       });
 

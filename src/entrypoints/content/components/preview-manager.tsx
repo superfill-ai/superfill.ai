@@ -58,7 +58,6 @@ const getPrimaryLabel = (
     metadata.labelData,
     metadata.labelTop,
     metadata.labelLeft,
-    metadata.labelRight,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -83,12 +82,9 @@ const buildPreviewFields = (
         mappingLookup.get(field.opid) ??
         ({
           fieldOpid: field.opid,
-          memoryId: null,
           value: null,
-          rephrasedValue: null,
           confidence: 0,
           reasoning: "No suggestion generated",
-          alternativeMatches: [],
           autoFill: false,
         } satisfies FieldMapping);
 
@@ -217,37 +213,25 @@ export class PreviewSidebarManager {
   private async handleFill(
     fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
   ) {
-    const memoryIds: string[] = [];
-    const filledFieldOpids: FieldOpId[] = [];
-
-    for (const { fieldOpid, value } of fieldsToFill) {
-      const detected = this.options.getFieldMetadata(fieldOpid);
-
-      if (!detected) {
-        continue;
-      }
-
-      this.applyValueToElement(detected.element, value);
-      filledFieldOpids.push(fieldOpid);
-
-      const mapping = this.mappingLookup.get(fieldOpid);
-
-      if (mapping?.memoryId) {
-        memoryIds.push(mapping.memoryId);
-      }
+    try {
+      await browser.runtime.sendMessage({
+        type: "FILL_ALL_FRAMES",
+        fieldsToFill: fieldsToFill.map((f) => ({
+          fieldOpid: f.fieldOpid,
+          value: f.value,
+        })),
+      });
+    } catch (error) {
+      logger.error("Failed to send fill request to background:", error);
+      await this.showProgress({
+        state: "failed",
+        message: "Failed to auto-fill fields. Please try again.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return;
     }
 
-    logger.info("Filled fields, incrementing memory usage for:", memoryIds);
-
-    if (memoryIds.length > 0) {
-      try {
-        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
-          memoryIds,
-        });
-      } catch (error) {
-        logger.error("Failed to increment memory usage:", error);
-      }
-    }
+    const filledFieldOpids = fieldsToFill.map((f) => f.fieldOpid);
 
     if (this.sessionId) {
       try {
@@ -269,11 +253,15 @@ export class PreviewSidebarManager {
           sessionId: this.sessionId,
         });
 
+        const matchedCount = filledFieldOpids.filter(
+          (opid) => this.mappingLookup.get(opid)?.value !== null,
+        ).length;
+
         await this.showProgress({
           state: "completed",
           message: "Auto-fill completed successfully",
           fieldsDetected: filledFieldOpids.length,
-          fieldsMatched: memoryIds.length,
+          fieldsMatched: matchedCount,
         });
 
         logger.info("Session completed:", this.sessionId);
@@ -291,8 +279,6 @@ export class PreviewSidebarManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await storage.memories.getValue();
-      const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
       for (const fieldOpid of selectedFieldOpids) {
@@ -329,11 +315,8 @@ export class PreviewSidebarManager {
           };
           formFields.push(formField);
 
-          if (mapping.memoryId) {
-            const memory = memoryMap.get(mapping.memoryId);
-            if (memory) {
-              matches.set(formField.name, memory);
-            }
+          if (mapping.value) {
+            matches.set(formField.name, mapping.value);
           }
         }
 
@@ -362,63 +345,13 @@ export class PreviewSidebarManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.memoryId) {
+      if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
       }
     }
 
     return count > 0 ? totalConfidence / count : 0;
-  }
-
-  private applyValueToElement(
-    element: DetectedField["element"],
-    value: string,
-  ) {
-    if (element instanceof HTMLInputElement) {
-      element.focus({ preventScroll: true });
-
-      if (element.type === "checkbox" || element.type === "radio") {
-        element.checked = value === "true" || value === "on" || value === "1";
-      } else {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLTextAreaElement) {
-      element.focus({ preventScroll: true });
-      element.value = value;
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLSelectElement) {
-      const normalizedValue = value.toLowerCase();
-      let matched = false;
-
-      for (const option of Array.from(element.options)) {
-        if (
-          option.value.toLowerCase() === normalizedValue ||
-          option.text.toLowerCase() === normalizedValue
-        ) {
-          option.selected = true;
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-    }
   }
 
   private highlightField(fieldOpid: FieldOpId) {
@@ -523,7 +456,7 @@ export class PreviewSidebarManager {
     );
 
     const matchedFields = payload.mappings.filter(
-      (mapping: FieldMapping) => mapping.memoryId !== null,
+      (mapping: FieldMapping) => mapping.value !== null,
     ).length;
 
     return {

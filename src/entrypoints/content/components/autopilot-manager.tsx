@@ -27,7 +27,6 @@ export interface AutopilotFillData {
   fieldOpid: string;
   value: string;
   confidence: number;
-  memoryId: string;
 }
 
 const getPrimaryLabel = (
@@ -39,7 +38,6 @@ const getPrimaryLabel = (
     metadata.labelData,
     metadata.labelTop,
     metadata.labelLeft,
-    metadata.labelRight,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -180,11 +178,10 @@ export class AutopilotManager {
 
       const fieldsToFill: AutopilotFillData[] = [];
       for (const mapping of mappings) {
-        const valueToFill = mapping.rephrasedValue ?? mapping.value;
+        const valueToFill = mapping.value;
 
         if (
           valueToFill !== null &&
-          mapping.memoryId !== null &&
           mapping.confidence >= confidenceThreshold &&
           mapping.autoFill !== false
         ) {
@@ -192,7 +189,6 @@ export class AutopilotManager {
             fieldOpid: mapping.fieldOpid,
             value: valueToFill,
             confidence: mapping.confidence,
-            memoryId: mapping.memoryId,
           });
         }
       }
@@ -237,46 +233,25 @@ export class AutopilotManager {
         status: "filling",
       });
 
-      let filledCount = 0;
-
-      for (const field of this.fieldsToFill) {
-        try {
-          let element = document.querySelector(
-            `[data-wxt-field-opid="${field.fieldOpid}"]`,
-          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-
-          if (!element && field.fieldOpid.startsWith("__")) {
-            const index = field.fieldOpid.substring(2);
-            const allInputs = document.querySelectorAll(
-              "input, textarea, select",
-            );
-            element = allInputs[parseInt(index, 10)] as
-              | HTMLInputElement
-              | HTMLTextAreaElement
-              | HTMLSelectElement;
-          }
-
-          if (element && element.type !== "password") {
-            element.value = field.value;
-            element.setAttribute("data-autopilot-filled", "true");
-
-            element.dispatchEvent(new Event("input", { bubbles: true }));
-            element.dispatchEvent(new Event("change", { bubbles: true }));
-            element.dispatchEvent(new Event("blur", { bubbles: true }));
-
-            filledCount++;
-            logger.debug(
-              `Filled field ${field.fieldOpid} with value: ${field.value}`,
-            );
-          } else {
-            logger.warn(
-              `Field element not found or is password field for opid: ${field.fieldOpid}`,
-            );
-          }
-        } catch (fieldError) {
-          logger.error(`Failed to fill field ${field.fieldOpid}:`, fieldError);
-        }
+      try {
+        await browser.runtime.sendMessage({
+          type: "FILL_ALL_FRAMES",
+          fieldsToFill: this.fieldsToFill.map((f) => ({
+            fieldOpid: f.fieldOpid,
+            value: f.value,
+          })),
+        });
+      } catch (error) {
+        logger.error("Failed to send fill request to background:", error);
+        await this.showProgress({
+          state: "failed",
+          message: "Auto-fill failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        return false;
       }
+
+      const filledCount = this.fieldsToFill.length;
 
       await this.showProgress({
         state: "completed",
@@ -318,23 +293,6 @@ export class AutopilotManager {
     }
 
     try {
-      const usedMemoryIds = Array.from(
-        new Set(this.fieldsToFill.map((field) => field.memoryId)),
-      );
-
-      logger.info(
-        `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,
-      );
-
-      if (usedMemoryIds.length > 0) {
-        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
-          memoryIds: usedMemoryIds,
-        });
-        logger.info(
-          `Incremented usage count for ${usedMemoryIds.length} memories`,
-        );
-      }
-
       await contentAutofillMessaging.sendMessage("completeSession", {
         sessionId: this.sessionId,
       });
@@ -412,8 +370,8 @@ export class AutopilotManager {
           };
           formFields.push(formField);
 
-          if (mapping.memoryId) {
-            const memory = memoryMap.get(mapping.memoryId);
+          if (mapping.value !== null) {
+            const memory = memoryMap.get(mapping.value);
             if (memory) {
               matches.set(formField.name, memory);
             }
@@ -445,7 +403,7 @@ export class AutopilotManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.memoryId) {
+      if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
       }
