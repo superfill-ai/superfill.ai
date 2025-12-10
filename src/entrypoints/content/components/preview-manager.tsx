@@ -5,6 +5,7 @@ import {
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import { fillField } from "@/lib/autofill/fill-field";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type { AutofillProgress } from "@/types/autofill";
@@ -233,8 +234,14 @@ export class PreviewSidebarManager {
       const detected = this.options.getFieldMetadata(fieldOpid);
 
       if (detected) {
-        this.applyValueToElement(detected.element, value);
-        filledFieldOpids.push(fieldOpid);
+        const success = fillField(
+          detected.element,
+          value,
+          detected.metadata.fieldType,
+        );
+        if (success) {
+          filledFieldOpids.push(fieldOpid);
+        }
       }
     }
 
@@ -352,219 +359,6 @@ export class PreviewSidebarManager {
     }
 
     return count > 0 ? totalConfidence / count : 0;
-  }
-
-  private applyValueToElement(
-    element: DetectedField["element"],
-    value: string,
-  ) {
-    if (element instanceof HTMLInputElement) {
-      element.focus({ preventScroll: true });
-
-      if (element.type === "checkbox") {
-        // Handle checkbox - normalize boolean-like values
-        const shouldCheck = this.parseBooleanValue(value);
-        element.checked = shouldCheck;
-      } else if (element.type === "radio") {
-        // Handle radio button - find and check the right option in the group
-        this.applyRadioValue(element, value);
-      } else {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLTextAreaElement) {
-      element.focus({ preventScroll: true });
-      element.value = value;
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLSelectElement) {
-      this.applySelectValue(element, value);
-    }
-  }
-
-  /**
-   * Parse boolean-like values for checkbox fields
-   */
-  private parseBooleanValue(value: string): boolean {
-    const trueValues = ["true", "yes", "1", "on", "checked"];
-    return trueValues.includes(value.toLowerCase().trim());
-  }
-
-  /**
-   * Apply value to a radio button group
-   * Finds the radio with matching value/label and checks it
-   */
-  private applyRadioValue(element: HTMLInputElement, value: string) {
-    const radioName = element.name;
-    if (!radioName) {
-      // If no name, just check/uncheck this radio
-      element.checked = this.parseBooleanValue(value);
-      return;
-    }
-
-    // Find all radios in this group
-    const form = element.form;
-    const radios = form
-      ? Array.from(
-          form.querySelectorAll<HTMLInputElement>(
-            `input[type="radio"][name="${radioName}"]`,
-          ),
-        )
-      : Array.from(
-          document.querySelectorAll<HTMLInputElement>(
-            `input[type="radio"][name="${radioName}"]`,
-          ),
-        );
-
-    const valueLower = value.toLowerCase().trim();
-
-    // First, try exact match on value
-    let matched = radios.find(
-      (r) => r.value.toLowerCase().trim() === valueLower,
-    );
-
-    // If no exact match, try matching by label text
-    if (!matched) {
-      for (const radio of radios) {
-        const label = this.getRadioLabel(radio);
-        if (label && label.toLowerCase().trim() === valueLower) {
-          matched = radio;
-          break;
-        }
-      }
-    }
-
-    // If still no match, try fuzzy matching
-    if (!matched) {
-      let bestScore = 0;
-      for (const radio of radios) {
-        const label = this.getRadioLabel(radio) || radio.value;
-        const score = this.fuzzyMatch(value, label);
-        if (score > bestScore && score >= 0.6) {
-          bestScore = score;
-          matched = radio;
-        }
-      }
-    }
-
-    if (matched) {
-      matched.checked = true;
-      matched.dispatchEvent(new Event("input", { bubbles: true }));
-      matched.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }
-
-  /**
-   * Get the label text for a radio button
-   */
-  private getRadioLabel(radio: HTMLInputElement): string | null {
-    // Check for associated label via for attribute
-    if (radio.id) {
-      const label = document.querySelector<HTMLLabelElement>(
-        `label[for="${radio.id}"]`,
-      );
-      if (label) return label.textContent?.trim() || null;
-    }
-
-    // Check for wrapping label
-    const parentLabel = radio.closest("label");
-    if (parentLabel) {
-      // Get text content excluding the radio itself
-      const clone = parentLabel.cloneNode(true) as HTMLLabelElement;
-      const radioInClone = clone.querySelector('input[type="radio"]');
-      if (radioInClone) radioInClone.remove();
-      return clone.textContent?.trim() || null;
-    }
-
-    return null;
-  }
-
-  /**
-   * Apply value to a select element with fuzzy matching
-   */
-  private applySelectValue(element: HTMLSelectElement, value: string) {
-    const valueLower = value.toLowerCase().trim();
-
-    // First try exact match on value or text
-    for (const option of Array.from(element.options)) {
-      if (
-        option.value.toLowerCase().trim() === valueLower ||
-        option.text.toLowerCase().trim() === valueLower
-      ) {
-        element.value = option.value;
-        element.dispatchEvent(new Event("input", { bubbles: true }));
-        element.dispatchEvent(new Event("change", { bubbles: true }));
-        return;
-      }
-    }
-
-    // Try fuzzy matching
-    let bestMatch: HTMLOptionElement | null = null;
-    let bestScore = 0;
-
-    for (const option of Array.from(element.options)) {
-      const textScore = this.fuzzyMatch(value, option.text);
-      const valueScore = this.fuzzyMatch(value, option.value);
-      const score = Math.max(textScore, valueScore);
-
-      if (score > bestScore && score >= 0.6) {
-        bestScore = score;
-        bestMatch = option;
-      }
-    }
-
-    if (bestMatch) {
-      element.value = bestMatch.value;
-    } else {
-      // Fallback to direct assignment
-      element.value = value;
-    }
-
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-
-  /**
-   * Simple fuzzy match score between two strings (0-1)
-   */
-  private fuzzyMatch(a: string, b: string): number {
-    const aLower = a.toLowerCase().trim();
-    const bLower = b.toLowerCase().trim();
-
-    if (aLower === bLower) return 1;
-    if (aLower.includes(bLower) || bLower.includes(aLower)) return 0.85;
-
-    // Levenshtein-based similarity
-    const maxLen = Math.max(aLower.length, bLower.length);
-    if (maxLen === 0) return 0;
-
-    const matrix: number[][] = [];
-    for (let i = 0; i <= bLower.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= aLower.length; j++) matrix[0][j] = j;
-
-    for (let i = 1; i <= bLower.length; i++) {
-      for (let j = 1; j <= aLower.length; j++) {
-        if (bLower.charAt(i - 1) === aLower.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1,
-          );
-        }
-      }
-    }
-
-    return 1 - matrix[bLower.length][aLower.length] / maxLen;
   }
 
   private highlightField(fieldOpid: FieldOpId) {

@@ -1,5 +1,10 @@
 import type { WebsiteContext } from "./context";
 
+export type FormFieldElement =
+  | HTMLInputElement
+  | HTMLTextAreaElement
+  | HTMLSelectElement;
+
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;
 };
@@ -120,11 +125,6 @@ export type FieldPurpose =
   | "company"
   | "title"
   | "unknown";
-
-export type FormFieldElement =
-  | HTMLInputElement
-  | HTMLTextAreaElement
-  | HTMLSelectElement;
 
 export interface CompressedFieldData {
   /** Field operation ID - unique runtime identifier */

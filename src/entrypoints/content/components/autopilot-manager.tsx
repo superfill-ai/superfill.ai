@@ -5,6 +5,7 @@ import {
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import { fillField } from "@/lib/autofill/fill-field";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
@@ -13,6 +14,7 @@ import type {
   DetectedFieldSnapshot,
   FieldMapping,
   FieldOpId,
+  FieldType,
   FormOpId,
 } from "@/types/autofill";
 import type { FilledField, FormMapping } from "@/types/memory";
@@ -234,9 +236,18 @@ export class AutopilotManager {
 
       for (const field of this.fieldsToFill) {
         try {
-          let element = document.querySelector(
-            `[data-wxt-field-opid="${field.fieldOpid}"]`,
-          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+          const detected = this.options.getFieldMetadata(
+            field.fieldOpid as FieldOpId,
+          );
+
+          let element = detected?.element;
+
+          // Fallback: try to find element by data attribute or index
+          if (!element) {
+            element = document.querySelector(
+              `[data-wxt-field-opid="${field.fieldOpid}"]`,
+            ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+          }
 
           if (!element && field.fieldOpid.startsWith("__")) {
             const index = field.fieldOpid.substring(2);
@@ -250,17 +261,22 @@ export class AutopilotManager {
           }
 
           if (element && element.type !== "password") {
-            element.value = field.value;
-            element.setAttribute("data-autopilot-filled", "true");
+            // Use centralized fillField function
+            const fieldType =
+              detected?.metadata.fieldType ?? this.inferFieldType(element);
+            const success = fillField(element, field.value, fieldType);
 
-            element.dispatchEvent(new Event("input", { bubbles: true }));
-            element.dispatchEvent(new Event("change", { bubbles: true }));
-            element.dispatchEvent(new Event("blur", { bubbles: true }));
-
-            filledCount++;
-            logger.debug(
-              `Filled field ${field.fieldOpid} with value: ${field.value}`,
-            );
+            if (success) {
+              element.setAttribute("data-autopilot-filled", "true");
+              filledCount++;
+              logger.debug(
+                `Filled field ${field.fieldOpid} with value: ${field.value}`,
+              );
+            } else {
+              logger.warn(
+                `Failed to fill field ${field.fieldOpid} with value: ${field.value}`,
+              );
+            }
           } else {
             logger.warn(
               `Field element not found or is password field for opid: ${field.fieldOpid}`,
@@ -414,5 +430,43 @@ export class AutopilotManager {
     }
 
     return count > 0 ? totalConfidence / count : 0;
+  }
+
+  /**
+   * Infer field type from element when metadata is not available
+   */
+  private inferFieldType(
+    element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  ): FieldType {
+    if (element instanceof HTMLSelectElement) {
+      return "select";
+    }
+    if (element instanceof HTMLTextAreaElement) {
+      return "textarea";
+    }
+    if (element instanceof HTMLInputElement) {
+      const type = element.type.toLowerCase();
+      switch (type) {
+        case "email":
+          return "email";
+        case "tel":
+          return "tel";
+        case "url":
+          return "url";
+        case "number":
+          return "number";
+        case "date":
+          return "date";
+        case "checkbox":
+          return "checkbox";
+        case "radio":
+          return "radio";
+        case "password":
+          return "password";
+        default:
+          return "text";
+      }
+    }
+    return "text";
   }
 }

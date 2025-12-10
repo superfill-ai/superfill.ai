@@ -312,7 +312,7 @@ export function EntryForm({
                 className={layout === "compact" ? "gap-1" : ""}
               >
                 <FieldLabel htmlFor={field.name}>
-                  Question (Optional)
+                  Memory Label/Question
                 </FieldLabel>
                 <Textarea
                   id={field.name}
@@ -321,7 +321,7 @@ export function EntryForm({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   aria-invalid={isInvalid}
-                  placeholder="What information does this answer?"
+                  placeholder="What is this memory about?"
                 />
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
@@ -355,18 +355,19 @@ export function EntryForm({
           }}
         </form.Field>
 
-        <div className="flex gap-2 flex-1 justify-between">
+        <div className="flex flex-wrap justify-center gap-2 py-2">
           <Button
             type="button"
             variant="outline"
             size="xs"
             onClick={handleRephrase}
             disabled={isAiRephrasing || !answer.trim()}
+            className="rounded-sm"
           >
             {isAiRephrasing ? (
               <Loader2Icon className="mr-2 size-3 animate-spin" />
             ) : (
-              <SparklesIcon className="mr-2 size-3" />
+              <SparklesIcon className="mr-2 size-3 text-yellow-500" />
             )}
             Rephrase with AI
           </Button>
@@ -378,13 +379,14 @@ export function EntryForm({
               size="xs"
               onClick={handleCategorizingAndTagging}
               disabled={isAiCategorizing || !answer.trim()}
+              className="rounded-sm"
             >
               {isAiCategorizing ? (
                 <Loader2Icon className="mr-2 size-3 animate-spin" />
               ) : (
                 <TagsIcon className="mr-2 size-3" />
               )}
-              Categorize & Tag with AI
+              Categorize & Tag
             </Button>
           )}
         </div>

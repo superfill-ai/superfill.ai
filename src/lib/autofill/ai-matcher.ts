@@ -331,29 +331,45 @@ export class AIMatcher {
           `- context: ${f.context || "none"}`,
         ];
 
-        // Add options for select fields
-        if (f.options && f.options.length > 0) {
-          parts.push(
-            `- options: [${f.options.map((o) => `"${o}"`).join(", ")}]`,
-          );
-          parts.push(`  ⚠️ MUST return exact value from options list`);
-        }
+        switch (f.type) {
+          case "select":
+            if (f.options && f.options.length > 0) {
+              parts.push(
+                `- options: [${f.options.map((o) => `"${o}"`).join(", ")}]`,
+              );
+              parts.push(
+                `This is a SELECT field. The 'value' MUST be an exact string from the 'options' list.`,
+              );
+            } else {
+              parts.push(
+                `This is a SELECT field, but no options were provided. Set value to null.`,
+              );
+            }
+            break;
 
-        // Add radio group info
-        if (f.radioGroup) {
-          parts.push(`- radioGroup: "${f.radioGroup.name}"`);
-          parts.push(
-            `- radioValues: [${f.radioGroup.values.map((v) => `"${v}"`).join(", ")}]`,
-          );
-          parts.push(`  ⚠️ MUST return exact value from radioValues list`);
-        }
+          case "radio":
+            if (f.radioGroup) {
+              parts.push(`- radioGroup: "${f.radioGroup.name}"`);
+              parts.push(
+                `- radioValues: [${f.radioGroup.values.map((v) => `"${v}"`).join(", ")}]`,
+              );
+              parts.push(
+                `This is a RADIO button. The 'value' MUST be an exact string from the 'radioValues' list.`,
+              );
+            } else {
+              parts.push(
+                `This is a RADIO button, but no values were provided. Set value to null.`,
+              );
+            }
+            break;
 
-        // Add checkbox state
-        if (f.type === "checkbox") {
-          parts.push(`- currentlyChecked: ${f.isChecked ?? false}`);
-          parts.push(`  ⚠️ Return "true" or "false" for checkbox`);
+          case "checkbox":
+            parts.push(`- currentlyChecked: ${f.isChecked ?? false}`);
+            parts.push(
+              `This is a CHECKBOX. The 'value' MUST be "true" (to check) or "false" (to uncheck).`,
+            );
+            break;
         }
-
         return parts.join("\n          ");
       })
       .join("\n");
