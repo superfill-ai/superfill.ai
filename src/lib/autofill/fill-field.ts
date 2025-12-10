@@ -76,12 +76,12 @@ function fillRadioField(element: HTMLInputElement, value: string): boolean {
   );
 
   for (const radio of radios) {
-    if (
-      radio.value.toLowerCase() === value.toLowerCase() ||
-      radio.labels?.[0]?.textContent
-        ?.toLowerCase()
-        .includes(value.toLowerCase())
-    ) {
+    const labelText = radio.labels?.[0]?.textContent?.trim().toLowerCase();
+    const radioValue = radio.value.toLowerCase();
+    const searchValue = value.toLowerCase();
+
+    // Exact match only on value or label text
+    if (radioValue === searchValue || labelText === searchValue) {
       radio.checked = true;
       dispatchEvents(radio);
       return true;
