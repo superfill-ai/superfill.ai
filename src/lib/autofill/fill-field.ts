@@ -39,11 +39,13 @@ export function fillField(
 }
 
 function fillSelectField(element: HTMLSelectElement, value: string): boolean {
-  // Exact match only on value or text
+  const normalizedSearch = normalizeForComparison(value);
+
+  // Exact match only on value or text (case and punctuation insensitive)
   const option = Array.from(element.options).find(
     (opt) =>
-      opt.value.toLowerCase() === value.toLowerCase() ||
-      opt.text.toLowerCase() === value.toLowerCase(),
+      normalizeForComparison(opt.value) === normalizedSearch ||
+      normalizeForComparison(opt.text) === normalizedSearch,
   );
 
   if (option) {
@@ -75,13 +77,16 @@ function fillRadioField(element: HTMLInputElement, value: string): boolean {
     `input[type="radio"][name="${CSS.escape(name)}"]`,
   );
 
-  for (const radio of radios) {
-    const labelText = radio.labels?.[0]?.textContent?.trim().toLowerCase();
-    const radioValue = radio.value.toLowerCase();
-    const searchValue = value.toLowerCase();
+  const normalizedSearch = normalizeForComparison(value);
 
-    // Exact match only on value or label text
-    if (radioValue === searchValue || labelText === searchValue) {
+  for (const radio of radios) {
+    const labelText = radio.labels?.[0]?.textContent?.trim() ?? "";
+    const radioValue = radio.value;
+
+    if (
+      normalizeForComparison(radioValue) === normalizedSearch ||
+      normalizeForComparison(labelText) === normalizedSearch
+    ) {
       radio.checked = true;
       dispatchEvents(radio);
       return true;
@@ -89,6 +94,14 @@ function fillRadioField(element: HTMLInputElement, value: string): boolean {
   }
 
   return false;
+}
+
+function normalizeForComparison(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "") 
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function fillTextInputField(
