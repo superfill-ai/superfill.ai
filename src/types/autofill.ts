@@ -16,8 +16,22 @@ export type DetectFormsResult =
       forms: DetectedFormSnapshot[];
       totalFields: number;
       websiteContext: WebsiteContext;
+      frameInfo: FrameInfo;
     }
-  | { success: false; forms: never[]; totalFields: 0; error: string };
+  | {
+      success: false;
+      forms: never[];
+      totalFields: 0;
+      error: string;
+      frameInfo: FrameInfo;
+    };
+
+export interface FrameInfo {
+  isMainFrame: boolean;
+  frameUrl: string;
+  parentUrl: string;
+  frameDepth: number;
+}
 
 export interface DetectedForm {
   opid: FormOpId;
@@ -52,8 +66,7 @@ export interface FieldMetadataSnapshot extends Omit<FieldMetadata, "rect"> {
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
-  /** CSS selector for querying this field */
-  selector: string;
+  frameId?: number;
   metadata: FieldMetadataSnapshot;
 }
 
@@ -77,6 +90,8 @@ export interface FieldMetadata {
   // Primary label sources (simplified)
   labelTag: string | null;
   labelAria: string | null;
+  labelLeft: string | null;
+  labelTop: string | null;
 
   placeholder: string | null;
   helperText: string | null;
@@ -151,8 +166,6 @@ export interface CompressedMemoryData {
 export interface FieldMapping {
   /** Field operation ID - unique runtime identifier (primary key) */
   fieldOpid: string;
-  /** CSS selector for the field (kept for DOM queries) */
-  selector: string;
   value: string | null;
   confidence: number;
   reasoning: string;

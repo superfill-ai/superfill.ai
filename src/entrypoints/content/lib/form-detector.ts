@@ -15,7 +15,6 @@ export class FormDetector {
   private fieldOpidCounter = 0;
   private shadowRootFields: DetectedField[] = [];
   private detectedElements = new Set<FormFieldElement>();
-  private processedRadioGroups = new Set<string>();
 
   constructor(private analyzer: FieldAnalyzer) {}
 
@@ -33,7 +32,6 @@ export class FormDetector {
     const forms: DetectedForm[] = [];
     this.shadowRootFields = [];
     this.detectedElements.clear();
-    this.processedRadioGroups.clear();
 
     const formElements = this.findFormElements();
 
@@ -109,11 +107,9 @@ export class FormDetector {
       const fieldElement = element as FormFieldElement;
       if (
         this.isValidField(fieldElement) &&
-        !this.detectedElements.has(fieldElement) &&
-        !this.isRadioGroupAlreadyProcessed(fieldElement)
+        !this.detectedElements.has(fieldElement)
       ) {
         fields.push(this.createDetectedField(fieldElement));
-        this.markRadioGroupAsProcessed(fieldElement);
       }
     }
 
@@ -162,11 +158,7 @@ export class FormDetector {
       const element = node as FormFieldElement;
 
       if (!element.form && !this.isInsideForm(element, existingForms)) {
-        if (
-          this.isValidField(element) &&
-          !this.detectedElements.has(element) &&
-          !this.isRadioGroupAlreadyProcessed(element)
-        ) {
+        if (this.isValidField(element) && !this.detectedElements.has(element)) {
           fields.push(this.createDetectedField(element));
           this.markRadioGroupAsProcessed(element);
         }
@@ -260,8 +252,14 @@ export class FormDetector {
   }
 
   private createDetectedField(element: FormFieldElement): DetectedField {
-    const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
-    const selector = generateSelector(element);
+    const existingOpid = element.getAttribute("data-superfill-opid");
+    const opid = existingOpid
+      ? (existingOpid as FieldOpId)
+      : (`__${this.fieldOpidCounter++}` as FieldOpId);
+
+    if (!existingOpid) {
+      element.setAttribute("data-superfill-opid", opid);
+    }
 
     const field: DetectedField = {
       opid,

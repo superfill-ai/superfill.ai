@@ -74,8 +74,7 @@ export class FallbackMatcher {
 
     if (confidence < MIN_MATCH_CONFIDENCE) {
       return {
-        fieldOpid: field.fieldOpid,
-        selector: field.selector,
+        fieldOpid: field.opid,
         value: null,
         confidence,
         reasoning: `Low confidence match (${(confidence * 100).toFixed(0)}%). ${bestCandidate.reasons.join(" · ")}`,
@@ -83,8 +82,7 @@ export class FallbackMatcher {
     }
 
     return {
-      fieldOpid: field.fieldOpid,
-      selector: field.selector,
+      fieldOpid: field.opid,
       value: bestCandidate.memory.answer,
       confidence,
       reasoning: bestCandidate.reasons.join(" · "),

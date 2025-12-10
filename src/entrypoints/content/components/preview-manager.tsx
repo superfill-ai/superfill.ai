@@ -56,6 +56,9 @@ const getPrimaryLabel = (
   const candidates = [
     metadata.labelTag,
     metadata.labelAria,
+    metadata.labelData,
+    metadata.labelTop,
+    metadata.labelLeft,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -80,7 +83,6 @@ const buildPreviewFields = (
         mappingLookup.get(field.opid) ??
         ({
           fieldOpid: field.opid,
-          selector: field.selector,
           value: null,
           confidence: 0,
           reasoning: "No suggestion generated",
@@ -228,22 +230,25 @@ export class PreviewSidebarManager {
   private async handleFill(
     fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
   ) {
-    const filledFieldOpids: FieldOpId[] = [];
-
-    for (const { fieldOpid, value } of fieldsToFill) {
-      const detected = this.options.getFieldMetadata(fieldOpid);
-
-      if (detected) {
-        const success = fillField(
-          detected.element,
-          value,
-          detected.metadata.fieldType,
-        );
-        if (success) {
-          filledFieldOpids.push(fieldOpid);
-        }
-      }
+    try {
+      await browser.runtime.sendMessage({
+        type: "FILL_ALL_FRAMES",
+        fieldsToFill: fieldsToFill.map((f) => ({
+          fieldOpid: f.fieldOpid,
+          value: f.value,
+        })),
+      });
+    } catch (error) {
+      logger.error("Failed to send fill request to background:", error);
+      await this.showProgress({
+        state: "failed",
+        message: "Failed to auto-fill fields. Please try again.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return;
     }
+
+    const filledFieldOpids = fieldsToFill.map((f) => f.fieldOpid);
 
     if (this.sessionId) {
       try {
@@ -265,12 +270,9 @@ export class PreviewSidebarManager {
           sessionId: this.sessionId,
         });
 
-        const matchedCount = filledFieldOpids.filter((opid) => {
-          const detected = this.options.getFieldMetadata(opid);
-          return (
-            detected && this.mappingLookup.get(detected.opid)?.value !== null
-          );
-        }).length;
+        const matchedCount = filledFieldOpids.filter(
+          (opid) => this.mappingLookup.get(opid)?.value !== null,
+        ).length;
 
         await this.showProgress({
           state: "completed",
@@ -324,7 +326,11 @@ export class PreviewSidebarManager {
             filledValue: mapping.value,
             fieldType: field.metadata.fieldType,
           };
-          filledFields.push(filledField);
+          formFields.push(formField);
+
+          if (mapping.value) {
+            matches.set(formField.name, mapping.value);
+          }
         }
 
         if (filledFields.length > 0) {

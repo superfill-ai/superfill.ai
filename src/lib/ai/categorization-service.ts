@@ -1,5 +1,6 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import { ERROR_MESSAGE_API_KEY_NOT_CONFIGURED } from "../errors";
 import {
@@ -13,22 +14,21 @@ import {
 const logger = createLogger("categorization-service");
 
 class CategorizationService {
-  async categorize(
-    answer: string,
-    question?: string,
-    apiKey?: string,
-  ): Promise<AnalysisResult> {
+  async categorize(answer: string, question?: string): Promise<AnalysisResult> {
     try {
-      if (!apiKey) {
-        logger.warn(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
-        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
-      }
-
       const aiSettings = await storage.aiSettings.getValue();
       const { selectedProvider, selectedModels } = aiSettings;
 
       if (!selectedProvider) {
         throw new Error("AI provider not configured");
+      }
+
+      const keyVaultService = getKeyVaultService();
+      const apiKey = await keyVaultService.getKey(selectedProvider);
+
+      if (!apiKey) {
+        logger.warn(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
       const selectedModel = selectedModels?.[selectedProvider];
@@ -48,22 +48,21 @@ class CategorizationService {
     }
   }
 
-  async rephrase(
-    answer: string,
-    question?: string,
-    apiKey?: string,
-  ): Promise<RephraseResult> {
-    if (!apiKey) {
-      logger.warn(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
-      throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
-    }
-
+  async rephrase(answer: string, question?: string): Promise<RephraseResult> {
     try {
       const aiSettings = await storage.aiSettings.getValue();
       const { selectedProvider, selectedModels } = aiSettings;
 
       if (!selectedProvider) {
         throw new Error("AI provider not configured");
+      }
+
+      const keyVaultService = getKeyVaultService();
+      const apiKey = await keyVaultService.getKey(selectedProvider);
+
+      if (!apiKey) {
+        logger.warn(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
       const selectedModel = selectedModels?.[selectedProvider];
@@ -77,7 +76,7 @@ class CategorizationService {
       );
     } catch (error) {
       logger.error("AI rephrasing error in service:", error);
-      throw error; // Re-throw to be caught by the UI
+      throw error;
     }
   }
 

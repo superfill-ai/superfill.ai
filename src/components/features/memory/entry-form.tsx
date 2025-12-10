@@ -25,7 +25,7 @@ import {
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
 
@@ -35,7 +35,7 @@ const entryFormSchema = z.object({
   question: z.string(),
   answer: z.string().min(1, "Answer is required"),
   tags: z.array(z.string()),
-  category: z.string().min(1, "Category is required"),
+  category: z.enum(allowedCategories),
 });
 
 interface EntryFormProps {
@@ -76,24 +76,34 @@ export function EntryForm({
       toast.promise(
         async () => {
           try {
-            if (mode === "edit" && initialData) {
+            if (
+              initialData &&
+              mode === "edit" &&
+              allowedCategories.includes(value.category)
+            ) {
               await updateEntry.mutateAsync({
                 id: initialData.id,
                 updates: {
                   question: value.question,
                   answer: value.answer,
                   tags: value.tags,
-                  category: value.category,
+                  category:
+                    value.category as (typeof allowedCategories)[number],
                 },
               });
-            } else {
+            } else if (
+              mode === "create" &&
+              allowedCategories.includes(value.category)
+            ) {
               await addEntry.mutateAsync({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
-                category: value.category,
+                category: value.category as (typeof allowedCategories)[number],
                 confidence: 1.0,
               });
+            } else {
+              throw new Error("Invalid category selected.");
             }
 
             onSuccess?.();
@@ -135,15 +145,16 @@ export function EntryForm({
           },
           dismissible: true,
         });
-        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+        throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
       }
 
-      const apiKey = await keyVault.getKey(selectedProvider);
+      const keyVaultService = getKeyVaultService();
+      const apiKey = await keyVaultService.getKey(selectedProvider);
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
           description:
-            "Please configure an AI provider in settings to use rephrasing.",
+            "Please configure an AI key in settings to use rephrasing.",
           action: {
             label: "Open Settings",
             onClick: () => browser.runtime.openOptionsPage(),
@@ -153,11 +164,7 @@ export function EntryForm({
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
-      return categorizationService.rephrase(
-        currentAnswer,
-        currentQuestion,
-        apiKey || undefined,
-      );
+      return categorizationService.rephrase(currentAnswer, currentQuestion);
     },
     onSuccess: (data) => {
       if (data?.rephrasedQuestion) {
@@ -180,25 +187,25 @@ export function EntryForm({
           dismissible: true,
         });
       }
-      const apiKey = await keyVault.getKey(selectedProvider ?? "openai");
 
-      if (!apiKey) {
-        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
-          description:
-            "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
-          action: {
-            label: "Open Settings",
-            onClick: () => browser.runtime.openOptionsPage(),
-          },
-          dismissible: true,
-        });
+      if (selectedProvider) {
+        const keyVaultService = getKeyVaultService();
+        const apiKey = await keyVaultService.getKey(selectedProvider);
+
+        if (!apiKey) {
+          toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+            description:
+              "Please configure an AI key in settings to use categorization. Using fallback categorization instead!",
+            action: {
+              label: "Open Settings",
+              onClick: () => browser.runtime.openOptionsPage(),
+            },
+            dismissible: true,
+          });
+        }
       }
 
-      return categorizationService.categorize(
-        answer,
-        question,
-        apiKey || undefined,
-      );
+      return categorizationService.categorize(answer, question);
     },
     onSuccess: (data) => {
       if (data?.category) {

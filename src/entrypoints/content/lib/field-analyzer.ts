@@ -72,6 +72,17 @@ export class FieldAnalyzer {
     };
   }
 
+  private extractLabels(element: FormFieldElement) {
+    return {
+      labelTag: this.findExplicitLabel(element),
+      labelData: element.getAttribute("data-label") || null,
+      labelAria: this.findAriaLabel(element),
+      labelLeft: this.findPositionalLabel(element, "left"),
+      labelTop: this.findPositionalLabel(element, "top"),
+      helperText: this.findHelperText(element),
+    };
+  }
+
   private findExplicitLabel(element: FormFieldElement): string | null {
     // Check for label with "for" attribute
     if (element.id) {
@@ -112,6 +123,145 @@ export class FieldAnalyzer {
     }
 
     return null;
+  }
+
+  private findPositionalLabel(
+    element: FormFieldElement,
+    direction: "left" | "top",
+  ): string | null {
+    if (this.labelCache.has(element)) {
+      return this.labelCache.get(element) || null;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const threshold = direction === "top" ? 100 : 200;
+    const candidates: Array<{ element: Element; distance: number }> = [];
+
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          const text = node.textContent?.trim();
+          if (!text || text.length < 2) return NodeFilter.FILTER_REJECT;
+
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+
+          const tagName = parent.tagName.toLowerCase();
+          if (
+            [
+              "script",
+              "style",
+              "noscript",
+              "input",
+              "textarea",
+              "select",
+              "button",
+              "a",
+            ].includes(tagName)
+          ) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          if (direction === "top") {
+            let ancestor: HTMLElement | null = parent;
+            let depth = 0;
+            while (ancestor && depth < 3) {
+              const ancestorTag = ancestor.tagName.toLowerCase();
+              if (["button", "a"].includes(ancestorTag)) {
+                return NodeFilter.FILTER_REJECT;
+              }
+              if (
+                ancestor.className &&
+                typeof ancestor.className === "string" &&
+                /\b(btn|button|cta|action)\b/i.test(ancestor.className)
+              ) {
+                return NodeFilter.FILTER_REJECT;
+              }
+              ancestor = ancestor.parentElement;
+              depth++;
+            }
+
+            if (text.length < 3) return NodeFilter.FILTER_REJECT;
+
+            if (/^(or|and|with|continue|sign|login|register)$/i.test(text)) {
+              return NodeFilter.FILTER_REJECT;
+            }
+          }
+
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      },
+    );
+
+    let node: Node | null = walker.nextNode();
+    while (node && candidates.length < 20) {
+      const parent = node.parentElement;
+      if (!parent) {
+        node = walker.nextNode();
+        continue;
+      }
+
+      const parentRect = parent.getBoundingClientRect();
+      const distance = this.calculateDistance(rect, parentRect, direction);
+
+      if (distance !== null && distance < threshold) {
+        candidates.push({ element: parent, distance });
+      }
+
+      node = walker.nextNode();
+    }
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance);
+    const label = this.cleanText(candidates[0].element.textContent || "");
+
+    this.labelCache.set(element, label);
+    return label;
+  }
+
+  private calculateDistance(
+    fieldRect: DOMRect,
+    labelRect: DOMRect,
+    direction: "left" | "top",
+  ): number | null {
+    const verticalOverlap =
+      Math.max(
+        0,
+        Math.min(fieldRect.bottom, labelRect.bottom) -
+          Math.max(fieldRect.top, labelRect.top),
+      ) > 0;
+
+    switch (direction) {
+      case "left":
+        if (!verticalOverlap || labelRect.right > fieldRect.left) return null;
+        return fieldRect.left - labelRect.right;
+
+      case "top": {
+        if (labelRect.bottom > fieldRect.top) return null;
+
+        const horizontalOverlap =
+          Math.min(fieldRect.right, labelRect.right) >
+          Math.max(fieldRect.left, labelRect.left);
+
+        if (!horizontalOverlap) {
+          const horizontalDistance = Math.min(
+            Math.abs(fieldRect.left - labelRect.right),
+            Math.abs(labelRect.left - fieldRect.right),
+          );
+          if (horizontalDistance > 50) return null;
+        }
+
+        return fieldRect.top - labelRect.bottom;
+      }
+
+      default:
+        return null;
+    }
   }
 
   private findHelperText(element: FormFieldElement): string | null {
@@ -260,6 +410,9 @@ export class FieldAnalyzer {
     const allText = [
       metadata.labelTag,
       metadata.labelAria,
+      metadata.labelData,
+      metadata.labelLeft,
+      metadata.labelTop,
       metadata.placeholder,
       metadata.name,
       metadata.id,

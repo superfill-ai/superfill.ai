@@ -37,6 +37,9 @@ const getPrimaryLabel = (
   const candidates = [
     metadata.labelTag,
     metadata.labelAria,
+    metadata.labelData,
+    metadata.labelTop,
+    metadata.labelLeft,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -232,60 +235,25 @@ export class AutopilotManager {
         status: "filling",
       });
 
-      let filledCount = 0;
-
-      for (const field of this.fieldsToFill) {
-        try {
-          const detected = this.options.getFieldMetadata(
-            field.fieldOpid as FieldOpId,
-          );
-
-          let element = detected?.element;
-
-          // Fallback: try to find element by data attribute or index
-          if (!element) {
-            element = document.querySelector(
-              `[data-wxt-field-opid="${field.fieldOpid}"]`,
-            ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-          }
-
-          if (!element && field.fieldOpid.startsWith("__")) {
-            const index = field.fieldOpid.substring(2);
-            const allInputs = document.querySelectorAll(
-              "input, textarea, select",
-            );
-            element = allInputs[parseInt(index, 10)] as
-              | HTMLInputElement
-              | HTMLTextAreaElement
-              | HTMLSelectElement;
-          }
-
-          if (element && element.type !== "password") {
-            // Use centralized fillField function
-            const fieldType =
-              detected?.metadata.fieldType ?? this.inferFieldType(element);
-            const success = fillField(element, field.value, fieldType);
-
-            if (success) {
-              element.setAttribute("data-autopilot-filled", "true");
-              filledCount++;
-              logger.debug(
-                `Filled field ${field.fieldOpid} with value: ${field.value}`,
-              );
-            } else {
-              logger.warn(
-                `Failed to fill field ${field.fieldOpid} with value: ${field.value}`,
-              );
-            }
-          } else {
-            logger.warn(
-              `Field element not found or is password field for opid: ${field.fieldOpid}`,
-            );
-          }
-        } catch (fieldError) {
-          logger.error(`Failed to fill field ${field.fieldOpid}:`, fieldError);
-        }
+      try {
+        await browser.runtime.sendMessage({
+          type: "FILL_ALL_FRAMES",
+          fieldsToFill: this.fieldsToFill.map((f) => ({
+            fieldOpid: f.fieldOpid,
+            value: f.value,
+          })),
+        });
+      } catch (error) {
+        logger.error("Failed to send fill request to background:", error);
+        await this.showProgress({
+          state: "failed",
+          message: "Auto-fill failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        return false;
       }
+
+      const filledCount = this.fieldsToFill.length;
 
       await this.showProgress({
         state: "completed",
@@ -395,7 +363,14 @@ export class AutopilotManager {
             filledValue: mapping.value,
             fieldType: field.metadata.fieldType,
           };
-          filledFields.push(filledField);
+          formFields.push(formField);
+
+          if (mapping.value !== null) {
+            const memory = memoryMap.get(mapping.value);
+            if (memory) {
+              matches.set(formField.name, memory);
+            }
+          }
         }
 
         if (filledFields.length > 0) {

@@ -1,8 +1,6 @@
 type MappingBase = {
   /** Field operation ID - unique runtime identifier (primary key) */
   fieldOpid: string;
-  /** CSS selector for the field (kept for DOM queries) */
-  selector: string;
   value: string | null;
   confidence: number;
   reasoning: string;
@@ -33,8 +31,7 @@ export const createEmptyMapping = <
   const fieldOpid = getFieldOpid(field);
 
   const base: MappingBase = {
-    fieldOpid,
-    selector: field.selector,
+    fieldOpid: field.opid,
     value: null,
     confidence: 0,
     reasoning: reason,
