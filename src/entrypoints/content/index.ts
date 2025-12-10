@@ -181,8 +181,14 @@ export default defineContentScript({
                     !hasValidContext(field.metadata)
                   ) {
                     stats.reasons.unknownUnlabeled++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: unknown purpose, no labels, no valid context, low quality score ${quality.toFixed(2)}`,
+                    );
                   } else {
                     stats.reasons.noQuality++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: low quality score ${quality.toFixed(2)}`,
+                    );
                   }
                   return false;
                 }
@@ -191,9 +197,13 @@ export default defineContentScript({
 
                 if (primaryLabel) {
                   const normalizedLabel = primaryLabel.toLowerCase().trim();
+
                   if (seenLabels.has(normalizedLabel)) {
                     stats.filtered++;
                     stats.reasons.duplicate++;
+                    logger.debug(
+                      `Filtered field ${field.opid}: duplicate label "${primaryLabel}"`,
+                    );
                     return false;
                   }
                   seenLabels.add(normalizedLabel);
@@ -208,6 +218,13 @@ export default defineContentScript({
               };
             })
             .filter((form) => form.fields.length > 0);
+
+          logger.debug(
+            `Field filtering: ${stats.total} detected, ${stats.filtered} filtered, ${stats.total - stats.filtered} kept`,
+          );
+          logger.debug(
+            `Filter reasons: ${stats.reasons.noQuality} low quality, ${stats.reasons.unknownUnlabeled} unknown+unlabeled, ${stats.reasons.duplicate} duplicates`,
+          );
 
           cacheDetectedForms(forms);
           const serializedForms = serializeForms(forms, undefined);
