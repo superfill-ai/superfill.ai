@@ -22,7 +22,6 @@ export const AutofillSettings = () => {
   const autofillEnabledId = useId();
   const autopilotModeId = useId();
   const confidenceThresholdId = useId();
-
   const [autoFillEnabled, setAutoFillEnabled] = useState(true);
   const [autopilotMode, setAutopilotMode] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);

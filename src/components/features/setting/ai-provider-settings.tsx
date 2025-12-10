@@ -24,7 +24,6 @@ import {
   useSaveApiKeyWithModel,
 } from "@/hooks/use-provider-keys";
 import { getDefaultModel } from "@/lib/ai/model-factory";
-import { cn } from "@/lib/cn";
 import { getProviderOptions } from "@/lib/providers";
 import {
   type AIProvider,
@@ -132,29 +131,26 @@ export const AiProviderSettings = () => {
       </CardHeader>
       <CardContent>
         <FieldGroup>
-          {isAuthenticated && (
-            <>
-              <Field data-invalid={false}>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <FieldLabel className="flex items-center gap-2">
-                      <Cloud className="size-4" />
-                      Cloud Models
-                    </FieldLabel>
-                    <FieldDescription>
-                      Use Superfill's cloud-hosted AI models. No API keys
-                      required.
-                    </FieldDescription>
-                  </div>
-                  <Switch
-                    checked={cloudModelsEnabled}
-                    onCheckedChange={handleCloudModelsToggle}
-                  />
-                </div>
-              </Field>
-              <Separator className="my-4" />
-            </>
-          )}
+          <Field data-invalid={false}>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <FieldLabel className="flex items-center gap-2">
+                  <Cloud className="size-4" />
+                  Cloud Models
+                </FieldLabel>
+                <FieldDescription>
+                  Use Superfill's cloud-hosted AI models. No API keys required.{" "}
+                  {!isAuthenticated && " (Requires sign-in)"}
+                </FieldDescription>
+              </div>
+              <Switch
+                checked={cloudModelsEnabled}
+                onCheckedChange={handleCloudModelsToggle}
+                disabled={!isAuthenticated}
+              />
+            </div>
+          </Field>
+          <Separator className="my-4" />
 
           <div className="relative space-y-4">
             {cloudModelsEnabled && (

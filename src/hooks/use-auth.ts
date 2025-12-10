@@ -99,7 +99,7 @@ export function useAuth(): AuthState & AuthActions {
 
       logger.info("Redirected to webapp login");
 
-      const authenticated = await authService.waitForAuth(300000);
+      const authenticated = await authService.waitForAuth(120000);
 
       logger.info("[signIn] waitForAuth resolved:", { authenticated });
 

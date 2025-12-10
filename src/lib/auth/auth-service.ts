@@ -90,7 +90,7 @@ class AuthService {
     }
   }
 
-  async waitForAuth(timeoutMs = 300000): Promise<boolean> {
+  async waitForAuth(timeoutMs = 120000): Promise<boolean> {
     return new Promise((resolve) => {
       const checkInterval = setInterval(async () => {
         const session = await this.getSession();
