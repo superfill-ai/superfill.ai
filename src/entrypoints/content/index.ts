@@ -146,8 +146,6 @@ export default defineContentScript({
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
-
-    // Initialize fill trigger manager
     fillTriggerManager = new FillTriggerManager();
     fillTriggerManager.initialize();
 
@@ -351,7 +349,7 @@ export default defineContentScript({
 
           const totalFields = forms.reduce(
             (sum, form) => sum + form.fields.length,
-            0
+            0,
           );
 
           logger.info("Detected forms and fields:", forms.length, totalFields);
@@ -406,7 +404,7 @@ export default defineContentScript({
             frameInfo,
           };
         }
-      }
+      },
     );
 
     contentAutofillMessaging.onMessage(
@@ -439,7 +437,7 @@ export default defineContentScript({
           logger.error("Error updating progress:", error);
           return false;
         }
-      }
+      },
     );
 
     contentAutofillMessaging.onMessage(
@@ -478,7 +476,7 @@ export default defineContentScript({
             await manager.processAutofillData(
               data.mappings,
               settingStore.confidenceThreshold,
-              data.sessionId
+              data.sessionId,
             );
 
             logger.info("Autopilot manager processed data successfully");
@@ -505,7 +503,7 @@ export default defineContentScript({
           });
           throw error;
         }
-      }
+      },
     );
 
     contentAutofillMessaging.onMessage("fillFields", async ({ data }) => {

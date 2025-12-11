@@ -31,10 +31,8 @@ export default defineBackground({
     registerModelService();
     const autofillService = registerAutofillService();
     registerSessionService();
-
     const sessionService = getSessionService();
 
-    // Create context menu on startup (remove existing first to avoid duplicates)
     try {
       browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
       browser.contextMenus.create({
@@ -47,7 +45,6 @@ export default defineBackground({
       logger.error("Failed to create context menu:", error);
     }
 
-    // Handle context menu click
     browser.contextMenus.onClicked.addListener(async (info, tab) => {
       if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
         logger.info("Context menu autofill triggered", { tabId: tab.id });

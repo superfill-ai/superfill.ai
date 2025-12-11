@@ -142,10 +142,13 @@ export class FillTriggerButton {
         box-sizing: border-box;
       `;
 
-      // Position inside the field on the right side, vertically centered
       const rightOffset = 8;
-      const left = Math.round(rect.right + window.scrollX - buttonSize - rightOffset);
-      const top = Math.round(rect.top + window.scrollY + (fieldHeight - buttonSize) / 2);
+      const left = Math.round(
+        rect.right + window.scrollX - buttonSize - rightOffset,
+      );
+      const top = Math.round(
+        rect.top + window.scrollY + (fieldHeight - buttonSize) / 2,
+      );
 
       this.host.style.left = `${left}px`;
       this.host.style.top = `${top}px`;
@@ -158,11 +161,9 @@ export class FillTriggerButton {
       styleEl.textContent = STYLES;
       shadow.appendChild(styleEl);
 
-      // Container
       const container = document.createElement("div");
       container.className = "container";
 
-      // Icon button (small, subtle)
       this.iconButton = document.createElement("button");
       this.iconButton.className = "icon-btn";
       this.iconButton.type = "button";
@@ -179,7 +180,6 @@ export class FillTriggerButton {
 
       container.appendChild(this.iconButton);
 
-      // Dropdown with fill button
       this.dropdown = document.createElement("div");
       this.dropdown.className = "dropdown";
 
@@ -204,7 +204,6 @@ export class FillTriggerButton {
 
       shadow.appendChild(container);
 
-      // Close on click outside
       this.onClickOutside = (e: MouseEvent) => {
         const target = e.target as Node;
         if (this.host && !this.host.contains(target) && this.isDropdownOpen) {

@@ -2,4 +2,4 @@
 "superfill.ai": patch
 ---
 
-refactor: remove simple field mapping logic for autofill
+feat: implement fill trigger functionality with in-field button

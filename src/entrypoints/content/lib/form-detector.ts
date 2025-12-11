@@ -222,9 +222,6 @@ export class FormDetector {
       element.setAttribute("data-superfill-opid", opid);
     }
 
-    // Add opid as data attribute to the DOM element for later querying
-    element.setAttribute("data-wxt-field-opid", opid);
-
     const field: DetectedField = {
       opid,
       element,

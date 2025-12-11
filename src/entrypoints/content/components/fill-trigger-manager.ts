@@ -86,7 +86,7 @@ export class FillTriggerManager {
       "react-select",
       "choices",
       "autocomplete",
-      "remix-css", // important for your case
+      "remix-css",
       "select__",
       "select-",
       "select_",
@@ -94,7 +94,7 @@ export class FillTriggerManager {
 
     for (const hint of dropdownClassHints) {
       if (classString.toLowerCase().includes(hint)) {
-        return false; // it's a dropdown/autocomplete
+        return false;
       }
     }
 
@@ -140,7 +140,6 @@ export class FillTriggerManager {
   }
 
   private async showButton(field: HTMLElement): Promise<void> {
-    // Don't show button while autofill is running
     if (this.isProcessing) return;
     if (this.currentField === field && this.button) return;
 
@@ -152,7 +151,6 @@ export class FillTriggerManager {
         if (this.isProcessing) return;
         this.isProcessing = true;
 
-        // Hide the button immediately when autofill starts
         this.hideButton();
 
         try {
