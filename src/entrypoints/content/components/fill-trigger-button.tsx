@@ -216,7 +216,6 @@ export class FillTriggerButton {
         }
       }, 0);
 
-      // Close on Escape
       this.onEscapeKey = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
           if (this.isDropdownOpen) {
