@@ -25,7 +25,7 @@ import {
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { getKeyVault } from "@/lib/security/key-vault";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
 
@@ -76,7 +76,9 @@ export function EntryForm({
             if (
               initialData &&
               mode === "edit" &&
-              allowedCategories.includes(initialData.category)
+              allowedCategories.includes(
+                value.category as (typeof allowedCategories)[number],
+              )
             ) {
               await updateEntry.mutateAsync({
                 id: initialData.id,
@@ -90,8 +92,9 @@ export function EntryForm({
               });
             } else if (
               mode === "create" &&
-              // @ts-expect-error: Dynamic check against allowed categories
-              allowedCategories.includes(value.category)
+              allowedCategories.includes(
+                value.category as (typeof allowedCategories)[number],
+              )
             ) {
               await addEntry.mutateAsync({
                 question: value.question,
@@ -142,16 +145,16 @@ export function EntryForm({
           },
           dismissible: true,
         });
-        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+        throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
       }
 
-      const keyVault = getKeyVault();
-      const apiKey = await keyVault.getKey(selectedProvider);
+      const keyVaultService = getKeyVaultService();
+      const apiKey = await keyVaultService.getKey(selectedProvider);
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
           description:
-            "Please configure an AI provider in settings to use rephrasing.",
+            "Please configure an AI key in settings to use rephrasing.",
           action: {
             label: "Open Settings",
             onClick: () => browser.runtime.openOptionsPage(),
@@ -161,11 +164,7 @@ export function EntryForm({
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
-      return categorizationService.rephrase(
-        currentAnswer,
-        currentQuestion,
-        apiKey || undefined,
-      );
+      return categorizationService.rephrase(currentAnswer, currentQuestion);
     },
     onSuccess: (data) => {
       if (data?.rephrasedQuestion) {
@@ -188,26 +187,25 @@ export function EntryForm({
           dismissible: true,
         });
       }
-      const keyVault = getKeyVault();
-      const apiKey = await keyVault.getKey(selectedProvider ?? "openai");
 
-      if (!apiKey) {
-        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
-          description:
-            "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
-          action: {
-            label: "Open Settings",
-            onClick: () => browser.runtime.openOptionsPage(),
-          },
-          dismissible: true,
-        });
+      if (selectedProvider) {
+        const keyVaultService = getKeyVaultService();
+        const apiKey = await keyVaultService.getKey(selectedProvider);
+
+        if (!apiKey) {
+          toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+            description:
+              "Please configure an AI key in settings to use categorization. Using fallback categorization instead!",
+            action: {
+              label: "Open Settings",
+              onClick: () => browser.runtime.openOptionsPage(),
+            },
+            dismissible: true,
+          });
+        }
       }
 
-      return categorizationService.categorize(
-        answer,
-        question,
-        apiKey || undefined,
-      );
+      return categorizationService.categorize(answer, question);
     },
     onSuccess: (data) => {
       if (data?.category) {

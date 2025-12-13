@@ -4,7 +4,7 @@ import {
   getProviderConfig,
   type ProviderConfig,
 } from "./providers/registry";
-import { getKeyVault } from "./security/key-vault";
+import { getKeyVaultService } from "./security/key-vault-service";
 
 export type { AIProvider, ProviderConfig };
 
@@ -17,11 +17,11 @@ export interface ProviderOption {
 }
 
 export async function getProviderOptions(): Promise<ProviderOption[]> {
-  const keyVault = getKeyVault();
+  const keyVaultService = getKeyVaultService();
   const keyStatuses = await Promise.all(
     AI_PROVIDERS.map(async (provider) => ({
       provider,
-      hasKey: (await keyVault.getKey(provider)) !== null,
+      hasKey: await keyVaultService.hasKey(provider),
     })),
   );
 
@@ -48,9 +48,8 @@ export async function getAvailableProviders(): Promise<ProviderOption[]> {
 export async function isProviderAvailable(
   provider: AIProvider,
 ): Promise<boolean> {
-  const keyVault = getKeyVault();
-  const key = await keyVault.getKey(provider);
-  return key !== null;
+  const keyVaultService = getKeyVaultService();
+  return keyVaultService.hasKey(provider);
 }
 
 export async function getFirstAvailableProvider(): Promise<AIProvider | null> {

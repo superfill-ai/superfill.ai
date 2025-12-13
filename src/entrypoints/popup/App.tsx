@@ -53,7 +53,7 @@ import {
 } from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { getKeyVault } from "@/lib/security/key-vault";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 
 const logger = createLogger("popup");
@@ -183,7 +183,7 @@ export const App = () => {
         return;
       }
 
-      const keyVault = getKeyVault();
+      const keyVault = getKeyVaultService();
       const apiKey = await keyVault.getKey(selectedProvider);
 
       if (!apiKey || apiKey.trim() === "") {

@@ -279,6 +279,24 @@ export class AutopilotManager {
         }
       }
 
+      try {
+        await browser.runtime.sendMessage({
+          type: "FILL_ALL_FRAMES",
+          fieldsToFill: this.fieldsToFill.map((f) => ({
+            fieldOpid: f.fieldOpid,
+            value: f.value,
+          })),
+        });
+      } catch (error) {
+        logger.error("Failed to send fill request to background:", error);
+        await this.showProgress({
+          state: "failed",
+          message: "Auto-fill failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        return false;
+      }
+
       await this.showProgress({
         state: "completed",
         message: "Auto-fill completed successfully",

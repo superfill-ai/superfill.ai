@@ -6,7 +6,7 @@ import {
   getProviderConfig,
   validateProviderKey,
 } from "@/lib/providers/registry";
-import { getKeyVault } from "@/lib/security/key-vault";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";
 
@@ -17,12 +17,12 @@ export function useProviderKeyStatuses() {
     queryKey: PROVIDER_KEYS_QUERY_KEY,
     queryFn: async () => {
       const statuses: Record<string, boolean> = {};
-      const keyVault = getKeyVault();
+      const keyVaultService = getKeyVaultService();
 
       await Promise.all(
         AI_PROVIDERS.map(async (provider) => {
-          const key = await keyVault.getKey(provider);
-          statuses[provider] = key !== null;
+          const hasKey = await keyVaultService.hasKey(provider);
+          statuses[provider] = hasKey;
         }),
       );
 
@@ -46,14 +46,15 @@ export function useSaveApiKeyWithModel() {
       defaultModel: string;
     }) => {
       const config = getProviderConfig(provider);
-      const keyVault = getKeyVault();
 
       if (config.requiresApiKey && !validateProviderKey(provider, key)) {
         throw new Error(`Invalid ${config.name} API key format`);
       }
 
-      if (await keyVault.validateKey(provider, key)) {
-        await keyVault.storeKey(provider, key);
+      const keyVaultService = getKeyVaultService();
+
+      if (await keyVaultService.validateKey(provider, key)) {
+        await keyVaultService.storeKey(provider, key);
 
         const currentSettings = await storage.aiSettings.getValue();
         const updatedModels = {
@@ -95,8 +96,8 @@ export function useDeleteApiKey() {
 
   return useMutation({
     mutationFn: async (provider: AIProvider) => {
-      const keyVault = getKeyVault();
-      await keyVault.deleteKey(provider);
+      const keyVaultService = getKeyVaultService();
+      await keyVaultService.deleteKey(provider);
       return provider;
     },
     onSuccess: async (provider) => {
