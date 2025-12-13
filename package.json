@@ -100,6 +100,7 @@
     "@changesets/cli": "^2.29.8",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^11.0.0",
     "@wxt-dev/module-react": "^1.1.5",
     "autoprefixer": "^10.4.22",
     "babel-plugin-react-compiler": "^1.0.0",
