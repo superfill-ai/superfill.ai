@@ -210,11 +210,10 @@ export class FillTriggerButton {
           this.closeDropdown();
         }
       };
-      setTimeout(() => {
-        if (this.onClickOutside) {
-          window.addEventListener("mousedown", this.onClickOutside, true);
-        }
-      }, 0);
+
+      if (this.onClickOutside) {
+        window.addEventListener("mousedown", this.onClickOutside, true);
+      }
 
       this.onEscapeKey = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
