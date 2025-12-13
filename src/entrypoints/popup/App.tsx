@@ -47,9 +47,13 @@ import {
   useMemoryStats,
 } from "@/hooks/use-memories";
 import { getAutofillService } from "@/lib/autofill/autofill-service";
-import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "@/lib/errors";
+import {
+  ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
+  ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED,
+} from "@/lib/errors";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 
 const logger = createLogger("popup");
@@ -170,6 +174,22 @@ export const App = () => {
         toast.error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED, {
           description:
             "Please configure an AI provider in settings to use autofill",
+          action: {
+            label: "Open Settings",
+            onClick: () => browser.runtime.openOptionsPage(),
+          },
+          dismissible: true,
+        });
+        return;
+      }
+
+      const keyVault = getKeyVaultService();
+      const apiKey = await keyVault.getKey(selectedProvider);
+
+      if (!apiKey || apiKey.trim() === "") {
+        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+          description:
+            "Please configure an API key in settings to use autofill",
           action: {
             label: "Open Settings",
             onClick: () => browser.runtime.openOptionsPage(),
