@@ -1,5 +1,8 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
-import { registerAutofillService } from "@/lib/autofill/autofill-service";
+import {
+  getAutofillService,
+  registerAutofillService,
+} from "@/lib/autofill/autofill-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   getSessionService,
@@ -14,6 +17,8 @@ import { storage } from "@/lib/storage";
 
 const logger = createLogger("background");
 
+const CONTEXT_MENU_ID = "superfill-autofill";
+
 export default defineBackground({
   type: "module",
   main: () => {
@@ -26,8 +31,31 @@ export default defineBackground({
     registerModelService();
     const autofillService = registerAutofillService();
     registerSessionService();
-
     const sessionService = getSessionService();
+
+    try {
+      browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+      browser.contextMenus.create({
+        id: CONTEXT_MENU_ID,
+        title: "Fill with superfill.ai",
+        contexts: ["editable", "page"],
+      });
+      logger.info("Context menu created");
+    } catch (error) {
+      logger.error("Failed to create context menu:", error);
+    }
+
+    browser.contextMenus.onClicked.addListener(async (info, tab) => {
+      if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
+        logger.info("Context menu autofill triggered", { tabId: tab.id });
+        try {
+          const autofill = getAutofillService();
+          await autofill.startAutofillOnActiveTab();
+        } catch (error) {
+          logger.error("Context menu autofill failed:", error);
+        }
+      }
+    });
 
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
