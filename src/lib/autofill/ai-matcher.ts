@@ -1,7 +1,3 @@
-import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
-import { trace } from "@opentelemetry/api";
-import { generateObject } from "ai";
-import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -11,6 +7,10 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
+import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
+import { trace } from "@opentelemetry/api";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { langfuseSpanProcessor } from "../observability/langfuse";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
@@ -329,6 +329,13 @@ export class AIMatcher {
           `- labels: ${f.labels.length > 0 ? f.labels.join(", ") : "none"}`,
           `- context: ${f.context || "none"}`,
         ];
+
+        if (f.options && f.options.length > 0) {
+          const optionsList = f.options
+            .map((opt) => `"${opt.value}"${opt.label ? ` (${opt.label})` : ""}`)
+            .join(", ");
+          parts.push(`- options: [${optionsList}]`);
+        }
 
         return parts.join("\n          ");
       })

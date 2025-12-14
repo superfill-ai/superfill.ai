@@ -141,6 +141,7 @@ export interface CompressedFieldData {
   purpose: FieldPurpose;
   labels: string[];
   context: string;
+  options?: RadioOptionSnapshot[];
 }
 
 export interface CompressedMemoryData {

@@ -1,4 +1,3 @@
-import { defineProxyService } from "@webext-core/proxy-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
@@ -17,6 +16,7 @@ import type {
 import type { WebsiteContext } from "@/types/context";
 import type { MemoryEntry } from "@/types/memory";
 import type { AISettings } from "@/types/settings";
+import { defineProxyService } from "@webext-core/proxy-service";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
 import { aiSettings } from "../storage/ai-settings";
 import { AIMatcher } from "./ai-matcher";
@@ -437,12 +437,20 @@ class AutofillService {
 
     const context = contextParts.filter(Boolean).join(" ");
 
+    // Include options for select/radio/checkbox fields
+    const includeOptions = ["select", "radio", "checkbox"].includes(
+      field.metadata.fieldType,
+    );
+
     return {
       opid: field.opid,
       type: field.metadata.fieldType,
       purpose: field.metadata.fieldPurpose,
       labels,
       context,
+      ...(includeOptions && field.metadata.options
+        ? { options: field.metadata.options }
+        : {}),
     };
   }
 

@@ -319,7 +319,7 @@ export function EntryForm({
                 className={layout === "compact" ? "gap-1" : ""}
               >
                 <FieldLabel htmlFor={field.name}>
-                  Memory Label/Question
+                  Memory Label/Question (Optional)
                 </FieldLabel>
                 <Textarea
                   id={field.name}
