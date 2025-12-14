@@ -350,7 +350,6 @@ export class AIMatcher {
                 **Page Title**: ${websiteContext.metadata.title}
                 `;
 
-    // Include DOM context if available
     const domContextSection = domContext
       ? `
           ## Serialized Form DOM Structure
