@@ -42,6 +42,7 @@ export default defineBackground({
     const sessionService = getSessionService();
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();
+    const autofillService = getAutofillService();
 
     try {
       browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
@@ -59,8 +60,7 @@ export default defineBackground({
       if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
         logger.info("Context menu autofill triggered", { tabId: tab.id });
         try {
-          const autofill = getAutofillService();
-          await autofill.startAutofillOnActiveTab();
+          await autofillService.startAutofillOnActiveTab();
         } catch (error) {
           logger.error("Context menu autofill failed:", error);
         }
