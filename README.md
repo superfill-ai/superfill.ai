@@ -112,7 +112,8 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 - [ ] Customizable autofill shortcuts
 - [ ] Customizable autofill templates (Industry-specific templates)
 - [ ] Custom AI prompts
-- [ ] Automated testing suite
+
+---
 
 ## 🚀 Quick Start
 
