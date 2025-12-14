@@ -98,13 +98,19 @@ export class FormDetector {
     // First pass: collect radio buttons into groups, add other fields directly
     for (const element of Array.from(form.elements)) {
       const fieldElement = element as FormFieldElement;
-      
-      if (!this.isValidField(fieldElement) || this.detectedElements.has(fieldElement)) {
+
+      if (
+        !this.isValidField(fieldElement) ||
+        this.detectedElements.has(fieldElement)
+      ) {
         continue;
       }
 
       // Group radio buttons by name
-      if (fieldElement instanceof HTMLInputElement && fieldElement.type === "radio") {
+      if (
+        fieldElement instanceof HTMLInputElement &&
+        fieldElement.type === "radio"
+      ) {
         const name = fieldElement.name;
         if (name) {
           const group = radioGroups.get(name) ?? [];
@@ -289,7 +295,9 @@ export class FormDetector {
     return forms.some((form) => form.contains(element));
   }
 
-  private createRadioGroupField(radios: HTMLInputElement[]): DetectedField | null {
+  private createRadioGroupField(
+    radios: HTMLInputElement[],
+  ): DetectedField | null {
     if (radios.length === 0) return null;
 
     // Use the first radio as the primary element
@@ -318,7 +326,7 @@ export class FormDetector {
 
     // Analyze using the first radio, then add options
     field.metadata = this.analyzer.analyzeField(field);
-    
+
     // Add all radio options to metadata
     field.metadata.options = radios.map((radio) => ({
       value: radio.value,
@@ -332,7 +340,9 @@ export class FormDetector {
   private getRadioLabel(radio: HTMLInputElement): string | null {
     // Check for explicit label
     if (radio.id) {
-      const label = document.querySelector<HTMLLabelElement>(`label[for="${radio.id}"]`);
+      const label = document.querySelector<HTMLLabelElement>(
+        `label[for="${radio.id}"]`,
+      );
       if (label) {
         return label.textContent?.trim() || null;
       }

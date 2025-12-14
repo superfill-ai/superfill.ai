@@ -49,7 +49,8 @@ export interface DetectedField {
   formOpid: FormOpId;
 }
 
-export interface FieldMetadataSnapshot extends Omit<FieldMetadata, "rect" | "options"> {
+export interface FieldMetadataSnapshot
+  extends Omit<FieldMetadata, "rect" | "options"> {
   rect: DOMRectInit;
   options?: RadioOptionSnapshot[];
 }
