@@ -41,7 +41,6 @@ export function fillField(
 function fillSelectField(element: HTMLSelectElement, value: string): boolean {
   const normalizedSearch = normalizeForComparison(value);
 
-  // Exact match only on value or text (case and punctuation insensitive)
   const option = Array.from(element.options).find(
     (opt) =>
       normalizeForComparison(opt.value) === normalizedSearch ||
