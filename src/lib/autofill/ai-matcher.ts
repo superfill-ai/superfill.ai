@@ -206,25 +206,24 @@ export class AIMatcher {
     
     ## SELECT FIELDS (Dropdowns)
     For select/dropdown fields, you MUST:
-    - Return a value that EXACTLY matches one of the provided options
-    - Look at the 'options' array provided with the field
-    - Match the user's memory to the closest option semantically
-    - If user's memory is "United States", and options are ["USA", "Canada", "UK"], return "USA"
-    - If no option matches well, set value to null
+    - Return a value that EXACTLY matches one of the provided options. The value must be one of the strings from the 'options' array for the field.
+    - Match the user's memory to the closest option semantically.
+    - If user's memory is "United States", and options are ["USA", "Canada", "UK"], return "USA".
+    - If no option matches well or you are uncertain, you MUST set the value to null.
     
     ## RADIO BUTTON GROUPS
     For radio fields, you MUST:
-    - Return a value that EXACTLY matches one of the radio group's values
-    - Look at the 'radioGroup.values' array provided
-    - Match semantically (e.g., memory "Male" matches option "M" or "Male")
-    - Return the exact option text, not the user's memory text
+    - Return a value that EXACTLY matches one of the radio group's values. The value must be one of the strings from the 'radioGroup.values' array.
+    - Match semantically (e.g., memory "Male" matches option "M" or "Male").
+    - Return the exact option text, not the user's memory text.
+    - If no option matches well or you are uncertain, you MUST set the value to null.
     
     ## CHECKBOX FIELDS
     For checkbox fields:
-    - Return "true" to check the checkbox, "false" to uncheck
-    - Analyze the checkbox label/context to determine if it should be checked
-    - Common patterns: "I agree to terms" -> check if user has agreed before
-    - For preference checkboxes, match to user's stored preferences
+    - The value MUST be either the string "true" (to check the box), "false" (to leave it unchecked), or null if you cannot determine the correct state.
+    - Analyze the checkbox label/context to determine if it should be checked based on user memories.
+    - Common patterns: "I agree to terms" -> check if user has agreed before.
+    - For preference checkboxes, match to user's stored preferences.
     
     Important Rules:
     1. **ALWAYS USE MEMORIES**: If a user has stored a memory that matches the field, USE IT. The whole point is to fill forms with user's stored data.
@@ -381,8 +380,8 @@ export class AIMatcher {
           3. Why you chose that memory (or why no memory fits)
           4. The answer in the 'value' field
           
-          **CRITICAL for select/radio fields**: Return EXACT option values from the provided lists, NOT the raw memory text.
-          **CRITICAL for checkbox fields**: Return "true" or "false" string values.`;
+          **CRITICAL for select/radio fields**: Return EXACT option values from the provided lists, or null if no suitable option is found. DO NOT return the raw memory text.
+          **CRITICAL for checkbox fields**: Return "true", "false", or null if you are unsure.`;
   }
 
   private convertAIResultsToMappings(
@@ -397,10 +396,10 @@ export class AIMatcher {
         logger.warn(
           `AI returned match for unknown field: ${aiMatch.fieldOpid}`,
         );
-        return createEmptyMapping<
-          { opid: string },
-          FieldMapping
-        >({ opid: aiMatch.fieldOpid }, "Field not found");
+        return createEmptyMapping<{ opid: string }, FieldMapping>(
+          { opid: aiMatch.fieldOpid },
+          "Field not found",
+        );
       }
 
       const confidence = roundConfidence(aiMatch.confidence);

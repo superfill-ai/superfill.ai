@@ -1,10 +1,3 @@
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import type { ProviderConfig } from "@/lib/providers/registry";
-import { getKeyValidationService } from "@/lib/security/key-validation-service";
 import {
   AlertCircleIcon,
   CheckCircle2,
@@ -15,6 +8,13 @@ import {
   XCircle,
 } from "lucide-react";
 import { useId, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import type { ProviderConfig } from "@/lib/providers/registry";
+import { getKeyValidationService } from "@/lib/security/key-validation-service";
 import { OllamaCorsDialog } from "./ollama-cors-dialog";
 
 interface ProviderKeyInputProps {

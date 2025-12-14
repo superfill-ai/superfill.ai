@@ -1,13 +1,13 @@
 import { createLogger } from "@/lib/logger";
 import type {
-    CompressedFieldData,
-    CompressedMemoryData,
-    FieldMapping,
+  CompressedFieldData,
+  CompressedMemoryData,
+  FieldMapping,
 } from "@/types/autofill";
 import {
-    FIELD_PURPOSE_KEYWORDS,
-    MIN_MATCH_CONFIDENCE,
-    STOP_WORDS,
+  FIELD_PURPOSE_KEYWORDS,
+  MIN_MATCH_CONFIDENCE,
+  STOP_WORDS,
 } from "./constants";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 
@@ -153,7 +153,7 @@ export class FallbackMatcher {
     field: CompressedFieldData,
     memory: CompressedMemoryData,
   ): number {
-    const fieldLabel = (field.label || "").toLowerCase();
+    const fieldLabel = field.labels.join(" ").toLowerCase();
     const category = memory.category.toLowerCase();
 
     if (fieldLabel.includes(category)) {
@@ -171,7 +171,7 @@ export class FallbackMatcher {
     field: CompressedFieldData,
     memory: CompressedMemoryData,
   ): number {
-    const fieldText = (field.label || "").toLowerCase();
+    const fieldText = field.labels.join(" ").toLowerCase();
     const memoryText = `${memory.question} ${memory.answer}`.toLowerCase();
 
     const fieldTokens = this.tokenize(fieldText);
@@ -201,7 +201,10 @@ export class FallbackMatcher {
     }
 
     if (
-      (field.label || "").toLowerCase().includes(memory.category.toLowerCase())
+      field.labels
+        .join(" ")
+        .toLowerCase()
+        .includes(memory.category.toLowerCase())
     ) {
       reasons.push(`Category "${memory.category}" found in field label`);
     }

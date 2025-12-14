@@ -1,3 +1,8 @@
+import { countries } from "country-data-list";
+import { CheckIcon, ChevronDown, Globe } from "lucide-react";
+import type React from "react";
+import { forwardRef, useCallback, useEffect, useState } from "react";
+import { CircleFlag } from "react-circle-flags";
 import {
   Command,
   CommandEmpty,
@@ -12,11 +17,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
-import { countries } from "country-data-list";
-import { CheckIcon, ChevronDown, Globe } from "lucide-react";
-import type React from "react";
-import { forwardRef, useCallback, useEffect, useState } from "react";
-import { CircleFlag } from "react-circle-flags";
 
 export interface Country {
   alpha2: string;

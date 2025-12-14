@@ -99,7 +99,7 @@ function fillRadioField(element: HTMLInputElement, value: string): boolean {
 function normalizeForComparison(str: string): string {
   return str
     .toLowerCase()
-    .replace(/[^\w\s]/g, "") 
+    .replace(/[^\w\s]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }

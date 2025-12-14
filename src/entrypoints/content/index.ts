@@ -1,5 +1,6 @@
 import "./content.css";
 
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
@@ -23,7 +24,6 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { AutopilotManager } from "./components/autopilot-manager";
 import { FillTriggerManager } from "./components/fill-trigger-manager";
 import { PreviewSidebarManager } from "./components/preview-manager";
@@ -61,13 +61,11 @@ const serializeForms = (
     action: form.action,
     method: form.method,
     name: form.name,
-    domContext: form.domContext,
     fields: form.fields.map((field) => {
       const { rect, ...metadata } = field.metadata;
 
       return {
         opid: field.opid,
-        selector: field.selector,
         formOpid: field.formOpid,
         frameId,
         metadata: {
@@ -116,7 +114,6 @@ export default defineContentScript({
   allFrames: true,
   cssInjectionMode: "ui",
   runAt: "document_idle",
-  allFrames: true,
 
   async main(ctx) {
     const isMainFrame = window.self === window.top;
