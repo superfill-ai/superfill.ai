@@ -166,7 +166,7 @@ export default defineBackground({
 
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
-        getAutofillService().dispose();
+        autofillService.dispose();
         logger.info("Background script HMR cleanup completed");
       });
     }
