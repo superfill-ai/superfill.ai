@@ -20,3 +20,11 @@ export interface UISettings {
   trigger: Trigger;
   onboardingCompleted: boolean;
 }
+
+export interface ProviderOption {
+  value: AIProvider;
+  label: string;
+  description?: string;
+  available: boolean;
+  requiresApiKey: boolean;
+}
