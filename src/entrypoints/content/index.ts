@@ -52,7 +52,6 @@ const fillReactSelect = async (
   try {
     logger.debug(`React Select: attempting to fill with value "${value}"`);
 
-    // Step 1: Find the hidden input that holds the actual value
     const selectContainer = element.closest(
       '.select, .select__container, [class*="select"]',
     );
@@ -65,7 +64,6 @@ const fillReactSelect = async (
           `React Select: found hidden input, setting value directly`,
         );
 
-        // Set value using native setter to bypass React
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
           "value",
@@ -81,16 +79,13 @@ const fillReactSelect = async (
       }
     }
 
-    // Step 2: Focus the input
     element.focus();
 
-    // Step 3: Open dropdown with mouse down (React Select uses onMouseDown)
     element.dispatchEvent(
       new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
     );
     await delay(50);
 
-    // Also try clicking the control container (React Select listens on the wrapper)
     const controlContainer = element.closest('[class*="control"]');
     if (controlContainer) {
       controlContainer.dispatchEvent(
@@ -100,17 +95,13 @@ const fillReactSelect = async (
 
     await delay(200);
 
-    // Step 4: Look for the menu that should now be open
-    // React Select creates a portal or sibling menu element
     let menuEl: Element | null = null;
 
-    // Try aria-controls first
     const listboxId = element.getAttribute("aria-controls");
     if (listboxId) {
       menuEl = document.getElementById(listboxId);
     }
 
-    // Fallback: look for menu in document (React Select often uses portals)
     if (!menuEl) {
       menuEl = document.querySelector(
         '[class*="menu"]:not([class*="menu-"]), [class*="-menu"], .select__menu',
@@ -119,7 +110,6 @@ const fillReactSelect = async (
 
     logger.debug(`React Select: menu found: ${!!menuEl}`);
 
-    // Step 5: Find all options and look for a match
     let options: NodeListOf<HTMLElement> | HTMLElement[] = [];
 
     if (menuEl) {
@@ -127,7 +117,6 @@ const fillReactSelect = async (
         '[class*="option"], [role="option"]',
       );
     } else {
-      // Search the entire document for React Select options
       options = document.querySelectorAll<HTMLElement>(
         '[class*="select__option"], [id*="react-select"][id*="option"]',
       );
@@ -146,7 +135,6 @@ const fillReactSelect = async (
         matchedOption = option;
         break;
       }
-      // Partial match as fallback
       if (!matchedOption && optionText.includes(normalizedValue)) {
         matchedOption = option;
       }
@@ -164,10 +152,8 @@ const fillReactSelect = async (
       return true;
     }
 
-    // Step 6: If no menu/options found, try typing to filter
     logger.debug("React Select: no direct match, trying to type and filter");
 
-    // Clear any existing value first
     element.value = "";
     element.dispatchEvent(
       new InputEvent("input", {
@@ -177,7 +163,6 @@ const fillReactSelect = async (
       }),
     );
 
-    // Type each character to trigger React's onChange
     for (const char of value) {
       element.dispatchEvent(
         new KeyboardEvent("keydown", { key: char, bubbles: true }),
@@ -195,7 +180,6 @@ const fillReactSelect = async (
 
     await delay(200);
 
-    // Try to find options again after typing
     const filteredOptions = document.querySelectorAll<HTMLElement>(
       '[class*="select__option"], [id*="react-select"][id*="option"], [role="option"]',
     );
@@ -205,7 +189,6 @@ const fillReactSelect = async (
     );
 
     if (filteredOptions.length > 0) {
-      // Click the first option
       const firstOption = filteredOptions[0];
       logger.debug(
         `React Select: clicking first filtered option "${firstOption.textContent}"`,
@@ -218,7 +201,6 @@ const fillReactSelect = async (
       return true;
     }
 
-    // Last resort: press Enter
     element.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "Enter",
@@ -278,7 +260,6 @@ const serializeForms = (
             bottom: rect.bottom,
             left: rect.left,
           } as DOMRectInit,
-          // Serialize options without element references
           options: options?.map(({ value, label }) => ({ value, label })),
         },
       } satisfies DetectedFormSnapshot["fields"][number];
@@ -329,7 +310,6 @@ export default defineContentScript({
           win = win.parent;
         }
       } catch {
-        // Access denied to parent frame (cross-origin)
       }
       return depth;
     };
