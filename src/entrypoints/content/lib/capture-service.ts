@@ -1,10 +1,68 @@
+import { TRACKABLE_FIELD_TYPES } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
-import type { CapturedFieldData, TrackedFieldData } from "@/types/autofill";
-import { TRACKABLE_FIELD_TYPES } from "../../../lib/copies";
+import type {
+  CapturedFieldData,
+  DetectedField,
+  DetectedForm,
+  FieldMapping,
+  FieldOpId,
+  FormOpId,
+  TrackedFieldData,
+} from "@/types/autofill";
+import type { FieldDataTracker } from "./field-data-tracker";
+import type { FormDetector } from "./form-detector";
+import { cacheDetectedForms, serializeForms } from "./iframe-handler";
 
 const logger = createLogger("capture-service");
 
 export class CaptureService {
+  initializeAutoTracking = async (
+    formDetector: FormDetector,
+    fieldTracker: FieldDataTracker,
+    formCache: Map<FormOpId, DetectedForm>,
+    fieldCache: Map<FieldOpId, DetectedField>,
+  ) => {
+    try {
+      const allForms = formDetector.detectAll();
+
+      if (allForms.length === 0) {
+        logger.info("No forms detected for auto-tracking");
+        return;
+      }
+
+      cacheDetectedForms(allForms, formCache, fieldCache);
+      const serializedFormCache = serializeForms(allForms);
+      const totalFields = allForms.reduce(
+        (sum, form) => sum + form.fields.length,
+        0,
+      );
+
+      logger.info(
+        `Auto-tracking initialized: ${allForms.length} forms, ${totalFields} fields`,
+      );
+
+      const sessionId = crypto.randomUUID();
+
+      await fieldTracker.startTracking(
+        window.location.href,
+        document.title,
+        sessionId,
+      );
+
+      const emptyMappings = new Map<FieldOpId, FieldMapping>();
+      fieldTracker.attachFieldListeners(
+        serializedFormCache.flatMap((f) => f.fields),
+        emptyMappings,
+      );
+
+      logger.info(
+        "Auto-tracking listeners attached for form submission capture",
+      );
+    } catch (error) {
+      logger.error("Failed to initialize auto-tracking:", error);
+    }
+  };
+
   identifyCaptureOpportunities(
     trackedFields: TrackedFieldData[],
   ): CapturedFieldData[] {
