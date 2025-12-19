@@ -1,6 +1,6 @@
 import { createLogger } from "@/lib/logger";
 import type { CapturedFieldData, TrackedFieldData } from "@/types/autofill";
-import { TRACKABLE_FIELD_TYPES } from "../copies";
+import { TRACKABLE_FIELD_TYPES } from "../../../lib/copies";
 
 const logger = createLogger("capture-service");
 
@@ -48,7 +48,7 @@ export class CaptureService {
       }
 
       logger.info(
-        `Capturing user-entered field ${tracked.fieldOpid}: "${question}" = "${tracked.value.substring(0, 30)}${tracked.value.length > 30 ? "..." : ""}"`,
+        `Capturing user-entered field ${tracked.fieldOpid}: "${question}"`,
       );
 
       userEntered.push({

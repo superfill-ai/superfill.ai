@@ -12,6 +12,10 @@ import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("capture-memory-service");
 
+const FALLBACK_CONFIDENCE_ON_ERROR = 0.3;
+const FALLBACK_CONFIDENCE_NO_AI = 0.5;
+const DEFAULT_CATEGORY = "general";
+
 export class CaptureMemoryService {
   private categorizer: BulkCategorizer;
 
@@ -81,15 +85,15 @@ export class CaptureMemoryService {
         } catch (error) {
           logger.error("Bulk categorization failed, using fallback:", error);
           categorized = fieldsToSave.map(() => ({
-            category: "general",
-            confidence: 0.3,
+            category: DEFAULT_CATEGORY,
+            confidence: FALLBACK_CONFIDENCE_ON_ERROR,
           }));
         }
       } else {
         logger.info("No AI provider configured, using fallback categories");
         categorized = fieldsToSave.map(() => ({
-          category: "general",
-          confidence: 0.5,
+          category: DEFAULT_CATEGORY,
+          confidence: FALLBACK_CONFIDENCE_NO_AI,
         }));
       }
 
@@ -101,7 +105,7 @@ export class CaptureMemoryService {
         const catResult = categorized[idx];
         const validCategory = isValidCategory(catResult.category)
           ? catResult.category
-          : "general";
+          : DEFAULT_CATEGORY;
 
         return {
           id: uuidv7(),

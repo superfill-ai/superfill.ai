@@ -71,10 +71,6 @@ export class AutopilotManager {
     this.options = options;
   }
 
-  getFieldMappings(): Map<FieldOpId, FieldMapping> {
-    return this.mappingLookup as Map<FieldOpId, FieldMapping>;
-  }
-
   async initialize(): Promise<void> {
     if (this.ui) return;
 
@@ -242,7 +238,7 @@ export class AutopilotManager {
       for (const field of this.fieldsToFill) {
         try {
           let element = document.querySelector(
-            `[data-wxt-field-opid="${field.fieldOpid}"]`,
+            `[data-superfill-opid="${field.fieldOpid}"]`,
           ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
           if (!element && field.fieldOpid.startsWith("__")) {
