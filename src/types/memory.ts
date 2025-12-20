@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { allowedCategories } from "@/lib/copies";
+import { z } from "zod";
 
 export type AllowedCategory = (typeof allowedCategories)[number];
 
@@ -31,35 +31,21 @@ const memoryEntrySchema = z.object({
 
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
 
-/**
- * Simplified field mapping for storage
- * Only stores what's needed for history/analytics
- */
 const filledFieldSchema = z.object({
-  /** CSS selector to identify the field */
   selector: z.string(),
-  /** Label text shown to user */
   label: z.string(),
-  /** The value that was filled */
   filledValue: z.string(),
-  /** Field type (text, email, select, etc.) */
   fieldType: z.string(),
 });
 
 export type FilledField = z.infer<typeof filledFieldSchema>;
 
 const formMappingSchema = z.object({
-  /** Page URL where form was filled */
-  url: z.string().url(),
-  /** Page title for display */
+  url: z.url(),
   pageTitle: z.string().optional(),
-  /** Form selector or identifier */
   formSelector: z.string().optional(),
-  /** Fields that were filled */
   fields: z.array(filledFieldSchema),
-  /** Average confidence across all fills */
   confidence: z.number().min(0).max(1),
-  /** When this form was filled */
   timestamp: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
   }),
