@@ -19,9 +19,12 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import { FillTriggerManager } from "./components/fill-trigger-manager";
+import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
+import { getFieldDataTracker } from "./lib/field-data-tracker";
 import { handleFill } from "./lib/fill-handler";
 import { FormDetector } from "./lib/form-detector";
+import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 import {
   destroyUIManagers,
   handleShowPreview,
@@ -35,9 +38,9 @@ const fieldCache = new Map<FieldOpId, DetectedField>();
 let fillTriggerManager: FillTriggerManager | null = null;
 
 export default defineContentScript({
-  matches: ["<all_urls>"],
   allFrames: true,
   cssInjectionMode: "ui",
+  matches: ["<all_urls>"],
   runAt: "document_idle",
 
   async main(ctx) {
@@ -48,6 +51,20 @@ export default defineContentScript({
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
+    const fieldTracker = await getFieldDataTracker();
+    const submissionMonitor = getFormSubmissionMonitor();
+    const captureService = new CaptureService();
+
+    submissionMonitor.start();
+
+    logger.info("Form submission monitor started");
+
+    await captureService.initializeAutoTracking(
+      formDetector,
+      fieldTracker,
+      formCache,
+      fieldCache,
+    );
     fillTriggerManager = new FillTriggerManager();
     fillTriggerManager.initialize();
 
@@ -183,6 +200,57 @@ export default defineContentScript({
       }
 
       return true;
+    });
+
+    submissionMonitor.onSubmission(async (submittedFieldOpids) => {
+      logger.info(
+        `Form submitted with ${submittedFieldOpids.size} fields`,
+        Array.from(submittedFieldOpids),
+      );
+
+      try {
+        const trackedFields = await fieldTracker.getCapturedFields();
+
+        if (trackedFields.length === 0) {
+          logger.info("No tracked fields to capture");
+          return;
+        }
+
+        logger.info(
+          `Processing ${trackedFields.length} tracked fields for capture`,
+        );
+
+        const capturedFields =
+          captureService.identifyCaptureOpportunities(trackedFields);
+
+        if (capturedFields.length === 0) {
+          logger.info("No user-entered fields to capture");
+          return;
+        }
+
+        logger.info(`Saving ${capturedFields.length} captured fields directly`);
+
+        const result = await contentAutofillMessaging.sendMessage(
+          "saveCapturedMemories",
+          {
+            capturedFields,
+          },
+        );
+
+        if (result.success) {
+          logger.info(
+            `Successfully saved ${result.savedCount} memories from form submission`,
+          );
+          await fieldTracker.clearSession();
+        }
+      } catch (error) {
+        logger.error("Error processing form submission:", error);
+      }
+    });
+
+    ctx.onInvalidated(() => {
+      fieldTracker.dispose();
+      submissionMonitor.dispose();
     });
   },
 });

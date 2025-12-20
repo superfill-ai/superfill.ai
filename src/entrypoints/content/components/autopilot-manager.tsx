@@ -233,6 +233,48 @@ export class AutopilotManager {
         status: "filling",
       });
 
+      let filledCount = 0;
+
+      for (const field of this.fieldsToFill) {
+        try {
+          let element = document.querySelector(
+            `[data-superfill-opid="${field.fieldOpid}"]`,
+          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+          if (!element && field.fieldOpid.startsWith("__")) {
+            const index = field.fieldOpid.substring(2);
+            const allInputs = document.querySelectorAll(
+              "input, textarea, select",
+            );
+            element = allInputs[parseInt(index, 10)] as
+              | HTMLInputElement
+              | HTMLTextAreaElement
+              | HTMLSelectElement;
+          }
+
+          if (element && element.type !== "password") {
+            element.value = field.value;
+            element.setAttribute("data-superfill-filled", "true");
+            element.setAttribute("data-superfill-original", field.value);
+
+            element.dispatchEvent(new Event("input", { bubbles: true }));
+            element.dispatchEvent(new Event("change", { bubbles: true }));
+            element.dispatchEvent(new Event("blur", { bubbles: true }));
+
+            filledCount++;
+            logger.debug(
+              `Filled field ${field.fieldOpid} with value: ${field.value}`,
+            );
+          } else {
+            logger.warn(
+              `Field element not found or is password field for opid: ${field.fieldOpid}`,
+            );
+          }
+        } catch (fieldError) {
+          logger.error(`Failed to fill field ${field.fieldOpid}:`, fieldError);
+        }
+      }
+
       try {
         await browser.runtime.sendMessage({
           type: "FILL_ALL_FRAMES",
@@ -250,8 +292,6 @@ export class AutopilotManager {
         });
         return false;
       }
-
-      const filledCount = this.fieldsToFill.length;
 
       await this.showProgress({
         state: "completed",

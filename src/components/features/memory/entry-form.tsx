@@ -56,12 +56,9 @@ export function EntryForm({
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
-
   const { addEntry, updateEntry } = useMemoryMutations();
   const top10Tags = useTopUsedTags(10);
-
   const categorizationService = getCategorizationService();
-
   const form = useForm({
     defaultValues: {
       question: initialData?.question || "",
@@ -79,7 +76,9 @@ export function EntryForm({
             if (
               initialData &&
               mode === "edit" &&
-              allowedCategories.includes(value.category)
+              allowedCategories.includes(
+                value.category as (typeof allowedCategories)[number],
+              )
             ) {
               await updateEntry.mutateAsync({
                 id: initialData.id,
@@ -93,7 +92,9 @@ export function EntryForm({
               });
             } else if (
               mode === "create" &&
-              allowedCategories.includes(value.category)
+              allowedCategories.includes(
+                value.category as (typeof allowedCategories)[number],
+              )
             ) {
               await addEntry.mutateAsync({
                 question: value.question,
@@ -105,7 +106,6 @@ export function EntryForm({
             } else {
               throw new Error("Invalid category selected.");
             }
-
             onSuccess?.();
             form.reset();
           } catch (error) {

@@ -22,7 +22,7 @@ const memoryEntrySchema = z.object({
     updatedAt: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
       message: "Invalid ISO timestamp",
     }),
-    source: z.enum(["manual", "import"]),
+    source: z.enum(["manual", "import", "autofill"]),
   }),
   embedding: z.array(z.number()).optional(), // Phase 2: Vector embedding
 });
