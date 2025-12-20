@@ -1,4 +1,12 @@
 import type { FormDetector } from "@/entrypoints/content/lib/form-detector";
+import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
+import {
+  createFilterStats,
+  getPrimaryLabel,
+  hasAnyLabel,
+  hasValidContext,
+  scoreField,
+} from "@/lib/autofill/field-quality";
 import type { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { createLogger } from "@/lib/logger";
 import type {
@@ -8,14 +16,6 @@ import type {
   FieldOpId,
   FormOpId,
 } from "@/types/autofill";
-import { MIN_FIELD_QUALITY } from "../../../lib/autofill/constants";
-import {
-  createFilterStats,
-  getPrimaryLabel,
-  hasAnyLabel,
-  hasValidContext,
-  scoreField,
-} from "../../../lib/autofill/field-quality";
 
 const logger = createLogger("iframe-handling");
 
@@ -48,7 +48,12 @@ export const getFrameInfo = (): FrameInfo => {
         depth++;
         win = win.parent;
       }
-    } catch {}
+    } catch (_crossOriginError) {
+      logger.info(
+        "Cross-origin access error while calculating frame depth, stopping at depth:",
+        depth,
+      );
+    }
     return depth;
   };
 

@@ -1,4 +1,4 @@
-import { TRACKABLE_FIELD_TYPES } from "@/lib/copies";
+import { isTrackableFieldType } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type {
   CaptureSession,
@@ -93,8 +93,7 @@ export class FieldDataTracker {
 
     if (type === "password") return false;
 
-    // @ts-expect-error: Dynamic check against allowed types
-    return TRACKABLE_FIELD_TYPES.includes(type);
+    return isTrackableFieldType(type);
   }
 
   private findFieldElement(
@@ -197,7 +196,15 @@ export class FieldDataTracker {
   private async loadSession(): Promise<void> {
     try {
       const result = await browser.storage.local.get(STORAGE_KEY);
-      const stored = result[STORAGE_KEY];
+      const stored = result[STORAGE_KEY] as
+        | {
+            sessionId: string;
+            url: string;
+            pageTitle: string;
+            trackedFields: [FieldOpId, TrackedFieldData][];
+            startedAt: number;
+          }
+        | undefined;
 
       if (!stored) {
         this.session = null;

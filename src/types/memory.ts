@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { allowedCategories } from "@/lib/copies";
 
+export type AllowedCategory = (typeof allowedCategories)[number];
+
 const memoryEntrySchema = z.object({
   id: z.uuid({
     version: "v7",

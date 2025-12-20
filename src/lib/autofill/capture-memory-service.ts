@@ -220,7 +220,7 @@ export class CaptureMemoryService {
             ...memory,
             answer: updateItem.newAnswer,
             category: validCategory,
-            confidence: Math.max(memory.confidence, catResult.confidence),
+            confidence: catResult.confidence,
             metadata: {
               ...memory.metadata,
               updatedAt: new Date().toISOString(),

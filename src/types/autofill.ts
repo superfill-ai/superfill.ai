@@ -1,4 +1,7 @@
+import type { TRACKABLE_FIELD_TYPES } from "@/lib/copies";
 import type { WebsiteContext } from "./context";
+
+export type TrackableFieldType = (typeof TRACKABLE_FIELD_TYPES)[number];
 
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;

@@ -1,4 +1,4 @@
-import { TRACKABLE_FIELD_TYPES } from "@/lib/copies";
+import { isTrackableFieldType } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type {
   CapturedFieldData,
@@ -130,8 +130,7 @@ export class CaptureService {
   }
 
   private isTrackableFieldType(fieldType: string): boolean {
-    // @ts-expect-error: Dynamic check against allowed types
-    return TRACKABLE_FIELD_TYPES.includes(fieldType);
+    return isTrackableFieldType(fieldType);
   }
 
   private extractQuestion(

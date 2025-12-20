@@ -125,7 +125,7 @@ export class FillTriggerManager {
       ) {
         return false;
       }
-    } catch {}
+    } catch (_styleError) {}
 
     try {
       if (
@@ -134,7 +134,7 @@ export class FillTriggerManager {
       ) {
         return false;
       }
-    } catch {}
+    } catch (_accessError) {}
 
     return true;
   }

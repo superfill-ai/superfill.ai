@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from "uuid";
-import { allowedCategories } from "@/lib/copies";
+import { isAllowedCategory } from "@/lib/copies";
 import { downloadCSV, parseCSV, stringifyToCSV } from "@/lib/csv";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
@@ -183,9 +183,8 @@ export const importFromCSV = async (csvContent: string): Promise<number> => {
             .split(";")
             .map((t) => t.trim())
             .filter(Boolean);
-      // @ts-expect-error: Dynamic check against allowed categories
-      const category = allowedCategories.includes(row.category)
-        ? (row.category as (typeof allowedCategories)[number])
+      const category = isAllowedCategory(row.category)
+        ? row.category
         : "general";
       const confidence = Math.max(
         0,

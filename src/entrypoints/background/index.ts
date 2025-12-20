@@ -43,6 +43,7 @@ export default defineBackground({
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();
     const autofillService = getAutofillService();
+    let contextMenuCreated = false;
 
     try {
       browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
@@ -51,21 +52,24 @@ export default defineBackground({
         title: "Fill with superfill.ai",
         contexts: ["editable", "page"],
       });
+      contextMenuCreated = true;
       logger.info("Context menu created");
     } catch (error) {
       logger.error("Failed to create context menu:", error);
     }
 
-    browser.contextMenus.onClicked.addListener(async (info, tab) => {
-      if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
-        logger.info("Context menu autofill triggered", { tabId: tab.id });
-        try {
-          await autofillService.startAutofillOnActiveTab();
-        } catch (error) {
-          logger.error("Context menu autofill failed:", error);
+    if (contextMenuCreated) {
+      browser.contextMenus.onClicked.addListener(async (info, tab) => {
+        if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
+          logger.info("Context menu autofill triggered", { tabId: tab.id });
+          try {
+            await autofillService.startAutofillOnActiveTab();
+          } catch (error) {
+            logger.error("Context menu autofill failed:", error);
+          }
         }
-      }
-    });
+      });
+    }
 
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
