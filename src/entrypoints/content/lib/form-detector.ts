@@ -95,7 +95,6 @@ export class FormDetector {
     const fields: DetectedField[] = [];
     const radioGroups = new Map<string, HTMLInputElement[]>();
 
-    // First pass: collect radio buttons into groups, add other fields directly
     for (const element of Array.from(form.elements)) {
       const fieldElement = element as FormFieldElement;
 
@@ -106,7 +105,6 @@ export class FormDetector {
         continue;
       }
 
-      // Group radio buttons by name
       if (
         fieldElement instanceof HTMLInputElement &&
         fieldElement.type === "radio"
@@ -123,7 +121,6 @@ export class FormDetector {
       fields.push(this.createDetectedField(fieldElement));
     }
 
-    // Second pass: create one field per radio group
     for (const [groupName, radios] of radioGroups) {
       const groupKey = `${form.name || form.id || "form"}_${groupName}`;
       if (this.detectedRadioGroups.has(groupKey)) {
@@ -155,7 +152,6 @@ export class FormDetector {
 
       if (!element.form && !this.isInsideForm(element, existingForms)) {
         if (this.isValidField(element) && !this.detectedElements.has(element)) {
-          // Group radio buttons by name
           if (element instanceof HTMLInputElement && element.type === "radio") {
             const name = element.name;
             if (name) {
@@ -172,7 +168,6 @@ export class FormDetector {
       node = walker.nextNode();
     }
 
-    // Create one field per radio group
     for (const [groupName, radios] of radioGroups) {
       const groupKey = `standalone_${groupName}`;
       if (this.detectedRadioGroups.has(groupKey)) {
@@ -232,7 +227,6 @@ export class FormDetector {
       const element = node as FormFieldElement;
 
       if (this.isValidField(element) && !this.detectedElements.has(element)) {
-        // Group radio buttons by name
         if (element instanceof HTMLInputElement && element.type === "radio") {
           const name = element.name;
           if (name) {
@@ -248,7 +242,6 @@ export class FormDetector {
       node = walker.nextNode();
     }
 
-    // Create one field per radio group
     for (const [groupName, radios] of radioGroups) {
       const groupKey = `shadow_${groupName}`;
       if (this.detectedRadioGroups.has(groupKey)) {
@@ -300,7 +293,6 @@ export class FormDetector {
   ): DetectedField | null {
     if (radios.length === 0) return null;
 
-    // Use the first radio as the primary element
     const primaryRadio = radios[0];
     const existingOpid = primaryRadio.getAttribute("data-superfill-opid");
     const opid = existingOpid
@@ -311,7 +303,6 @@ export class FormDetector {
       primaryRadio.setAttribute("data-superfill-opid", opid);
     }
 
-    // Mark all radios in the group with the same opid for filling
     for (const radio of radios) {
       radio.setAttribute("data-superfill-opid", opid);
       this.detectedElements.add(radio);
@@ -324,10 +315,8 @@ export class FormDetector {
       formOpid: "" as FormOpId,
     };
 
-    // Analyze using the first radio, then add options
     field.metadata = this.analyzer.analyzeField(field);
 
-    // Add all radio options to metadata
     field.metadata.options = radios.map((radio) => ({
       value: radio.value,
       label: this.getRadioLabel(radio),
@@ -338,7 +327,6 @@ export class FormDetector {
   }
 
   private getRadioLabel(radio: HTMLInputElement): string | null {
-    // Check for explicit label
     if (radio.id) {
       const label = document.querySelector<HTMLLabelElement>(
         `label[for="${radio.id}"]`,
@@ -348,7 +336,6 @@ export class FormDetector {
       }
     }
 
-    // Check for parent label
     const parentLabel = radio.closest("label");
     if (parentLabel) {
       const clone = parentLabel.cloneNode(true) as HTMLLabelElement;
@@ -360,7 +347,6 @@ export class FormDetector {
       if (text) return text;
     }
 
-    // Fall back to value
     return radio.value || null;
   }
 

@@ -23,7 +23,6 @@ export function fillField(
         return fillRadioField(element, value);
       }
 
-      // Text, email, tel, url, number, date, etc.
       return fillTextInputField(element, value);
     }
 

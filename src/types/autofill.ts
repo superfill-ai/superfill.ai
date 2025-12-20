@@ -208,3 +208,8 @@ export interface FilterStats {
     unknownUnlabeled: number;
   };
 }
+
+export type FieldsToFillData = Array<{
+  fieldOpid: FieldOpId;
+  value: string;
+}>;
