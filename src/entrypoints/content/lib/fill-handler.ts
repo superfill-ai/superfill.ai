@@ -252,7 +252,10 @@ export const handleFill = async (
         } else if (element.type === "checkbox") {
           const normalizedCheckboxValue = value.trim().toLowerCase();
 
-          element.checked = normalizedCheckboxValue === "true" || normalizedCheckboxValue === "on" || normalizedCheckboxValue === "1";
+          element.checked =
+            normalizedCheckboxValue === "true" ||
+            normalizedCheckboxValue === "on" ||
+            normalizedCheckboxValue === "1";
           element.dispatchEvent(new Event("input", { bubbles: true }));
           element.dispatchEvent(new Event("change", { bubbles: true }));
         } else if (element.getAttribute("role") === "combobox") {

@@ -1,5 +1,5 @@
-import { allowedCategories } from "@/lib/copies";
 import { z } from "zod";
+import { allowedCategories } from "@/lib/copies";
 
 export type AllowedCategory = (typeof allowedCategories)[number];
 
