@@ -114,6 +114,22 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 ---
 
+Premium features
+
+- [x] Cloud AI model integration
+- [x] Sign in & cloud sync
+- [ ] Multi-device support
+- [ ] Reinforcement learning for user corrections
+- [ ] AI model memory prediction improvement
+- [ ] RAG (Retrieval-Augmented Generation) for large datasets (> 100 memories)
+- [ ] Team features
+- [ ] Analytics dashboard
+- [ ] SOC 2 Type II certification
+- [ ] GDPR compliance
+- [ ] Data residency options
+- [ ] Audit logs
+- [ ] SSO integration
+
 ## 🚀 Quick Start
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup instructions.
