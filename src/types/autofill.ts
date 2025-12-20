@@ -49,14 +49,27 @@ export interface DetectedField {
   formOpid: FormOpId;
 }
 
-export interface FieldMetadataSnapshot extends Omit<FieldMetadata, "rect"> {
+export interface FieldMetadataSnapshot
+  extends Omit<FieldMetadata, "rect" | "options"> {
   rect: DOMRectInit;
+  options?: RadioOptionSnapshot[];
 }
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
   frameId?: number;
   metadata: FieldMetadataSnapshot;
+}
+
+export interface RadioOption {
+  value: string;
+  label: string | null;
+  element: HTMLInputElement;
+}
+
+export interface RadioOptionSnapshot {
+  value: string;
+  label: string | null;
 }
 
 export interface FieldMetadata {
@@ -86,6 +99,9 @@ export interface FieldMetadata {
 
   fieldType: FieldType;
   fieldPurpose: FieldPurpose;
+
+  /** For radio/checkbox groups: list of available options */
+  options?: RadioOption[];
 }
 
 export type FieldType =
@@ -125,6 +141,7 @@ export interface CompressedFieldData {
   purpose: FieldPurpose;
   labels: string[];
   context: string;
+  options?: RadioOptionSnapshot[];
 }
 
 export interface CompressedMemoryData {
@@ -191,3 +208,8 @@ export interface FilterStats {
     unknownUnlabeled: number;
   };
 }
+
+export type FieldsToFillData = Array<{
+  fieldOpid: FieldOpId;
+  value: string;
+}>;

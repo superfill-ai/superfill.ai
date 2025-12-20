@@ -274,7 +274,7 @@ Rephrase the following answer based on the provided context.
 - Page Title: ${websiteContext.metadata.title}
 
 **Field Context**:
-- Field Labels: ${field.labels.join(", ")}
+- Field Label: ${field.labels.length > 0 ? field.labels.join(", ") : "N/A"}
 - Field Purpose: ${field.purpose}
 - Field Type: ${field.type}
 `;

@@ -29,25 +29,35 @@ const memoryEntrySchema = z.object({
 
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
 
-const formFieldSchema = z.object({
-  element: z.any(), // Placeholder for HTMLElement
-  type: z.string(), // 'text' | 'email' | 'textarea' | etc.
-  name: z.string(), // Field name/id
-  label: z.string(), // Visible label (could be html-for or wrapping label or aria-label, etc.)
-  placeholder: z.string().optional(),
-  required: z.boolean(),
-  currentValue: z.string(),
-  rect: z.any().optional(), // Placeholder for DOMRect (positioning)
+/**
+ * Simplified field mapping for storage
+ * Only stores what's needed for history/analytics
+ */
+const filledFieldSchema = z.object({
+  /** CSS selector to identify the field */
+  selector: z.string(),
+  /** Label text shown to user */
+  label: z.string(),
+  /** The value that was filled */
+  filledValue: z.string(),
+  /** Field type (text, email, select, etc.) */
+  fieldType: z.string(),
 });
 
-export type FormField = z.infer<typeof formFieldSchema>;
+export type FilledField = z.infer<typeof filledFieldSchema>;
 
 const formMappingSchema = z.object({
-  url: z.url(),
-  formId: z.string().optional(),
-  fields: z.array(formFieldSchema),
-  matches: z.map(z.string(), memoryEntrySchema),
+  /** Page URL where form was filled */
+  url: z.string().url(),
+  /** Page title for display */
+  pageTitle: z.string().optional(),
+  /** Form selector or identifier */
+  formSelector: z.string().optional(),
+  /** Fields that were filled */
+  fields: z.array(filledFieldSchema),
+  /** Average confidence across all fills */
   confidence: z.number().min(0).max(1),
+  /** When this form was filled */
   timestamp: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
   }),
