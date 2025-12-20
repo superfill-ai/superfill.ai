@@ -15,7 +15,6 @@ import type {
   DetectedForm,
   DetectFormsResult,
   FieldOpId,
-  FormFieldElement,
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
@@ -23,6 +22,7 @@ import { FillTriggerManager } from "./components/fill-trigger-manager";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
+import { handleFill } from "./lib/fill-handler";
 import { FormDetector } from "./lib/form-detector";
 import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 import {
@@ -38,10 +38,10 @@ const fieldCache = new Map<FieldOpId, DetectedField>();
 let fillTriggerManager: FillTriggerManager | null = null;
 
 export default defineContentScript({
-  matches: ["<all_urls>"],
-  cssInjectionMode: "ui",
-  runAt: "document_idle",
   allFrames: true,
+  cssInjectionMode: "ui",
+  matches: ["<all_urls>"],
+  runAt: "document_idle",
 
   async main(ctx) {
     const frameInfo = getFrameInfo();
@@ -185,69 +185,7 @@ export default defineContentScript({
         `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
       );
 
-      for (const { fieldOpid, value } of fieldsToFill) {
-        let field = fieldCache.get(fieldOpid as FieldOpId);
-
-        if (!field) {
-          const element = document.querySelector(
-            `[data-superfill-opid="${fieldOpid}"]`,
-          ) as FormFieldElement;
-          if (element) {
-            logger.debug(
-              `Field ${fieldOpid} not in cache, found via data-superfill-opid attribute`,
-            );
-            field = { element } as DetectedField;
-          }
-        }
-
-        if (field) {
-          const element = field.element;
-
-          if (element instanceof HTMLInputElement) {
-            element.focus({ preventScroll: true });
-
-            if (element.type === "checkbox" || element.type === "radio") {
-              element.checked =
-                value === "true" || value === "on" || value === "1";
-            } else {
-              element.value = value;
-            }
-
-            element.dispatchEvent(new Event("input", { bubbles: true }));
-            element.dispatchEvent(new Event("change", { bubbles: true }));
-          } else if (element instanceof HTMLTextAreaElement) {
-            element.focus({ preventScroll: true });
-            element.value = value;
-            element.dispatchEvent(new Event("input", { bubbles: true }));
-            element.dispatchEvent(new Event("change", { bubbles: true }));
-          } else if (element instanceof HTMLSelectElement) {
-            const normalizedValue = value.toLowerCase();
-            let matched = false;
-
-            for (const option of Array.from(element.options)) {
-              if (
-                option.value.toLowerCase() === normalizedValue ||
-                option.text.toLowerCase() === normalizedValue
-              ) {
-                option.selected = true;
-                matched = true;
-                break;
-              }
-            }
-
-            if (!matched) {
-              element.value = value;
-            }
-
-            element.dispatchEvent(new Event("input", { bubbles: true }));
-            element.dispatchEvent(new Event("change", { bubbles: true }));
-          }
-
-          logger.debug(`Filled field ${fieldOpid} with value`);
-        } else {
-          logger.warn(`Field ${fieldOpid} not found in cache`);
-        }
-      }
+      handleFill(fieldsToFill, frameInfo, fieldCache);
     });
 
     contentAutofillMessaging.onMessage("closePreview", async () => {

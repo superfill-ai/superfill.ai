@@ -15,7 +15,7 @@ import type {
   FieldOpId,
   FormOpId,
 } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
+import type { FilledField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
 import { AutopilotLoader } from "./autopilot-loader";
 
@@ -372,8 +372,6 @@ export class AutopilotManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await storage.memories.getValue();
-      const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
       for (const fieldOpid of selectedFieldOpids) {
@@ -389,41 +387,28 @@ export class AutopilotManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
           if (!mapping) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: `[data-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value || "",
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.value !== null) {
-            const memory = memoryMap.get(mapping.value);
-            if (memory) {
-              matches.set(formField.name, memory);
-            }
-          }
+          formFields.push(filledField);
         }
 
         if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
+            pageTitle: document.title,
+            formSelector: formMetadata?.name,
             fields: formFields,
-            matches,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });

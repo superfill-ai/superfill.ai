@@ -8,7 +8,7 @@ import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messag
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type { AutofillProgress } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
+import type { FilledField, FormMapping } from "@/types/memory";
 import type {
   DetectedField,
   DetectedFieldSnapshot,
@@ -294,38 +294,28 @@ export class PreviewSidebarManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
           if (!mapping) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: `[data-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value || "",
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.value) {
-            matches.set(formField.name, mapping.value);
-          }
+          formFields.push(filledField);
         }
 
         if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
+            pageTitle: document.title,
+            formSelector: formMetadata?.name,
             fields: formFields,
-            matches,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });
