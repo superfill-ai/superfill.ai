@@ -36,16 +36,21 @@ export class FieldDataTracker {
       return;
     }
 
+    const existingTrackedFields =
+      this.session?.url === url ? this.session.trackedFields : new Map();
+
     this.session = {
       sessionId,
       url,
       pageTitle,
-      trackedFields: new Map(),
+      trackedFields: existingTrackedFields,
       startedAt: Date.now(),
     };
 
     await this.saveSession();
-    logger.info("Started tracking session:", sessionId);
+    logger.info("Started tracking session:", sessionId, {
+      preservedFields: existingTrackedFields.size,
+    });
   }
 
   attachFieldListeners(

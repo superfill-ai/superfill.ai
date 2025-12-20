@@ -31,6 +31,8 @@ type SubmissionCallback = (
   submittedFields: Set<FieldOpId>,
 ) => void | Promise<void>;
 
+const SUBMISSION_DEBOUNCE_MS = 500;
+
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
   private formListeners: Map<HTMLFormElement, () => void> = new Map();
@@ -38,6 +40,8 @@ export class FormSubmissionMonitor {
     HTMLButtonElement | HTMLInputElement,
     () => void
   > = new Map();
+  private recentSubmissions: Map<HTMLFormElement | "standalone", number> =
+    new Map();
   private isMonitoring = false;
   private observer: MutationObserver | null = null;
 
@@ -181,15 +185,34 @@ export class FormSubmissionMonitor {
   }
 
   private async handleFormSubmission(form: HTMLFormElement): Promise<void> {
+    if (this.isDuplicateSubmission(form)) {
+      logger.debug("Skipping duplicate form submission");
+      return;
+    }
+
+    this.recentSubmissions.set(form, Date.now());
     const fields = this.extractFieldOpids(form);
     logger.info(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
   private async handleStandaloneSubmission(): Promise<void> {
+    if (this.isDuplicateSubmission("standalone")) {
+      logger.debug("Skipping duplicate standalone submission");
+      return;
+    }
+
+    this.recentSubmissions.set("standalone", Date.now());
     const fields = this.extractAllVisibleFieldOpids();
     logger.info(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
+  }
+
+  private isDuplicateSubmission(key: HTMLFormElement | "standalone"): boolean {
+    const lastSubmission = this.recentSubmissions.get(key);
+    if (!lastSubmission) return false;
+
+    return Date.now() - lastSubmission < SUBMISSION_DEBOUNCE_MS;
   }
 
   private extractFieldOpids(form: HTMLFormElement): Set<FieldOpId> {
