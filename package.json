@@ -96,19 +96,19 @@
     "zod": "^4.2.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.6",
+    "@biomejs/biome": "2.3.10",
     "@changesets/changelog-github": "^0.5.2",
     "@changesets/cli": "^2.29.8",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^11.0.0",
     "@wxt-dev/module-react": "^1.1.5",
-    "autoprefixer": "^10.4.22",
+    "autoprefixer": "^10.4.23",
     "babel-plugin-react-compiler": "^1.0.0",
     "simple-git-hooks": "^2.13.1",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "wxt": "^0.20.11"
+    "wxt": "^0.20.13"
   },
   "overrides": {
     "@wxt-dev/storage": "1.2.0"
