@@ -393,7 +393,7 @@ export function EntryForm({
               ) : (
                 <TagsIcon className="mr-2 size-3" />
               )}
-              Categorize & Tag
+              Categorize & Tag with AI
             </Button>
           )}
         </div>
