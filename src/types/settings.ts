@@ -1,6 +1,5 @@
 import type { AIProvider } from "@/lib/providers/registry";
 import type { Theme } from "./theme";
-import type { Trigger } from "./trigger";
 
 export interface EncryptedKey {
   encrypted: string;
@@ -13,11 +12,12 @@ export interface AISettings {
   autoFillEnabled: boolean;
   autopilotMode: boolean;
   confidenceThreshold: number;
+  inlineTriggerEnabled: boolean;
+  contextMenuEnabled: boolean;
 }
 
 export interface UISettings {
   theme: Theme;
-  trigger: Trigger;
   onboardingCompleted: boolean;
 }
 

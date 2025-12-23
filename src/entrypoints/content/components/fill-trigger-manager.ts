@@ -12,6 +12,7 @@ export class FillTriggerManager {
   private focusTimeout: ReturnType<typeof setTimeout> | null = null;
   private hideTimeout: ReturnType<typeof setTimeout> | null = null;
   private isProcessing = false;
+  private isEnabled = false;
 
   private readonly showDelay = 300;
   private readonly hideDelay = 300;
@@ -24,15 +25,29 @@ export class FillTriggerManager {
     this.boundHandleFocusOut = this.handleFocusOut.bind(this);
   }
 
-  initialize() {
+  async initialize() {
+    const settings = await storage.aiSettings.getValue();
+    this.isEnabled = settings.inlineTriggerEnabled;
+
+    storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        const wasEnabled = this.isEnabled;
+        this.isEnabled = newSettings.inlineTriggerEnabled;
+
+        if (wasEnabled && !this.isEnabled) {
+          this.hideButton();
+        }
+      }
+    });
+
     document.addEventListener("focusin", this.boundHandleFocusIn, true);
     document.addEventListener("focusout", this.boundHandleFocusOut, true);
-    logger.info("FillTriggerManager initialized");
+    logger.info("FillTriggerManager initialized", { enabled: this.isEnabled });
   }
 
   private handleFocusIn(event: FocusEvent) {
     const target = event.target as HTMLElement | null;
-    if (!target || !this.isValidInputField(target)) return;
+    if (!target || !this.isValidInputField(target) || !this.isEnabled) return;
 
     if (this.hideTimeout) {
       clearTimeout(this.hideTimeout);

@@ -66,7 +66,7 @@ export default defineContentScript({
       fieldCache,
     );
     fillTriggerManager = new FillTriggerManager();
-    fillTriggerManager.initialize();
+    await fillTriggerManager.initialize();
 
     contentAutofillMessaging.onMessage(
       "collectAllFrameForms",

@@ -21,6 +21,7 @@ import {
   registerKeyVaultService,
 } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import { migrateAISettings } from "./lib/migrate-settings-handler";
 
 const logger = createLogger("background");
 
@@ -28,7 +29,7 @@ const CONTEXT_MENU_ID = "superfill-autofill";
 
 export default defineBackground({
   type: "module",
-  main: () => {
+  main: async () => {
     if (DEBUG) {
       tracerProvider.register();
     }
@@ -43,33 +44,45 @@ export default defineBackground({
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();
     const autofillService = getAutofillService();
-    let contextMenuCreated = false;
 
-    try {
-      browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
-      browser.contextMenus.create({
-        id: CONTEXT_MENU_ID,
-        title: "Fill with superfill.ai",
-        contexts: ["editable", "page"],
-      });
-      contextMenuCreated = true;
-      logger.info("Context menu created");
-    } catch (error) {
-      logger.error("Failed to create context menu:", error);
-    }
-
-    if (contextMenuCreated) {
-      browser.contextMenus.onClicked.addListener(async (info, tab) => {
-        if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
-          logger.info("Context menu autofill triggered", { tabId: tab.id });
-          try {
-            await autofillService.startAutofillOnActiveTab();
-          } catch (error) {
-            logger.error("Context menu autofill failed:", error);
-          }
+    const updateContextMenu = async (enabled: boolean) => {
+      try {
+        if (enabled) {
+          await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+          browser.contextMenus.create({
+            id: CONTEXT_MENU_ID,
+            title: "Fill with superfill.ai",
+            contexts: ["editable", "page"],
+          });
+          logger.info("Context menu created");
+        } else {
+          await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+          logger.info("Context menu removed");
         }
-      });
-    }
+      } catch (error) {
+        logger.error("Failed to update context menu:", error);
+      }
+    };
+
+    const settings = await migrateAISettings();
+    updateContextMenu(settings.contextMenuEnabled);
+
+    storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        updateContextMenu(newSettings.contextMenuEnabled);
+      }
+    });
+
+    browser.contextMenus.onClicked.addListener(async (info, tab) => {
+      if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
+        logger.info("Context menu autofill triggered", { tabId: tab.id });
+        try {
+          await autofillService.startAutofillOnActiveTab();
+        } catch (error) {
+          logger.error("Context menu autofill failed:", error);
+        }
+      }
+    });
 
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
