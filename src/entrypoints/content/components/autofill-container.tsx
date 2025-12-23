@@ -1,5 +1,5 @@
-import { XIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { PlusIcon, SaveIcon, XIcon } from "lucide-react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -16,10 +16,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { InputBadge } from "@/components/ui/input-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
+import { allowedCategories } from "@/lib/copies";
 import type {
   AutofillProgress,
   FieldOpId,
@@ -40,6 +43,13 @@ type AutofillContainerProps = {
   onFill?: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
   onHighlight?: (fieldOpid: FieldOpId) => void;
   onUnhighlight?: () => void;
+  onSaveNewMemory?: (fieldData: {
+    question: string;
+    answer: string;
+    category: string;
+    tags: string[];
+    fieldOpid: FieldOpId;
+  }) => Promise<void>;
 };
 
 type SelectionState = Set<FieldOpId>;
@@ -77,16 +87,52 @@ const FieldRow = ({
   onToggle,
   onHighlight,
   onUnhighlight,
+  onSaveMemory,
 }: {
   field: PreviewFieldData;
   selected: boolean;
   onToggle: (next: boolean) => void;
   onHighlight: () => void;
   onUnhighlight: () => void;
+  onSaveMemory?: (data: {
+    answer: string;
+    category: string;
+    tags: string[];
+  }) => Promise<void>;
 }) => {
   const confidence = field.mapping.confidence;
   const { label, intent } = confidenceMeta(confidence);
   const suggestion = getSuggestedValue(field);
+  const shouldShowEditOption = confidence < 0.5 || !field.mapping.value;
+
+  const categoryId = useId();
+  const tagsId = useId();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const [editCategory, setEditCategory] = useState<string>("general");
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!editValue.trim() || !onSaveMemory) return;
+
+    setIsSaving(true);
+    try {
+      await onSaveMemory({
+        answer: editValue.trim(),
+        category: editCategory,
+        tags: editTags,
+      });
+      setIsEditing(false);
+      setEditValue("");
+      setEditTags([]);
+    } catch (error) {
+      console.error("Failed to save memory:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: highlighting only
@@ -138,6 +184,96 @@ const FieldRow = ({
           {field.mapping.reasoning}
         </p>
       )}
+
+      {shouldShowEditOption && onSaveMemory && (
+        <div className="mt-2 space-y-2">
+          {!isEditing ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setIsEditing(true)}
+            >
+              <PlusIcon className="mr-2 size-3" />
+              Add value for this field
+            </Button>
+          ) : (
+            <div className="space-y-2 rounded-md border border-primary/20 bg-muted/30 p-3">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter value..."
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="flex-1 h-8 text-xs"
+                  disabled={isSaving}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!editValue.trim() || isSaving}
+                  className="h-8 px-3"
+                >
+                  {isSaving ? (
+                    <Spinner className="size-3" />
+                  ) : (
+                    <SaveIcon className="size-3" />
+                  )}
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor={categoryId}
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Category
+                </label>
+                <select
+                  id={categoryId}
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  disabled={isSaving}
+                  className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-xs shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-hidden focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {allowedCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor={tagsId}
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Tags
+                </label>
+                <InputBadge
+                  id={tagsId}
+                  value={editTags}
+                  onChange={setEditTags}
+                  placeholder="Add tags..."
+                  className="min-h-8 text-xs"
+                  disabled={isSaving}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-7 text-xs"
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditValue("");
+                  setEditTags([]);
+                }}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -150,6 +286,7 @@ export const AutofillContainer = ({
   onFill,
   onHighlight,
   onUnhighlight,
+  onSaveNewMemory,
 }: AutofillContainerProps) => {
   const [isContentTransitioning, setIsContentTransitioning] = useState(false);
   const [currentMode, setCurrentMode] = useState<"loading" | "preview">(mode);
@@ -307,6 +444,19 @@ export const AutofillContainer = ({
                             }
                             onHighlight={() => onHighlight?.(field.fieldOpid)}
                             onUnhighlight={() => onUnhighlight?.()}
+                            onSaveMemory={
+                              onSaveNewMemory
+                                ? async (data) => {
+                                    await onSaveNewMemory({
+                                      question: field.primaryLabel,
+                                      answer: data.answer,
+                                      category: data.category,
+                                      tags: data.tags,
+                                      fieldOpid: field.fieldOpid,
+                                    });
+                                  }
+                                : undefined
+                            }
                           />
                         ))}
                       </div>

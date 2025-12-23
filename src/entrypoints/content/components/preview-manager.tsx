@@ -7,6 +7,7 @@ import {
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
+import { addEntry } from "@/lib/storage/memories";
 import type { AutofillProgress } from "@/types/autofill";
 import type { FormField, FormMapping } from "@/types/memory";
 import type {
@@ -196,8 +197,89 @@ export class PreviewSidebarManager {
         onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
         onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
         onUnhighlight={() => this.clearHighlight()}
+        onSaveNewMemory={(fieldData) => this.handleSaveNewMemory(fieldData)}
       />,
     );
+  }
+
+  private async handleSaveNewMemory(fieldData: {
+    question: string;
+    answer: string;
+    category: string;
+    tags: string[];
+    fieldOpid: FieldOpId;
+  }) {
+    try {
+      logger.info("Saving new memory from field:", fieldData);
+
+      // Save the memory using the existing addEntry function
+      const newMemory = await addEntry({
+        question: fieldData.question,
+        answer: fieldData.answer,
+        category: fieldData.category as
+          | "contact"
+          | "general"
+          | "location"
+          | "work"
+          | "personal"
+          | "education",
+        tags: fieldData.tags,
+        confidence: 1.0,
+      });
+
+      logger.info("Memory saved successfully:", newMemory.id);
+
+      // Update the field mapping with the new value and 100% confidence
+      const updatedMapping: FieldMapping = {
+        fieldOpid: fieldData.fieldOpid,
+        value: fieldData.answer,
+        confidence: 1.0,
+        reasoning: "User-provided value",
+        autoFill: true,
+      };
+
+      // Update the mapping lookup
+      this.mappingLookup.set(fieldData.fieldOpid, updatedMapping);
+
+      // Update current data to reflect the new mapping
+      if (this.currentData) {
+        const updatedForms = this.currentData.forms.map((form) => ({
+          ...form,
+          fields: form.fields.map((field) =>
+            field.fieldOpid === fieldData.fieldOpid
+              ? {
+                  ...field,
+                  mapping: updatedMapping,
+                }
+              : field,
+          ),
+        }));
+
+        const matchedFields = updatedForms.reduce(
+          (count, form) =>
+            count + form.fields.filter((f) => f.mapping.value !== null).length,
+          0,
+        );
+
+        this.currentData = {
+          forms: updatedForms,
+          summary: {
+            ...this.currentData.summary,
+            matchedFields,
+          },
+        };
+
+        // Re-render to show the updated field
+        this.renderCurrentState();
+      }
+
+      logger.info(
+        "Field mapping updated, memory is now available for autofill",
+      );
+    } catch (error) {
+      logger.error("Failed to save new memory:", error);
+      throw error;
+    }
   }
 
   destroy() {
