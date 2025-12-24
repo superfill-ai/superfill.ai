@@ -29,7 +29,7 @@ const CONTEXT_MENU_ID = "superfill-autofill";
 
 export default defineBackground({
   type: "module",
-  main: async () => {
+  main: () => {
     if (DEBUG) {
       tracerProvider.register();
     }
@@ -64,8 +64,10 @@ export default defineBackground({
       }
     };
 
-    const settings = await migrateAISettings();
-    updateContextMenu(settings.contextMenuEnabled);
+    (async () => {
+      const settings = await migrateAISettings();
+      updateContextMenu(settings.contextMenuEnabled);
+    })();
 
     storage.aiSettings.watch((newSettings) => {
       if (newSettings) {
