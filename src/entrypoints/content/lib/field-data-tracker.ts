@@ -198,12 +198,12 @@ export class FieldDataTracker {
       const result = await browser.storage.local.get(STORAGE_KEY);
       const stored = result[STORAGE_KEY] as
         | {
-            sessionId: string;
-            url: string;
-            pageTitle: string;
-            trackedFields: [FieldOpId, TrackedFieldData][];
-            startedAt: number;
-          }
+          sessionId: string;
+          url: string;
+          pageTitle: string;
+          trackedFields: [FieldOpId, TrackedFieldData][];
+          startedAt: number;
+        }
         | undefined;
 
       if (!stored) {

@@ -18,7 +18,7 @@ export const FIELD_PURPOSE_KEYWORDS: Record<
 
 export const MAX_FIELDS_PER_PAGE = 200;
 
-export const MAX_MEMORIES_FOR_MATCHING = 70;
+export const MAX_MEMORIES_FOR_MATCHING = 50;
 
 export const CONFIDENCE_LEVELS = {
   HIGH: 0.8,
