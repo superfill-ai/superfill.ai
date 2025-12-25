@@ -14,6 +14,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { InputBadge } from "@/components/ui/input-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
@@ -38,6 +39,111 @@ const entryFormSchema = z.object({
   category: z.enum(allowedCategories),
 });
 
+// ============================================================================
+// EXPORTED: Reusable Memory Fields Component for Preview Mode
+// ============================================================================
+interface MemoryFieldsProps {
+  question: string;
+  answer: string;
+  category: string;
+  tags: string[];
+  onQuestionChange: (value: string) => void;
+  onAnswerChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onTagsChange: React.Dispatch<React.SetStateAction<string[]>>;
+  disabled?: boolean;
+  questionReadOnly?: boolean;
+  isPreviewMode?: boolean;
+}
+
+export function MemoryFields({
+  question,
+  answer,
+  category,
+  tags,
+  onQuestionChange,
+  onAnswerChange,
+  onCategoryChange,
+  onTagsChange,
+  disabled = false,
+  questionReadOnly = false,
+  isPreviewMode = false,
+}: MemoryFieldsProps) {
+  const fieldGapClass = isPreviewMode ? "gap-1" : "gap-2";
+  const inputSizeClass = isPreviewMode ? "h-8 text-xs" : "";
+  const labelSizeClass = isPreviewMode ? "text-xs" : "";
+
+  return (
+    <FieldGroup className={fieldGapClass}>
+      <Field className={fieldGapClass}>
+        <FieldLabel className={labelSizeClass}>
+          Question {!isPreviewMode && "(Optional)"}
+        </FieldLabel>
+        <Input
+          value={question}
+          onChange={(e) => onQuestionChange(e.target.value)}
+          disabled={disabled}
+          readOnly={questionReadOnly}
+          placeholder={
+            isPreviewMode ? "Field name" : "What information does this answer?"
+          }
+          className={inputSizeClass}
+        />
+      </Field>
+
+      <Field className={fieldGapClass}>
+        <FieldLabel className={labelSizeClass}>Answer *</FieldLabel>
+        {isPreviewMode ? (
+          <Input
+            value={answer}
+            onChange={(e) => onAnswerChange(e.target.value)}
+            disabled={disabled}
+            placeholder="Enter value..."
+            className={inputSizeClass}
+          />
+        ) : (
+          <Textarea
+            value={answer}
+            onChange={(e) => onAnswerChange(e.target.value)}
+            disabled={disabled}
+            placeholder="Your information (e.g., email, phone, address)"
+          />
+        )}
+      </Field>
+
+      <Field className={fieldGapClass}>
+        <FieldLabel className={labelSizeClass}>Category *</FieldLabel>
+        <select
+          value={category}
+          onChange={(e) => onCategoryChange(e.target.value)}
+          disabled={disabled}
+          className={`border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex w-full rounded-md border px-3 py-2 shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-hidden focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 ${inputSizeClass || "h-9 text-sm"}`}
+        >
+          {allowedCategories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field className={fieldGapClass}>
+        <FieldLabel className={labelSizeClass}>Tags</FieldLabel>
+        <InputBadge
+          value={tags}
+          onChange={onTagsChange}
+          placeholder="Add tags..."
+          disabled={disabled}
+          className={isPreviewMode ? "min-h-8 text-xs" : ""}
+        />
+      </Field>
+    </FieldGroup>
+  );
+}
+
+// ============================================================================
+// Main Entry Form Component
+// ============================================================================
 interface EntryFormProps {
   mode: "create" | "edit";
   layout?: "compact" | "normal";

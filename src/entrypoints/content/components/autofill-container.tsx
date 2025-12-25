@@ -1,5 +1,6 @@
 import { PlusIcon, SaveIcon, XIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { MemoryFields } from "@/components/features/memory/entry-form";
 import {
   Accordion,
   AccordionContent,
@@ -16,13 +17,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { InputBadge } from "@/components/ui/input-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
-import { allowedCategories } from "@/lib/copies";
 import type {
   AutofillProgress,
   FieldOpId,
@@ -104,9 +102,6 @@ const FieldRow = ({
   const { label, intent } = confidenceMeta(confidence);
   const suggestion = getSuggestedValue(field);
   const shouldShowEditOption = confidence < 0.5 || !field.mapping.value;
-
-  const categoryId = useId();
-  const tagsId = useId();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
@@ -198,78 +193,50 @@ const FieldRow = ({
               Add value for this field
             </Button>
           ) : (
-            <div className="space-y-2 rounded-md border border-primary/20 bg-muted/30 p-3">
+            <div className="space-y-3 rounded-md border border-primary/20 bg-muted/30 p-3">
+              <MemoryFields
+                question={field.primaryLabel}
+                answer={editValue}
+                category={editCategory}
+                tags={editTags}
+                onQuestionChange={() => {}}
+                onAnswerChange={setEditValue}
+                onCategoryChange={setEditCategory}
+                onTagsChange={setEditTags}
+                disabled={isSaving}
+                questionReadOnly
+                isPreviewMode
+              />
               <div className="flex gap-2">
-                <Input
-                  placeholder="Enter value..."
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="flex-1 h-8 text-xs"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditValue("");
+                    setEditTags([]);
+                  }}
                   disabled={isSaving}
-                />
+                >
+                  Cancel
+                </Button>
                 <Button
                   size="sm"
                   onClick={handleSave}
                   disabled={!editValue.trim() || isSaving}
-                  className="h-8 px-3"
+                  className="flex-1 h-8"
                 >
                   {isSaving ? (
                     <Spinner className="size-3" />
                   ) : (
-                    <SaveIcon className="size-3" />
+                    <>
+                      <SaveIcon className="mr-1.5 size-3" />
+                      Save
+                    </>
                   )}
                 </Button>
               </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor={categoryId}
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Category
-                </label>
-                <select
-                  id={categoryId}
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  disabled={isSaving}
-                  className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-xs shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-hidden focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {allowedCategories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor={tagsId}
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Tags
-                </label>
-                <InputBadge
-                  id={tagsId}
-                  value={editTags}
-                  onChange={setEditTags}
-                  placeholder="Add tags..."
-                  className="min-h-8 text-xs"
-                  disabled={isSaving}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-7 text-xs"
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditValue("");
-                  setEditTags([]);
-                }}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
             </div>
           )}
         </div>
