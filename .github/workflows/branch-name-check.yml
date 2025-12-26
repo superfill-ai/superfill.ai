@@ -1,0 +1,21 @@
+name: Branch Name Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  branch-name-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          branch="${{ github.head_ref }}"
+          if [[ ! $branch =~ ^(feat|fix|lint|chore|docs|style|refactor|perf|test|build|ci|revert)/[a-z0-9-]+$ ]]; then
+            echo "❌ Branch name '$branch' does not follow the required pattern"
+            echo "Required pattern: type/description"
+            echo "Allowed types: feat, fix, lint, chore, docs, style, refactor, perf, test, build, ci, revert"
+            echo "Example: feat/add-login-feature"
+            exit 1
+          fi
+          echo "✅ Branch name '$branch' is valid"
