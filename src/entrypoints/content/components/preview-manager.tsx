@@ -142,7 +142,6 @@ export class PreviewSidebarManager {
     if (!renderData) {
       return;
     }
-
     this.sessionId = payload.sessionId;
     this.currentMode = "preview";
     this.currentData = renderData;
