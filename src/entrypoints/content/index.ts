@@ -41,7 +41,7 @@ export default defineContentScript({
   async main(ctx) {
     const frameInfo = getFrameInfo();
 
-    logger.info("Content script loaded:", frameInfo);
+    logger.debug("Content script loaded:", frameInfo);
 
     const fieldAnalyzer = new FieldAnalyzer();
     const formDetector = new FormDetector(fieldAnalyzer);
@@ -52,8 +52,6 @@ export default defineContentScript({
     // const captureService = new CaptureService();
 
     // submissionMonitor.start();
-
-    // logger.info("Form submission monitor started");
 
     // await captureService.initializeAutoTracking(
     //   formDetector,
@@ -100,14 +98,14 @@ export default defineContentScript({
           const forms = filterAndProcessForms(allForms);
           cacheFormsInMaps(forms, formCache, fieldCache);
 
-          logger.info(
+          logger.debug(
             "Detected forms and fields:",
             forms.length,
             result.totalFields,
           );
 
           forms.forEach((form, index) => {
-            logger.info(`Form ${index + 1}:`, {
+            logger.debug(`Form ${index + 1}:`, {
               opid: form.opid,
               name: form.name,
               fieldCount: form.fields.length,
@@ -116,7 +114,7 @@ export default defineContentScript({
             });
 
             form.fields.slice(0, 3).forEach((field) => {
-              logger.info(`  └─ Field ${field.opid}:`, {
+              logger.debug(`  └─ Field ${field.opid}:`, {
                 type: field.metadata.fieldType,
                 purpose: field.metadata.fieldPurpose,
                 labels: {
@@ -128,11 +126,13 @@ export default defineContentScript({
             });
 
             if (form.fields.length > 3) {
-              logger.info(`  └─ ... and ${form.fields.length - 3} more fields`);
+              logger.debug(
+                `  └─ ... and ${form.fields.length - 3} more fields`,
+              );
             }
           });
 
-          logger.info("Extracted website context:", result.websiteContext);
+          logger.debug("Extracted website context:", result.websiteContext);
         }
 
         return result;
@@ -176,7 +176,7 @@ export default defineContentScript({
     contentAutofillMessaging.onMessage("fillFields", async ({ data }) => {
       const { fieldsToFill } = data;
 
-      logger.info(
+      logger.debug(
         `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
       );
 
@@ -198,7 +198,7 @@ export default defineContentScript({
     });
 
     // submissionMonitor.onSubmission(async (submittedFieldOpids) => {
-    //   logger.info(
+    //   logger.debug(
     //     `Form submitted with ${submittedFieldOpids.size} fields`,
     //     Array.from(submittedFieldOpids),
     //   );
@@ -207,11 +207,11 @@ export default defineContentScript({
     //     const trackedFields = await fieldTracker.getCapturedFields();
 
     //     if (trackedFields.length === 0) {
-    //       logger.info("No tracked fields to capture");
+    //       logger.debug("No tracked fields to capture");
     //       return;
     //     }
 
-    //     logger.info(
+    //     logger.debug(
     //       `Processing ${trackedFields.length} tracked fields for capture`,
     //     );
 
@@ -219,11 +219,11 @@ export default defineContentScript({
     //       captureService.identifyCaptureOpportunities(trackedFields);
 
     //     if (capturedFields.length === 0) {
-    //       logger.info("No user-entered fields to capture");
+    //       logger.debug("No user-entered fields to capture");
     //       return;
     //     }
 
-    //     logger.info(`Saving ${capturedFields.length} captured fields directly`);
+    //     logger.debug(`Saving ${capturedFields.length} captured fields directly`);
 
     //     const result = await contentAutofillMessaging.sendMessage(
     //       "saveCapturedMemories",
@@ -233,7 +233,7 @@ export default defineContentScript({
     //     );
 
     //     if (result.success) {
-    //       logger.info(
+    //       logger.debug(
     //         `Successfully saved ${result.savedCount} memories from form submission`,
     //       );
     //       await fieldTracker.clearSession();

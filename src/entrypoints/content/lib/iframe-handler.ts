@@ -49,7 +49,7 @@ export const getFrameInfo = (): FrameInfo => {
         win = win.parent;
       }
     } catch (_crossOriginError) {
-      logger.info(
+      logger.debug(
         "Cross-origin access error while calculating frame depth, stopping at depth:",
         depth,
       );
@@ -184,7 +184,7 @@ export const collectFrameForms = async (
 
     const websiteContext = contextExtractor.extract();
 
-    logger.info(
+    logger.debug(
       `Frame ${frameInfo.isMainFrame ? "main" : "iframe"} (depth: ${frameInfo.frameDepth}) detected ${forms.length} forms with ${totalFields} fields`,
     );
 

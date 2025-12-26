@@ -62,12 +62,12 @@ export class AIMatcher {
     domContext?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
-      logger.info("No fields to match");
+      logger.debug("No fields to match");
       return [];
     }
 
     if (memories.length === 0) {
-      logger.info("No memories available for matching");
+      logger.debug("No memories available for matching");
       return fields.map((field) =>
         createEmptyMapping<CompressedFieldData, FieldMapping>(
           field,
@@ -90,7 +90,7 @@ export class AIMatcher {
       const mappings = this.convertAIResultsToMappings(aiResults, fields);
 
       const elapsed = performance.now() - startTime;
-      logger.info(
+      logger.debug(
         `AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
 
@@ -121,7 +121,7 @@ export class AIMatcher {
         domContext,
       );
 
-      logger.info(`AI matching with ${provider} for ${fields.length} fields`, {
+      logger.debug(`AI matching with ${provider} for ${fields.length} fields`, {
         websiteContext,
       });
 

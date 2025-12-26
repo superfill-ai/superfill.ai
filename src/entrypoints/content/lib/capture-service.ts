@@ -26,7 +26,7 @@ export class CaptureService {
       const allForms = formDetector.detectAll();
 
       if (allForms.length === 0) {
-        logger.info("No forms detected for auto-tracking");
+        logger.debug("No forms detected for auto-tracking");
         return;
       }
 
@@ -37,7 +37,7 @@ export class CaptureService {
         0,
       );
 
-      logger.info(
+      logger.debug(
         `Auto-tracking initialized: ${allForms.length} forms, ${totalFields} fields`,
       );
 
@@ -55,7 +55,7 @@ export class CaptureService {
         emptyMappings,
       );
 
-      logger.info(
+      logger.debug(
         "Auto-tracking listeners attached for form submission capture",
       );
     } catch (error) {
@@ -66,10 +66,10 @@ export class CaptureService {
   identifyCaptureOpportunities(
     trackedFields: TrackedFieldData[],
   ): CapturedFieldData[] {
-    logger.info(`Processing ${trackedFields.length} tracked fields`);
+    logger.debug(`Processing ${trackedFields.length} tracked fields`);
 
     const userEntered = this.findUserEnteredFields(trackedFields);
-    logger.info(`Found ${userEntered.length} user-entered fields to capture`);
+    logger.debug(`Found ${userEntered.length} user-entered fields to capture`);
 
     return userEntered;
   }
@@ -105,7 +105,7 @@ export class CaptureService {
         continue;
       }
 
-      logger.info(
+      logger.debug(
         `Capturing user-entered field ${tracked.fieldOpid}: "${question}"`,
       );
 

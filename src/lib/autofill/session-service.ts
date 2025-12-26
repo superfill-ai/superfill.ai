@@ -13,7 +13,7 @@ class SessionService {
   async startSession(): Promise<FillSession> {
     try {
       const session = await startSession();
-      logger.info("Session started:", session.id);
+      logger.debug("Session started:", session.id);
       return session;
     } catch (error) {
       logger.error("Failed to start session:", error);
@@ -27,7 +27,7 @@ class SessionService {
   ): Promise<boolean> {
     try {
       await updateSession(sessionId, { status });
-      logger.info("Session status updated:", sessionId, status);
+      logger.debug("Session status updated:", sessionId, status);
       return true;
     } catch (error) {
       logger.error("Failed to update session status:", error);
@@ -38,7 +38,7 @@ class SessionService {
   async completeSession(sessionId: string): Promise<boolean> {
     try {
       await completeSession(sessionId);
-      logger.info("Session completed:", sessionId);
+      logger.debug("Session completed:", sessionId);
       return true;
     } catch (error) {
       logger.error("Failed to complete session:", error);
@@ -55,7 +55,7 @@ class SessionService {
         formMappings,
       });
 
-      logger.info(
+      logger.debug(
         "Form mappings saved for session:",
         sessionId,
         formMappings.length,

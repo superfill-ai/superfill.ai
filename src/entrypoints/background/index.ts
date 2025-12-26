@@ -47,10 +47,10 @@ export default defineBackground({
             title: "Fill with superfill.ai",
             contexts: ["editable", "page"],
           });
-          logger.info("Context menu created");
+          logger.debug("Context menu created");
         } else {
           await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
-          logger.info("Context menu removed");
+          logger.debug("Context menu removed");
         }
       } catch (error) {
         logger.error("Failed to update context menu:", error);
@@ -70,7 +70,7 @@ export default defineBackground({
 
     browser.contextMenus.onClicked.addListener(async (info, tab) => {
       if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
-        logger.info("Context menu autofill triggered", { tabId: tab.id });
+        logger.debug("Context menu autofill triggered", { tabId: tab.id });
         try {
           await autofillService.startAutofillOnActiveTab();
         } catch (error) {
@@ -81,7 +81,9 @@ export default defineBackground({
 
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
-        logger.info("Extension installed for the first time, opening settings");
+        logger.debug(
+          "Extension installed for the first time, opening settings",
+        );
 
         const currentSettings = await storage.uiSettings.getValue();
         const storedMemories = await storage.memories.getValue();
@@ -142,7 +144,7 @@ export default defineBackground({
     //         modelName,
     //       );
 
-    //       logger.info("Captured memories saved:", result);
+    //       logger.debug("Captured memories saved:", result);
     //       return result;
     //     } catch (error) {
     //       logger.error("Failed to save captured memories:", error);
@@ -161,7 +163,7 @@ export default defineBackground({
         const tabId = sender.tab.id;
         const fieldsToFill = message.fieldsToFill;
 
-        logger.info(
+        logger.debug(
           `Broadcasting fill command to all frames in tab ${tabId} for ${fieldsToFill.length} fields`,
         );
 
@@ -174,12 +176,12 @@ export default defineBackground({
       return true;
     });
 
-    logger.info("Background script initialized with all services");
+    logger.debug("Background script initialized with all services");
 
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
         autofillService.dispose();
-        logger.info("Background script HMR cleanup completed");
+        logger.debug("Background script HMR cleanup completed");
       });
     }
   },

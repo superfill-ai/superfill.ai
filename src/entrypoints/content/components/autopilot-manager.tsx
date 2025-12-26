@@ -95,7 +95,7 @@ export class AutopilotManager {
         },
       });
 
-      logger.info("Autopilot manager initialized");
+      logger.debug("Autopilot manager initialized");
     } catch (error) {
       logger.error("Failed to initialize autopilot manager:", error);
       throw error;
@@ -150,7 +150,7 @@ export class AutopilotManager {
         this.reactRoot.render(this.renderAutopilotLoader());
       }
 
-      logger.info("Showing autopilot progress:", progress.state);
+      logger.debug("Showing autopilot progress:", progress.state);
     } catch (error) {
       logger.error("Failed to show autopilot progress:", error);
     }
@@ -194,7 +194,7 @@ export class AutopilotManager {
       }
       this.fieldsToFill = fieldsToFill;
 
-      logger.info(
+      logger.debug(
         `Prepared ${this.fieldsToFill.length} fields for autopilot fill`,
       );
 
@@ -304,7 +304,7 @@ export class AutopilotManager {
         status: "completed",
       });
 
-      logger.info(
+      logger.debug(
         `Autopilot completed: filled ${filledCount}/${this.fieldsToFill.length} fields`,
       );
 
@@ -337,7 +337,7 @@ export class AutopilotManager {
         sessionId: this.sessionId,
       });
 
-      logger.info(`Session ${this.sessionId} completed successfully`);
+      logger.debug(`Session ${this.sessionId} completed successfully`);
     } catch (error) {
       logger.error("Failed to complete autopilot session:", error);
     }
@@ -355,7 +355,7 @@ export class AutopilotManager {
     this.fieldsToFill = [];
     this.sessionId = null;
 
-    logger.info("Autopilot manager hidden");
+    logger.debug("Autopilot manager hidden");
   }
 
   isActive(): boolean {

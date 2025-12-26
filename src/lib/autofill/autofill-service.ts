@@ -39,19 +39,19 @@ class AutofillService {
 
     this.unwatchAiSettings = aiSettings.watch((newSettings) => {
       this.currentAiSettings = newSettings;
-      logger.info("AI settings updated:", newSettings);
+      logger.debug("AI settings updated:", newSettings);
     });
 
     aiSettings.getValue().then((settings) => {
       this.currentAiSettings = settings;
-      logger.info("AI settings initialized:", settings);
+      logger.debug("AI settings initialized:", settings);
     });
   }
 
   dispose() {
     this.unwatchAiSettings?.();
     this.unwatchAiSettings = undefined;
-    logger.info("AutofillService disposed");
+    logger.debug("AutofillService disposed");
   }
 
   async startAutofillOnActiveTab(): Promise<{
@@ -64,7 +64,7 @@ class AutofillService {
     let tabId: number | undefined;
     const sessionService = getSessionService();
 
-    logger.info("Starting autofill");
+    logger.debug("Starting autofill");
 
     try {
       const [tab] = await browser.tabs.query({
@@ -77,7 +77,7 @@ class AutofillService {
       }
 
       tabId = tab.id;
-      logger.info("Starting autofill on tab:", tabId, tab.url);
+      logger.debug("Starting autofill on tab:", tabId, tab.url);
 
       try {
         await contentAutofillMessaging.sendMessage(
@@ -97,7 +97,7 @@ class AutofillService {
 
       const session = await sessionService.startSession();
       sessionId = session.id;
-      logger.info("Started autofill session:", sessionId);
+      logger.debug("Started autofill session:", sessionId);
 
       const requestId = `autofill-${sessionId}-${Date.now()}`;
       const collectedResults: DetectFormsResult[] = [];
@@ -114,7 +114,10 @@ class AutofillService {
             message.result
           ) {
             collectedResults.push(message.result);
-            logger.info(`Received forms from frame:`, message.result.frameInfo);
+            logger.debug(
+              `Received forms from frame:`,
+              message.result.frameInfo,
+            );
           }
         };
 
@@ -138,7 +141,7 @@ class AutofillService {
 
       await collectionPromise;
 
-      logger.info(`Collected results from ${collectedResults.length} frames`);
+      logger.debug(`Collected results from ${collectedResults.length} frames`);
 
       const successfulResults = collectedResults.filter(
         (result) => result.success === true,
@@ -164,7 +167,7 @@ class AutofillService {
       const websiteContext =
         mainFrameResult?.websiteContext || successfulResults[0].websiteContext;
 
-      logger.info(
+      logger.debug(
         `Detected ${totalFields} fields in ${allForms.length} forms across ${successfulResults.length} frames`,
       );
 
@@ -199,7 +202,7 @@ class AutofillService {
         websiteContext,
       );
 
-      logger.info("Autofill processing result:", processingResult);
+      logger.debug("Autofill processing result:", processingResult);
 
       const matchedCount = processingResult.mappings.filter(
         (mapping) => mapping.value !== null,
@@ -232,7 +235,7 @@ class AutofillService {
         throw new Error(processingResult.error || "Failed to process fields");
       }
 
-      logger.info(
+      logger.debug(
         `Processed ${allFields.length} fields and found ${matchedCount} matches`,
       );
 
@@ -303,7 +306,7 @@ class AutofillService {
 
       const passwordFieldsCount = fields.length - nonPasswordFields.length;
       if (passwordFieldsCount > 0) {
-        logger.info(`Filtered out ${passwordFieldsCount} password fields`);
+        logger.debug(`Filtered out ${passwordFieldsCount} password fields`);
       }
 
       const fieldsToProcess = nonPasswordFields.slice(0, MAX_FIELDS_PER_PAGE);
@@ -333,7 +336,7 @@ class AutofillService {
       const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
 
-      logger.info(
+      logger.debug(
         `Autofill completed in ${processingTime.toFixed(2)}ms: ${mappings.length} mappings`,
       );
 
@@ -378,7 +381,7 @@ class AutofillService {
 
       const selectedModel = settings.selectedModels?.[provider];
 
-      logger.info(
+      logger.debug(
         "AutofillService: Using AI provider",
         provider,
         "with model",
@@ -492,7 +495,7 @@ class AutofillService {
     const confidenceThreshold =
       this.currentAiSettings?.confidenceThreshold ?? 0.6;
 
-    logger.info(
+    logger.debug(
       `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,
     );
 
@@ -516,7 +519,7 @@ class AutofillService {
       (m) => m.autoFill,
     ).length;
 
-    logger.info(
+    logger.debug(
       `${autoEnabledCount} of ${mappingsWithThreshold.length} fields auto-enabled based on threshold`,
       mappingsWithThreshold,
     );

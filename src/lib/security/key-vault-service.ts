@@ -47,7 +47,7 @@ class KeyVaultService {
         encryptedData.salt,
       );
     } catch {
-      logger.info(
+      logger.debug(
         `Failed to decrypt ${provider} API key. It may be invalid due to device changes.`,
       );
       return null;

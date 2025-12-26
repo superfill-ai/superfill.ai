@@ -38,7 +38,7 @@ async function ensureOffscreenDocument(): Promise<void> {
 
   try {
     await creating;
-    logger.info("Offscreen document created successfully");
+    logger.debug("Offscreen document created successfully");
   } finally {
     creating = null;
   }

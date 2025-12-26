@@ -104,11 +104,11 @@ export class CaptureMemoryService {
   ): Promise<{ success: boolean; savedCount: number }> {
     try {
       if (capturedFields.length === 0) {
-        logger.info("No fields to capture");
+        logger.debug("No fields to capture");
         return { success: true, savedCount: 0 };
       }
 
-      logger.info(`Processing ${capturedFields.length} captured fields`);
+      logger.debug(`Processing ${capturedFields.length} captured fields`);
       logger.debug(
         "Captured fields details:",
         capturedFields.map((f) => ({
@@ -122,7 +122,7 @@ export class CaptureMemoryService {
       const fieldsToSave = capturedFields.filter((f) => f.question && f.answer);
 
       if (fieldsToSave.length === 0) {
-        logger.info("No valid fields with both question and answer");
+        logger.debug("No valid fields with both question and answer");
         logger.debug(
           "Filtered out fields:",
           capturedFields.map((f) => ({
@@ -134,7 +134,7 @@ export class CaptureMemoryService {
         return { success: true, savedCount: 0 };
       }
 
-      logger.info(
+      logger.debug(
         `${fieldsToSave.length} fields passed question+answer filter`,
       );
 
@@ -151,7 +151,7 @@ export class CaptureMemoryService {
             apiKey,
             modelName,
           );
-          logger.info(
+          logger.debug(
             "Bulk categorization completed",
             categorized.map((c) => c.category),
           );
@@ -163,7 +163,7 @@ export class CaptureMemoryService {
           }));
         }
       } else {
-        logger.info("No AI provider configured, using fallback categories");
+        logger.debug("No AI provider configured, using fallback categories");
         categorized = fieldsToSave.map(() => ({
           category: DEFAULT_CATEGORY,
           confidence: FALLBACK_CONFIDENCE_NO_AI,
@@ -181,7 +181,7 @@ export class CaptureMemoryService {
         currentMemories,
       );
 
-      logger.info(
+      logger.debug(
         `Deduplication: ${toCreate.length} new, ${toUpdate.length} updates, ${fieldsToSave.length - toCreate.length - toUpdate.length} skipped`,
       );
 
@@ -234,7 +234,7 @@ export class CaptureMemoryService {
       await storage.memories.setValue(finalMemories);
 
       const totalChanges = newMemories.length + toUpdate.length;
-      logger.info(
+      logger.debug(
         `Successfully saved ${newMemories.length} new memories and updated ${toUpdate.length} existing`,
       );
 
@@ -260,6 +260,6 @@ export function getCaptureMemoryService(): CaptureMemoryService {
 
 export function registerCaptureMemoryService(): CaptureMemoryService {
   serviceInstance = new CaptureMemoryService();
-  logger.info("CaptureMemoryService registered");
+  logger.debug("CaptureMemoryService registered");
   return serviceInstance;
 }

@@ -32,7 +32,7 @@ export class FieldDataTracker {
     sessionId: string,
   ): Promise<void> {
     if (this.session && this.session.url === url) {
-      logger.info("Reusing existing tracking session for URL:", url);
+      logger.debug("Reusing existing tracking session for URL:", url);
       return;
     }
 
@@ -48,7 +48,7 @@ export class FieldDataTracker {
     };
 
     await this.saveSession();
-    logger.info("Started tracking session:", sessionId, {
+    logger.debug("Started tracking session:", sessionId, {
       preservedFields: existingTrackedFields.size,
     });
   }
@@ -83,7 +83,7 @@ export class FieldDataTracker {
       attachedCount++;
     }
 
-    logger.info(
+    logger.debug(
       `Attached ${attachedCount} new listeners (total: ${this.activeListeners.size} fields)`,
     );
   }
@@ -160,7 +160,7 @@ export class FieldDataTracker {
     this.session = null;
 
     await browser.storage.local.remove(STORAGE_KEY);
-    logger.info("Cleared capture session");
+    logger.debug("Cleared capture session");
   }
 
   dispose(): void {
@@ -213,7 +213,7 @@ export class FieldDataTracker {
 
       const age = Date.now() - stored.startedAt;
       if (age > SESSION_TIMEOUT) {
-        logger.info("Session expired, clearing");
+        logger.debug("Session expired, clearing");
         await browser.storage.local.remove(STORAGE_KEY);
         this.session = null;
         return;
@@ -227,7 +227,7 @@ export class FieldDataTracker {
         startedAt: stored.startedAt,
       };
 
-      logger.info("Loaded existing session:", this.session.sessionId);
+      logger.debug("Loaded existing session:", this.session.sessionId);
     } catch (error) {
       logger.error("Failed to load session:", error);
       this.session = null;
@@ -248,7 +248,7 @@ export class FieldDataTracker {
 
     const age = Date.now() - this.session.startedAt;
     if (age > SESSION_TIMEOUT) {
-      logger.info("Session expired during cleanup check");
+      logger.debug("Session expired during cleanup check");
       await this.clearSession();
     }
   }

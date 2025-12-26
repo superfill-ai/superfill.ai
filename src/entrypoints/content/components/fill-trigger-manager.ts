@@ -13,6 +13,16 @@ export class FillTriggerManager {
   private hideTimeout: ReturnType<typeof setTimeout> | null = null;
   private isProcessing = false;
   private isEnabled = false;
+  private unwatchAiSettings = storage.aiSettings.watch((newSettings) => {
+    if (newSettings) {
+      const wasEnabled = this.isEnabled;
+      this.isEnabled = newSettings.inlineTriggerEnabled;
+
+      if (wasEnabled && !this.isEnabled) {
+        this.hideButton();
+      }
+    }
+  });
 
   private readonly showDelay = 300;
   private readonly hideDelay = 300;
@@ -29,20 +39,9 @@ export class FillTriggerManager {
     const settings = await storage.aiSettings.getValue();
     this.isEnabled = settings.inlineTriggerEnabled;
 
-    storage.aiSettings.watch((newSettings) => {
-      if (newSettings) {
-        const wasEnabled = this.isEnabled;
-        this.isEnabled = newSettings.inlineTriggerEnabled;
-
-        if (wasEnabled && !this.isEnabled) {
-          this.hideButton();
-        }
-      }
-    });
-
     document.addEventListener("focusin", this.boundHandleFocusIn, true);
     document.addEventListener("focusout", this.boundHandleFocusOut, true);
-    logger.info("FillTriggerManager initialized", { enabled: this.isEnabled });
+    logger.debug("FillTriggerManager initialized", { enabled: this.isEnabled });
   }
 
   private handleFocusIn(event: FocusEvent) {
@@ -188,7 +187,7 @@ export class FillTriggerManager {
       });
 
       await this.button.mount(field);
-      logger.info("Fill trigger shown for field", {
+      logger.debug("Fill trigger shown for field", {
         tag: field.tagName,
         id: field.id,
         name: field.getAttribute("name"),
@@ -219,8 +218,9 @@ export class FillTriggerManager {
 
   destroy() {
     this.hideButton();
+    this.unwatchAiSettings();
     document.removeEventListener("focusin", this.boundHandleFocusIn, true);
     document.removeEventListener("focusout", this.boundHandleFocusOut, true);
-    logger.info("FillTriggerManager destroyed");
+    logger.debug("FillTriggerManager destroyed");
   }
 }

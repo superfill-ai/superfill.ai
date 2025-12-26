@@ -26,7 +26,7 @@ export class FallbackMatcher {
       );
 
       const elapsed = performance.now() - startTime;
-      logger.info(
+      logger.debug(
         `Fallback matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
 

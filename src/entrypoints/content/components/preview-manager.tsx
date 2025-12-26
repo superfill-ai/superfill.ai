@@ -213,7 +213,7 @@ export class PreviewSidebarManager {
         autoFill: true,
       };
 
-      logger.info(`Mapping fields: ${data.id} to fieldOpid: ${fieldOpid}`);
+      logger.debug(`Mapping fields: ${data.id} to fieldOpid: ${fieldOpid}`);
 
       this.mappingLookup?.set(fieldOpid, updatedMapping);
 
@@ -247,7 +247,7 @@ export class PreviewSidebarManager {
         this.renderCurrentState();
       }
 
-      logger.info("Field mapping updated from new memory entry:", data.id);
+      logger.debug("Field mapping updated from new memory entry:", data.id);
     } catch (error) {
       logger.error("Failed to map memory entry to field preview:", error);
       throw error;
@@ -318,7 +318,7 @@ export class PreviewSidebarManager {
           fieldsMatched: matchedCount,
         });
 
-        logger.info("Session completed:", this.sessionId);
+        logger.debug("Session completed:", this.sessionId);
       } catch (error) {
         logger.error("Failed to complete session:", error);
       }

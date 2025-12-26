@@ -226,7 +226,7 @@ export class FillTriggerButton {
       };
       window.addEventListener("keydown", this.onEscapeKey, true);
 
-      logger.info("Fill trigger mounted");
+      logger.debug("Fill trigger mounted");
     } catch (err) {
       logger.error("Mount error:", err);
       this.remove();
@@ -258,7 +258,7 @@ export class FillTriggerButton {
   private async handleFillClick() {
     if (!this.fillButton) return;
     this.fillButton.disabled = true;
-    logger.info("Superfill fill button clicked");
+    logger.debug("Superfill fill button clicked");
     await this.onFillClick();
     this.remove();
   }

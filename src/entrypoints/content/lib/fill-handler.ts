@@ -188,7 +188,7 @@ export const handleFill = async (
   frameInfo: { isMainFrame: boolean },
   fieldCache: Map<FieldOpId, DetectedField>,
 ) => {
-  logger.info(
+  logger.debug(
     `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
   );
 

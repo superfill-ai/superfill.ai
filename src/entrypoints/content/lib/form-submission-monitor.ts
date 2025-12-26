@@ -56,7 +56,7 @@ export class FormSubmissionMonitor {
     this.startMutationObserver();
     this.isMonitoring = true;
 
-    logger.info("Form submission monitor started");
+    logger.debug("Form submission monitor started");
   }
 
   dispose(): void {
@@ -70,7 +70,7 @@ export class FormSubmissionMonitor {
     }
 
     this.isMonitoring = false;
-    logger.info("Form submission monitor stopped");
+    logger.debug("Form submission monitor stopped");
   }
 
   onSubmission(callback: SubmissionCallback): () => void {
@@ -96,7 +96,7 @@ export class FormSubmissionMonitor {
     const listener = async (event: Event) => {
       try {
         event.preventDefault();
-        logger.info("Form submit event detected", form);
+        logger.debug("Form submit event detected", form);
 
         await this.handleFormSubmission(form);
       } catch (error) {
@@ -171,7 +171,7 @@ export class FormSubmissionMonitor {
     if (this.buttonListeners.has(button)) return;
 
     const listener = async () => {
-      logger.info("Submit button clicked", button);
+      logger.debug("Submit button clicked", button);
       const form = button.closest("form");
       if (form) {
         await this.handleFormSubmission(form);
@@ -192,7 +192,7 @@ export class FormSubmissionMonitor {
 
     this.recentSubmissions.set(form, Date.now());
     const fields = this.extractFieldOpids(form);
-    logger.info(`Form submission detected with ${fields.size} fields`);
+    logger.debug(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
@@ -204,7 +204,7 @@ export class FormSubmissionMonitor {
 
     this.recentSubmissions.set("standalone", Date.now());
     const fields = this.extractAllVisibleFieldOpids();
-    logger.info(`Standalone submission detected with ${fields.size} fields`);
+    logger.debug(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
