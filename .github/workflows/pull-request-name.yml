@@ -6,8 +6,9 @@ on:
   push:
     branches-ignore:
       - main
-      - master
-      - develop
+      - dev
+      - stage
+      - prod
 
 jobs:
   branch-name-check:
