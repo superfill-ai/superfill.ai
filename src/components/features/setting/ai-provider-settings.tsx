@@ -22,10 +22,10 @@ import {
   useSaveApiKeyWithModel,
 } from "@/hooks/use-provider-keys";
 import { getDefaultModel } from "@/lib/ai/model-factory";
-import { getProviderOptions } from "@/lib/providers";
 import {
   type AIProvider,
   getAllProviderConfigs,
+  getProviderOptions,
 } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";

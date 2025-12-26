@@ -1,5 +1,12 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
-import { registerAutofillService } from "@/lib/autofill/autofill-service";
+import {
+  getAutofillService,
+  registerAutofillService,
+} from "@/lib/autofill/autofill-service";
+import {
+  getCaptureMemoryService,
+  registerCaptureMemoryService,
+} from "@/lib/autofill/capture-memory-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   getSessionService,
@@ -9,10 +16,16 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
-import { registerKeyVaultService } from "@/lib/security/key-vault-service";
+import {
+  getKeyVaultService,
+  registerKeyVaultService,
+} from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import { migrateAISettings } from "./lib/migrate-settings-handler";
 
 const logger = createLogger("background");
+
+const CONTEXT_MENU_ID = "superfill-autofill";
 
 export default defineBackground({
   type: "module",
@@ -23,11 +36,55 @@ export default defineBackground({
     registerCategorizationService();
     registerKeyValidationService();
     registerKeyVaultService();
+    registerCaptureMemoryService();
     registerModelService();
-    const autofillService = registerAutofillService();
+    registerAutofillService();
     registerSessionService();
-
     const sessionService = getSessionService();
+    const captureMemoryService = getCaptureMemoryService();
+    const keyVault = getKeyVaultService();
+    const autofillService = getAutofillService();
+
+    const updateContextMenu = async (enabled: boolean) => {
+      try {
+        if (enabled) {
+          await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+          browser.contextMenus.create({
+            id: CONTEXT_MENU_ID,
+            title: "Fill with superfill.ai",
+            contexts: ["editable", "page"],
+          });
+          logger.info("Context menu created");
+        } else {
+          await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+          logger.info("Context menu removed");
+        }
+      } catch (error) {
+        logger.error("Failed to update context menu:", error);
+      }
+    };
+
+    (async () => {
+      const settings = await migrateAISettings();
+      updateContextMenu(settings.contextMenuEnabled);
+    })();
+
+    storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        updateContextMenu(newSettings.contextMenuEnabled);
+      }
+    });
+
+    browser.contextMenus.onClicked.addListener(async (info, tab) => {
+      if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
+        logger.info("Context menu autofill triggered", { tabId: tab.id });
+        try {
+          await autofillService.startAutofillOnActiveTab();
+        } catch (error) {
+          logger.error("Context menu autofill failed:", error);
+        }
+      }
+    });
 
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
@@ -63,6 +120,43 @@ export default defineBackground({
     contentAutofillMessaging.onMessage("saveFormMappings", async ({ data }) => {
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
+
+    contentAutofillMessaging.onMessage(
+      "saveCapturedMemories",
+      async ({ data }) => {
+        try {
+          const aiSettings = await storage.aiSettings.getValue();
+          const provider = aiSettings.selectedProvider;
+
+          if (!provider) {
+            logger.error("No AI provider configured");
+            return { success: false, savedCount: 0 };
+          }
+
+          const apiKey = await keyVault.getKey(provider);
+
+          if (!apiKey) {
+            logger.error("Failed to retrieve API key for categorization");
+            return { success: false, savedCount: 0 };
+          }
+
+          const modelName = aiSettings.selectedModels?.[provider];
+
+          const result = await captureMemoryService.saveCapturedMemories(
+            data.capturedFields,
+            provider,
+            apiKey,
+            modelName,
+          );
+
+          logger.info("Captured memories saved:", result);
+          return result;
+        } catch (error) {
+          logger.error("Failed to save captured memories:", error);
+          return { success: false, savedCount: 0 };
+        }
+      },
+    );
 
     browser.runtime.onMessage.addListener((message, sender) => {
       if (

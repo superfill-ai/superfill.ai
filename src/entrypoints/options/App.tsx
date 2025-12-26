@@ -5,7 +5,6 @@ import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
 import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
-import { TriggerSettings } from "@/components/features/setting/trigger-settings";
 import {
   Card,
   CardContent,
@@ -145,7 +144,6 @@ export const App = () => {
             <div className="max-w-3xl mx-auto space-y-6">
               <AutofillSettings />
               <AiProviderSettings />
-              <TriggerSettings />
             </div>
           </TabsContent>
 
