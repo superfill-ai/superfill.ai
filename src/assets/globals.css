@@ -2,7 +2,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* biome-ignore lint/suspicious/noUnknownAtRules: it's fine here */
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -93,7 +92,6 @@
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.43);
 }
 
-/* biome-ignore lint/suspicious/noUnknownAtRules: it's fine here */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -209,12 +207,10 @@
 
 @layer base {
   * {
-    /* biome-ignore lint/suspicious/noUnknownAtRules: it's fine here */
     @apply border-border outline-ring/50;
   }
 
   body {
-    /* biome-ignore lint/suspicious/noUnknownAtRules: it's fine here */
     @apply bg-background text-foreground;
     font-optical-sizing: auto;
     font-style: normal;

@@ -1,3 +1,6 @@
+import type { ProviderOption } from "@/types/settings";
+import { getKeyVaultService } from "../security/key-vault-service";
+
 export interface ProviderConfig {
   id: string;
   name: string;
@@ -95,4 +98,28 @@ export function validateProviderKey(
   if (!config.requiresApiKey) return true;
   if (!key || key.trim() === "") return false;
   return config.validateKey ? config.validateKey(key) : true;
+}
+
+export async function getProviderOptions(): Promise<ProviderOption[]> {
+  const keyVaultService = getKeyVaultService();
+  const keyStatuses = await Promise.all(
+    AI_PROVIDERS.map(async (provider) => ({
+      provider,
+      hasKey: await keyVaultService.hasKey(provider),
+    })),
+  );
+
+  return AI_PROVIDERS.map((provider) => {
+    const config = getProviderConfig(provider);
+    const hasKey =
+      keyStatuses.find((s) => s.provider === provider)?.hasKey ?? false;
+
+    return {
+      value: provider,
+      label: config.name,
+      description: config.description,
+      available: config.requiresApiKey ? hasKey : true,
+      requiresApiKey: config.requiresApiKey,
+    };
+  });
 }
