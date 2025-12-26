@@ -167,7 +167,7 @@ const FieldRow = ({
                   confidence: 1.0,
                 }}
                 onSuccess={async (data) => {
-                  await onMemoryAddition(data, field.fieldOpid);
+                  await onMemoryAddition(field.fieldOpid, data);
                   setIsEditing(false);
                 }}
                 onCancel={() => {
@@ -190,7 +190,7 @@ type AutofillContainerProps = {
   onFill?: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
   onHighlight?: (fieldOpid: FieldOpId) => void;
   onUnhighlight?: () => void;
-  onMemoryAddition: (data: MemoryEntry, fieldOpid: FieldOpId) => Promise<void>;
+  onMemoryAddition: (fieldOpid: FieldOpId, data: MemoryEntry) => Promise<void>;
 };
 
 export const AutofillContainer = ({
@@ -284,11 +284,10 @@ export const AutofillContainer = ({
   const headerDescription =
     currentMode === "loading"
       ? "Please do not navigate away from this page."
-      : `${data?.summary.matchedFields ?? 0} of ${totalFields} fields have matches${
-          typeof data?.summary.processingTime === "number"
-            ? ` · ${Math.round(data.summary.processingTime)}ms`
-            : ""
-        }`;
+      : `${data?.summary.matchedFields ?? 0} of ${totalFields} fields have matches${typeof data?.summary.processingTime === "number"
+        ? ` · ${Math.round(data.summary.processingTime)}ms`
+        : ""
+      }`;
 
   const headerIcon =
     currentMode === "loading" ? (
