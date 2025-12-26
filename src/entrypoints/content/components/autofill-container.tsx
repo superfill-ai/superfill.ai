@@ -284,10 +284,11 @@ export const AutofillContainer = ({
   const headerDescription =
     currentMode === "loading"
       ? "Please do not navigate away from this page."
-      : `${data?.summary.matchedFields ?? 0} of ${totalFields} fields have matches${typeof data?.summary.processingTime === "number"
-        ? ` · ${Math.round(data.summary.processingTime)}ms`
-        : ""
-      }`;
+      : `${data?.summary.matchedFields ?? 0} of ${totalFields} fields have matches${
+          typeof data?.summary.processingTime === "number"
+            ? ` · ${Math.round(data.summary.processingTime)}ms`
+            : ""
+        }`;
 
   const headerIcon =
     currentMode === "loading" ? (

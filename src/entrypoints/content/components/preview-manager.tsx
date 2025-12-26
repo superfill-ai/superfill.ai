@@ -196,7 +196,9 @@ export class PreviewSidebarManager {
         onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
         onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
         onUnhighlight={() => this.clearHighlight()}
-        onMemoryAddition={async (fieldOpid, data) => this.handleMemoryAddition(fieldOpid, data)}
+        onMemoryAddition={async (fieldOpid, data) =>
+          this.handleMemoryAddition(fieldOpid, data)
+        }
       />,
     );
   }
@@ -221,9 +223,9 @@ export class PreviewSidebarManager {
           fields: form.fields.map((field) =>
             field.fieldOpid === fieldOpid
               ? {
-                ...field,
-                mapping: updatedMapping,
-              }
+                  ...field,
+                  mapping: updatedMapping,
+                }
               : field,
           ),
         }));
