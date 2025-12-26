@@ -28,22 +28,13 @@ import type {
   FieldOpId,
   PreviewFieldData,
 } from "@/types/autofill";
+import type { MemoryEntry } from "@/types/memory";
 import {
   getProgressDescription,
   getProgressTitle,
 } from "../lib/progress-utils";
 import { MemoryLoader } from "./memory-loader";
 import type { PreviewRenderData } from "./preview-manager";
-
-type AutofillContainerProps = {
-  mode: "loading" | "preview";
-  progress?: AutofillProgress;
-  data?: PreviewRenderData;
-  onClose: () => void;
-  onFill?: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
-  onHighlight?: (fieldOpid: FieldOpId) => void;
-  onUnhighlight?: () => void;
-};
 
 type SelectionState = Set<FieldOpId>;
 
@@ -74,19 +65,23 @@ const getSuggestedValue = (field: PreviewFieldData): string => {
   return field.mapping.value ?? "No value suggested";
 };
 
+interface FieldRowProps {
+  field: PreviewFieldData;
+  selected: boolean;
+  onToggle: (next: boolean) => void;
+  onHighlight: AutofillContainerProps["onHighlight"];
+  onUnhighlight: AutofillContainerProps["onUnhighlight"];
+  onMemoryAddition: AutofillContainerProps["onMemoryAddition"];
+}
+
 const FieldRow = ({
   field,
   selected,
   onToggle,
   onHighlight,
   onUnhighlight,
-}: {
-  field: PreviewFieldData;
-  selected: boolean;
-  onToggle: (next: boolean) => void;
-  onHighlight: () => void;
-  onUnhighlight: () => void;
-}) => {
+  onMemoryAddition,
+}: FieldRowProps) => {
   const confidence = field.mapping.confidence;
   const { label, intent } = confidenceMeta(confidence);
   const suggestion = getSuggestedValue(field);
@@ -101,6 +96,7 @@ const FieldRow = ({
         "flex flex-col gap-2 rounded-lg border bg-card/80 p-3 transition hover:border-primary/70",
         selected && "border-primary shadow-sm",
       )}
+      // @ts-expect-error - this is fine
       onMouseEnter={onHighlight}
       onMouseLeave={onUnhighlight}
     >
@@ -170,7 +166,8 @@ const FieldRow = ({
                   tags: [],
                   confidence: 1.0,
                 }}
-                onSuccess={async () => {
+                onSuccess={async (data) => {
+                  await onMemoryAddition(data, field.fieldOpid);
                   setIsEditing(false);
                 }}
                 onCancel={() => {
@@ -185,6 +182,17 @@ const FieldRow = ({
   );
 };
 
+type AutofillContainerProps = {
+  mode: "loading" | "preview";
+  progress?: AutofillProgress;
+  data?: PreviewRenderData;
+  onClose: () => void;
+  onFill?: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
+  onHighlight?: (fieldOpid: FieldOpId) => void;
+  onUnhighlight?: () => void;
+  onMemoryAddition: (data: MemoryEntry, fieldOpid: FieldOpId) => Promise<void>;
+};
+
 export const AutofillContainer = ({
   mode,
   progress,
@@ -193,6 +201,7 @@ export const AutofillContainer = ({
   onFill,
   onHighlight,
   onUnhighlight,
+  onMemoryAddition,
 }: AutofillContainerProps) => {
   const [isContentTransitioning, setIsContentTransitioning] = useState(false);
   const [currentMode, setCurrentMode] = useState<"loading" | "preview">(mode);
@@ -351,6 +360,7 @@ export const AutofillContainer = ({
                               }
                               onHighlight={() => onHighlight?.(field.fieldOpid)}
                               onUnhighlight={() => onUnhighlight?.()}
+                              onMemoryAddition={onMemoryAddition}
                             />
                           ))}
                         </QueryClientProvider>

@@ -19,7 +19,7 @@ import type {
   PreviewFieldData,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import type { FilledField, FormMapping } from "@/types/memory";
+import type { FilledField, FormMapping, MemoryEntry } from "@/types/memory";
 import { AutofillContainer } from "./autofill-container";
 
 const logger = createLogger("preview-manager");
@@ -196,8 +196,60 @@ export class PreviewSidebarManager {
         onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
         onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
         onUnhighlight={() => this.clearHighlight()}
+        onMemoryAddition={this.handleMemoryAddition}
       />,
     );
+  }
+
+  private async handleMemoryAddition(data: MemoryEntry, fieldOpid: FieldOpId) {
+    try {
+      const updatedMapping = {
+        fieldOpid,
+        value: data.answer,
+        confidence: 1.0,
+        reasoning: "User-provided value",
+        autoFill: true,
+      };
+
+      logger.info(`Mapping fields: ${data.id} to fieldOpid: ${fieldOpid}`);
+
+      this.mappingLookup?.set(fieldOpid, updatedMapping);
+
+      if (this.currentData) {
+        const updatedForms = this.currentData.forms.map((form) => ({
+          ...form,
+          fields: form.fields.map((field) =>
+            field.fieldOpid === fieldOpid
+              ? {
+                  ...field,
+                  mapping: updatedMapping,
+                }
+              : field,
+          ),
+        }));
+
+        const matchedFields = updatedForms.reduce(
+          (count, form) =>
+            count + form.fields.filter((f) => f.mapping.value !== null).length,
+          0,
+        );
+
+        this.currentData = {
+          forms: updatedForms,
+          summary: {
+            ...this.currentData.summary,
+            matchedFields,
+          },
+        };
+
+        this.renderCurrentState();
+      }
+
+      logger.info("Field mapping updated from new memory entry:", data.id);
+    } catch (error) {
+      logger.error("Failed to save new memory:", error);
+      throw error;
+    }
   }
 
   destroy() {

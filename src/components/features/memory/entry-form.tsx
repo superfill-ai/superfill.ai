@@ -35,7 +35,7 @@ interface EntryFormProps {
   mode: "create" | "edit";
   layout?: "compact" | "normal" | "preview";
   initialData?: Partial<MemoryEntry>;
-  onSuccess?: () => void;
+  onSuccess?: (data: MemoryEntry) => void;
   onCancel?: () => void;
 }
 
@@ -81,7 +81,7 @@ export function EntryForm({
                 value.category as (typeof allowedCategories)[number],
               )
             ) {
-              await updateEntry.mutateAsync({
+              const data = await updateEntry.mutateAsync({
                 id: initialData.id as string,
                 updates: {
                   question: value.question,
@@ -91,23 +91,24 @@ export function EntryForm({
                     value.category as (typeof allowedCategories)[number],
                 },
               });
+              onSuccess?.(data);
             } else if (
               mode === "create" &&
               allowedCategories.includes(
                 value.category as (typeof allowedCategories)[number],
               )
             ) {
-              await addEntry.mutateAsync({
+              const data = await addEntry.mutateAsync({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
                 category: value.category as (typeof allowedCategories)[number],
                 confidence: 1.0,
               });
+              onSuccess?.(data);
             } else {
               throw new Error("Invalid category selected.");
             }
-            onSuccess?.();
             form.reset();
           } catch (error) {
             logger.error("Failed to save entry:", error);
@@ -444,7 +445,7 @@ export function EntryForm({
                     name={field.name}
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="w-full rounded-md text-muted-foreground px-3 py-2 border-destructive ring-destructive/20 dark:ring-destructive/40 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                    className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
                   >
                     <option value="" disabled>
                       Select a category
