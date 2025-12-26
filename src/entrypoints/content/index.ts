@@ -180,7 +180,7 @@ export default defineContentScript({
         `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
       );
 
-      handleFill(fieldsToFill, frameInfo, fieldCache);
+      await handleFill(fieldsToFill, frameInfo, fieldCache);
     });
 
     contentAutofillMessaging.onMessage("closePreview", async () => {
