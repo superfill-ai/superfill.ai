@@ -14,7 +14,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { InputBadge } from "@/components/ui/input-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
@@ -32,118 +31,20 @@ import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
 
+interface EntryFormProps {
+  mode: "create" | "edit";
+  layout?: "compact" | "normal" | "preview";
+  initialData?: Partial<MemoryEntry>;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
 const entryFormSchema = z.object({
   question: z.string(),
   answer: z.string().min(1, "Answer is required"),
   tags: z.array(z.string()),
   category: z.enum(allowedCategories),
 });
-interface MemoryFieldsProps {
-  question: string;
-  answer: string;
-  category: string;
-  tags: string[];
-  onQuestionChange: (value: string) => void;
-  onAnswerChange: (value: string) => void;
-  onCategoryChange: (value: string) => void;
-  onTagsChange: React.Dispatch<React.SetStateAction<string[]>>;
-  disabled?: boolean;
-  questionReadOnly?: boolean;
-  isPreviewMode?: boolean;
-}
-
-export function MemoryFields({
-  question,
-  answer,
-  category,
-  tags,
-  onQuestionChange,
-  onAnswerChange,
-  onCategoryChange,
-  onTagsChange,
-  disabled = false,
-  questionReadOnly = false,
-  isPreviewMode = false,
-}: MemoryFieldsProps) {
-  const fieldGapClass = isPreviewMode ? "gap-1" : "gap-2";
-  const inputSizeClass = isPreviewMode ? "h-8 text-xs" : "";
-  const labelSizeClass = isPreviewMode ? "text-xs" : "";
-
-  return (
-    <FieldGroup className={fieldGapClass}>
-      <Field className={fieldGapClass}>
-        <FieldLabel className={labelSizeClass}>
-          Question {!isPreviewMode && "(Optional)"}
-        </FieldLabel>
-        <Input
-          value={question}
-          onChange={(e) => onQuestionChange(e.target.value)}
-          disabled={disabled}
-          readOnly={questionReadOnly}
-          placeholder={
-            isPreviewMode ? "Field name" : "What information does this answer?"
-          }
-          className={inputSizeClass}
-        />
-      </Field>
-
-      <Field className={fieldGapClass}>
-        <FieldLabel className={labelSizeClass}>Answer *</FieldLabel>
-        {isPreviewMode ? (
-          <Input
-            value={answer}
-            onChange={(e) => onAnswerChange(e.target.value)}
-            disabled={disabled}
-            placeholder="Enter value..."
-            className={inputSizeClass}
-          />
-        ) : (
-          <Textarea
-            value={answer}
-            onChange={(e) => onAnswerChange(e.target.value)}
-            disabled={disabled}
-            placeholder="Your information (e.g., email, phone, address)"
-          />
-        )}
-      </Field>
-
-      <Field className={fieldGapClass}>
-        <FieldLabel className={labelSizeClass}>Category *</FieldLabel>
-        <select
-          value={category}
-          onChange={(e) => onCategoryChange(e.target.value)}
-          disabled={disabled}
-          className={`border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex w-full rounded-md border px-3 py-2 shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-hidden focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 ${inputSizeClass || "h-9 text-sm"}`}
-        >
-          {allowedCategories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      <Field className={fieldGapClass}>
-        <FieldLabel className={labelSizeClass}>Tags</FieldLabel>
-        <InputBadge
-          value={tags}
-          onChange={onTagsChange}
-          placeholder="Add tags..."
-          disabled={disabled}
-          className={isPreviewMode ? "min-h-8 text-xs" : ""}
-        />
-      </Field>
-    </FieldGroup>
-  );
-}
-
-interface EntryFormProps {
-  mode: "create" | "edit";
-  layout?: "compact" | "normal";
-  initialData?: MemoryEntry;
-  onSuccess?: () => void;
-  onCancel?: () => void;
-}
 
 export function EntryForm({
   mode,
@@ -152,6 +53,7 @@ export function EntryForm({
   onSuccess,
   onCancel,
 }: EntryFormProps) {
+  const isPreviewMode = layout === "preview";
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
@@ -180,7 +82,7 @@ export function EntryForm({
               )
             ) {
               await updateEntry.mutateAsync({
-                id: initialData.id,
+                id: initialData.id as string,
                 updates: {
                   question: value.question,
                   answer: value.answer,
@@ -416,6 +318,7 @@ export function EntryForm({
               <Field
                 data-invalid={isInvalid}
                 className={layout === "compact" ? "gap-1" : ""}
+                aria-disabled={isPreviewMode}
               >
                 <FieldLabel htmlFor={field.name}>
                   Memory Label/Question (Optional)
@@ -427,6 +330,7 @@ export function EntryForm({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   aria-invalid={isInvalid}
+                  disabled={isPreviewMode}
                   placeholder="What is this memory about?"
                 />
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
@@ -461,41 +365,43 @@ export function EntryForm({
           }}
         </form.Field>
 
-        <div className="flex flex-wrap justify-center gap-2 py-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={handleRephrase}
-            disabled={isAiRephrasing || !answer.trim()}
-            className="rounded-sm"
-          >
-            {isAiRephrasing ? (
-              <Loader2Icon className="mr-2 size-3 animate-spin" />
-            ) : (
-              <SparklesIcon className="mr-2 size-3 text-yellow-500" />
-            )}
-            Rephrase with AI
-          </Button>
-
-          {mode === "create" && (
+        {!isPreviewMode ? (
+          <div className="flex flex-wrap justify-center gap-2 py-2">
             <Button
               type="button"
               variant="outline"
               size="xs"
-              onClick={handleCategorizingAndTagging}
-              disabled={isAiCategorizing || !answer.trim()}
+              onClick={handleRephrase}
+              disabled={isAiRephrasing || !answer.trim()}
               className="rounded-sm"
             >
-              {isAiCategorizing ? (
+              {isAiRephrasing ? (
                 <Loader2Icon className="mr-2 size-3 animate-spin" />
               ) : (
-                <TagsIcon className="mr-2 size-3" />
+                <SparklesIcon className="mr-2 size-3 text-yellow-500" />
               )}
-              Categorize & Tag with AI
+              Rephrase with AI
             </Button>
-          )}
-        </div>
+
+            {mode === "create" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={handleCategorizingAndTagging}
+                disabled={isAiCategorizing || !answer.trim()}
+                className="rounded-sm"
+              >
+                {isAiCategorizing ? (
+                  <Loader2Icon className="mr-2 size-3 animate-spin" />
+                ) : (
+                  <TagsIcon className="mr-2 size-3" />
+                )}
+                Categorize & Tag with AI
+              </Button>
+            )}
+          </div>
+        ) : null}
 
         <form.Field name="category">
           {(field) => {
@@ -520,17 +426,36 @@ export function EntryForm({
                     <SparklesIcon className="size-3 animate-pulse" />
                   )}
                 </FieldLabel>
-                <Combobox
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onValueChange={field.handleChange}
-                  options={categoryOptions}
-                  placeholder="Select a category"
-                  searchPlaceholder="Search categories..."
-                  emptyText="No category found."
-                  aria-invalid={isInvalid}
-                />
+                {!isPreviewMode ? (
+                  <Combobox
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    options={categoryOptions}
+                    placeholder="Select a category"
+                    searchPlaceholder="Search categories..."
+                    emptyText="No category found."
+                    aria-invalid={isInvalid}
+                  />
+                ) : (
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="w-full rounded-md text-muted-foreground px-3 py-2 border-destructive ring-destructive/20 dark:ring-destructive/40 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                  >
+                    <option value="" disabled>
+                      Select a category
+                    </option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
             );

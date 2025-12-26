@@ -1,6 +1,7 @@
-import { PlusIcon, SaveIcon, XIcon } from "lucide-react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { MemoryFields } from "@/components/features/memory/entry-form";
+import { EntryForm } from "@/components/features/memory/entry-form";
 import {
   Accordion,
   AccordionContent,
@@ -21,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
+import { queryClient } from "@/lib/query";
 import type {
   AutofillProgress,
   FieldOpId,
@@ -41,13 +43,6 @@ type AutofillContainerProps = {
   onFill?: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
   onHighlight?: (fieldOpid: FieldOpId) => void;
   onUnhighlight?: () => void;
-  onSaveNewMemory?: (fieldData: {
-    question: string;
-    answer: string;
-    category: string;
-    tags: string[];
-    fieldOpid: FieldOpId;
-  }) => Promise<void>;
 };
 
 type SelectionState = Set<FieldOpId>;
@@ -85,18 +80,12 @@ const FieldRow = ({
   onToggle,
   onHighlight,
   onUnhighlight,
-  onSaveMemory,
 }: {
   field: PreviewFieldData;
   selected: boolean;
   onToggle: (next: boolean) => void;
   onHighlight: () => void;
   onUnhighlight: () => void;
-  onSaveMemory?: (data: {
-    answer: string;
-    category: string;
-    tags: string[];
-  }) => Promise<void>;
 }) => {
   const confidence = field.mapping.confidence;
   const { label, intent } = confidenceMeta(confidence);
@@ -104,30 +93,6 @@ const FieldRow = ({
   const shouldShowEditOption = confidence < 0.5 || !field.mapping.value;
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState("");
-  const [editCategory, setEditCategory] = useState<string>("general");
-  const [editTags, setEditTags] = useState<string[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!editValue.trim() || !onSaveMemory) return;
-
-    setIsSaving(true);
-    try {
-      await onSaveMemory({
-        answer: editValue.trim(),
-        category: editCategory,
-        tags: editTags,
-      });
-      setIsEditing(false);
-      setEditValue("");
-      setEditTags([]);
-    } catch (error) {
-      console.error("Failed to save memory:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: highlighting only
@@ -180,7 +145,7 @@ const FieldRow = ({
         </p>
       )}
 
-      {shouldShowEditOption && onSaveMemory && (
+      {shouldShowEditOption && (
         <div className="mt-2 space-y-2">
           {!isEditing ? (
             <Button
@@ -193,50 +158,25 @@ const FieldRow = ({
               Add value for this field
             </Button>
           ) : (
-            <div className="space-y-3 rounded-md border border-primary/20 bg-muted/30 p-3">
-              <MemoryFields
-                question={field.primaryLabel}
-                answer={editValue}
-                category={editCategory}
-                tags={editTags}
-                onQuestionChange={() => {}}
-                onAnswerChange={setEditValue}
-                onCategoryChange={setEditCategory}
-                onTagsChange={setEditTags}
-                disabled={isSaving}
-                questionReadOnly
-                isPreviewMode
+            <div className="rounded-md border border-primary/20 bg-muted/30 p-3">
+              <EntryForm
+                mode="create"
+                layout="preview"
+                initialData={{
+                  id: "",
+                  question: field.primaryLabel,
+                  answer: "",
+                  category: "general",
+                  tags: [],
+                  confidence: 1.0,
+                }}
+                onSuccess={async () => {
+                  setIsEditing(false);
+                }}
+                onCancel={() => {
+                  setIsEditing(false);
+                }}
               />
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 h-8 text-xs"
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditValue("");
-                    setEditTags([]);
-                  }}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={!editValue.trim() || isSaving}
-                  className="flex-1 h-8"
-                >
-                  {isSaving ? (
-                    <Spinner className="size-3" />
-                  ) : (
-                    <>
-                      <SaveIcon className="mr-1.5 size-3" />
-                      Save
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
           )}
         </div>
@@ -253,7 +193,6 @@ export const AutofillContainer = ({
   onFill,
   onHighlight,
   onUnhighlight,
-  onSaveNewMemory,
 }: AutofillContainerProps) => {
   const [isContentTransitioning, setIsContentTransitioning] = useState(false);
   const [currentMode, setCurrentMode] = useState<"loading" | "preview">(mode);
@@ -401,31 +340,20 @@ export const AutofillContainer = ({
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 py-2">
-                        {form.fields.map((field: PreviewFieldData) => (
-                          <FieldRow
-                            key={field.fieldOpid}
-                            field={field}
-                            selected={selection.has(field.fieldOpid)}
-                            onToggle={(next) =>
-                              handleToggle(field.fieldOpid, next)
-                            }
-                            onHighlight={() => onHighlight?.(field.fieldOpid)}
-                            onUnhighlight={() => onUnhighlight?.()}
-                            onSaveMemory={
-                              onSaveNewMemory
-                                ? async (data) => {
-                                    await onSaveNewMemory({
-                                      question: field.primaryLabel,
-                                      answer: data.answer,
-                                      category: data.category,
-                                      tags: data.tags,
-                                      fieldOpid: field.fieldOpid,
-                                    });
-                                  }
-                                : undefined
-                            }
-                          />
-                        ))}
+                        <QueryClientProvider client={queryClient}>
+                          {form.fields.map((field: PreviewFieldData) => (
+                            <FieldRow
+                              key={field.fieldOpid}
+                              field={field}
+                              selected={selection.has(field.fieldOpid)}
+                              onToggle={(next) =>
+                                handleToggle(field.fieldOpid, next)
+                              }
+                              onHighlight={() => onHighlight?.(field.fieldOpid)}
+                              onUnhighlight={() => onUnhighlight?.()}
+                            />
+                          ))}
+                        </QueryClientProvider>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
