@@ -96,9 +96,8 @@ const FieldRow = ({
         "flex flex-col gap-2 rounded-lg border bg-card/80 p-3 transition hover:border-primary/70",
         selected && "border-primary shadow-sm",
       )}
-      // @ts-expect-error - this is fine
-      onMouseEnter={onHighlight}
-      onMouseLeave={onUnhighlight}
+      onMouseEnter={() => onHighlight?.(field.fieldOpid)}
+      onMouseLeave={() => onUnhighlight?.()}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -187,9 +186,9 @@ type AutofillContainerProps = {
   progress?: AutofillProgress;
   data?: PreviewRenderData;
   onClose: () => void;
-  onFill?: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
-  onHighlight?: (fieldOpid: FieldOpId) => void;
-  onUnhighlight?: () => void;
+  onFill: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
+  onHighlight: (fieldOpid: FieldOpId) => void;
+  onUnhighlight: () => void;
   onMemoryAddition: (fieldOpid: FieldOpId, data: MemoryEntry) => Promise<void>;
 };
 
