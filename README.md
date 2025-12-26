@@ -63,8 +63,6 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 ## 📊 Progress
 
-[Arcade interactive demo link](https://app.arcade.software/share/BOyhluu7rFgB0IzIJMLk)
-
 ### 🚧 In Progress (Phase 1)
 
 - [x] Memory CRUD operations
@@ -88,21 +86,23 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 ### 📋 In Progress (Phase 2, Nov 25th)
 
-#### Free features
+- [x] Trigger mode (Show button input click, page action, context menu)
+- [x] Save memory directly from preview sidebar
+- [x] Support select, radio, checkbox, date fields
 
-##### WIP
-- [ ] Cache Previous fill results for faster fill on similar form fields/urls
+#### WIP
+
+- [ ] Parse pdf to extract content for memory creation.
+- [ ] Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition.
 - [ ] Store unfilled questions along with user filled answers as memories automatically
-- [ ] Parse pdf to extract content for memory creation. Scrape & import data from Linkedin/Portfolio/Workday/Greenhouse/other famous websites for easier memory addition.
 - [ ] Safari support
 
-##### NOT STARTED
+#### NOT STARTED
 
 - [ ] Cache Previous fill results for faster fill on similar form fields/urls
 - [ ] Image based matching algorithm for better context understanding
 - [ ] Explore alternate modes:
   - [ ] Browser native autofill integration (bypass extension popup)
-  - [ ] Trigger mode (Show button input click, page action, context menu, omnibox)
   - [ ] Enhanced Copilot mode (Sidebar with memory suggestions as you type)
 - [ ] Prompt caching for faster AI responses
 - [ ] MCP support
