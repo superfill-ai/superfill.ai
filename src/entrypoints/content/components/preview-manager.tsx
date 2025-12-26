@@ -249,7 +249,7 @@ export class PreviewSidebarManager {
 
       logger.info("Field mapping updated from new memory entry:", data.id);
     } catch (error) {
-      logger.error("Failed to save new memory:", error);
+      logger.error("Failed to map memory entry to field preview:", error);
       throw error;
     }
   }
