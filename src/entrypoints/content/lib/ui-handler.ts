@@ -154,7 +154,7 @@ export const destroyUIManagers = () => {
   }
 
   if (autopilotManager) {
-    autopilotManager.hide();
+    autopilotManager.destroy();
     autopilotManager = null;
   }
 };

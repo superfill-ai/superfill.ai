@@ -131,7 +131,7 @@ export class AutopilotManager {
     return (
       <AutopilotLoader
         progress={this.currentProgress}
-        onClose={() => this.hide()}
+        onClose={() => this.destroy()}
       />
     );
   }
@@ -242,6 +242,9 @@ export class AutopilotManager {
           ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
           if (!element && field.fieldOpid.startsWith("__")) {
+            logger.warn(
+              `Falling back to index-based lookup for ${field.fieldOpid}`,
+            );
             const index = field.fieldOpid.substring(2);
             const allInputs = document.querySelectorAll(
               "input, textarea, select",
@@ -343,7 +346,7 @@ export class AutopilotManager {
     }
   }
 
-  async hide(): Promise<void> {
+  destroy() {
     if (this.ui) {
       this.ui.remove();
       this.ui = null;

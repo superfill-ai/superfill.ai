@@ -256,11 +256,17 @@ export class FillTriggerButton {
   }
 
   private async handleFillClick() {
-    if (!this.fillButton) return;
-    this.fillButton.disabled = true;
-    logger.debug("Superfill fill button clicked");
-    await this.onFillClick();
-    this.remove();
+    try {
+      if (!this.fillButton) return;
+
+      this.fillButton.disabled = true;
+
+      logger.debug("Superfill fill button clicked");
+      await this.onFillClick();
+      this.remove();
+    } catch (error) {
+      logger.error("Error during fill operation:", error);
+    }
   }
 
   remove() {
