@@ -311,34 +311,36 @@ export function EntryForm({
       className="space-y-2"
     >
       <FieldGroup className="gap-2">
-        <form.Field name="question">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field
-                data-invalid={isInvalid}
-                className={layout === "compact" ? "gap-1" : ""}
-                aria-disabled={isPreviewMode}
-              >
-                <FieldLabel htmlFor={field.name}>
-                  Memory Label/Question (Optional)
-                </FieldLabel>
-                <Textarea
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={isInvalid}
-                  disabled={isPreviewMode}
-                  placeholder="What is this memory about?"
-                />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            );
-          }}
-        </form.Field>
+        {!isPreviewMode ? (
+          <form.Field name="question">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid;
+              return (
+                <Field
+                  data-invalid={isInvalid}
+                  className={layout === "compact" ? "gap-1" : ""}
+                  aria-disabled={isPreviewMode}
+                >
+                  <FieldLabel htmlFor={field.name}>
+                    Memory Label/Question (Optional)
+                  </FieldLabel>
+                  <Textarea
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={isInvalid}
+                    disabled={isPreviewMode}
+                    placeholder="What is this memory about?"
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              );
+            }}
+          </form.Field>
+        ) : null}
 
         <form.Field name="answer">
           {(field) => {
