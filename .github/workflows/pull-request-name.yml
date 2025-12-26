@@ -1,0 +1,25 @@
+name: Branch Name Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches-ignore:
+      - main
+      - master
+      - develop
+
+jobs:
+  branch-name-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '^(feat|fix|lint|chore|docs|style|refactor|perf|test|build|ci|revert)\/[a-z0-9-]+$'
+          flags: 'i'
+          error: 'Branch name must follow the pattern: type/description (e.g., feat/add-login-feature). Allowed types: feat, fix, lint, chore, docs, style, refactor, perf, test, build, ci, revert'
+          excludeDescription: 'true'
+          excludeTitle: 'true'
+          checkAllCommitMessages: 'false'
+          accessToken: ${{ secrets.GITHUB_TOKEN }}
