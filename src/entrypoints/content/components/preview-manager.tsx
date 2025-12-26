@@ -212,7 +212,6 @@ export class PreviewSidebarManager {
     try {
       logger.info("Saving new memory from field:", fieldData);
 
-      // Save the memory using the existing addEntry function
       const newMemory = await addEntry({
         question: fieldData.question,
         answer: fieldData.answer,
@@ -229,7 +228,6 @@ export class PreviewSidebarManager {
 
       logger.info("Memory saved successfully:", newMemory.id);
 
-      // Update the field mapping with the new value and 100% confidence
       const updatedMapping: FieldMapping = {
         fieldOpid: fieldData.fieldOpid,
         value: fieldData.answer,
@@ -238,10 +236,8 @@ export class PreviewSidebarManager {
         autoFill: true,
       };
 
-      // Update the mapping lookup
       this.mappingLookup.set(fieldData.fieldOpid, updatedMapping);
 
-      // Update current data to reflect the new mapping
       if (this.currentData) {
         const updatedForms = this.currentData.forms.map((form) => ({
           ...form,
@@ -269,7 +265,6 @@ export class PreviewSidebarManager {
           },
         };
 
-        // Re-render to show the updated field
         this.renderCurrentState();
       }
 

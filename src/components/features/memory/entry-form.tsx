@@ -38,10 +38,6 @@ const entryFormSchema = z.object({
   tags: z.array(z.string()),
   category: z.enum(allowedCategories),
 });
-
-// ============================================================================
-// EXPORTED: Reusable Memory Fields Component for Preview Mode
-// ============================================================================
 interface MemoryFieldsProps {
   question: string;
   answer: string;
@@ -141,9 +137,6 @@ export function MemoryFields({
   );
 }
 
-// ============================================================================
-// Main Entry Form Component
-// ============================================================================
 interface EntryFormProps {
   mode: "create" | "edit";
   layout?: "compact" | "normal";
