@@ -317,61 +317,65 @@ export const AutofillContainer = ({
           </Button>
         </CardHeader>
 
-        <CardContent
-          className={cn(
-            "flex min-h-0 flex-1 flex-col gap-0 px-5 py-4 transition-opacity duration-150",
-            isContentTransitioning ? "opacity-0" : "opacity-100",
-          )}
-        >
-          {currentMode === "loading" && progress ? (
-            <div className="flex-1 flex flex-col gap-4 items-center justify-center">
-              <MemoryLoader />
-              <p className="text-sm text-muted-foreground max-w-xs text-center">
-                {getProgressDescription(progress, "preview")}
-              </p>
-            </div>
-          ) : currentMode === "preview" && data ? (
-            <ScrollArea className="flex-1 min-h-0">
-              <Accordion
-                type="multiple"
-                defaultValue={data.forms.map(
-                  (form: PreviewRenderData["forms"][number]) =>
-                    form.snapshot.opid,
-                )}
-              >
-                {data.forms.map((form: PreviewRenderData["forms"][number]) => (
-                  <AccordionItem
-                    value={form.snapshot.opid}
-                    key={form.snapshot.opid}
-                  >
-                    <AccordionTrigger className="text-left text-sm font-semibold">
-                      {form.snapshot.name || "Unnamed form"}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 py-2">
-                        <QueryClientProvider client={queryClient}>
-                          {form.fields.map((field: PreviewFieldData) => (
-                            <FieldRow
-                              key={field.fieldOpid}
-                              field={field}
-                              selected={selection.has(field.fieldOpid)}
-                              onToggle={(next) =>
-                                handleToggle(field.fieldOpid, next)
-                              }
-                              onHighlight={() => onHighlight?.(field.fieldOpid)}
-                              onUnhighlight={() => onUnhighlight?.()}
-                              onMemoryAddition={onMemoryAddition}
-                            />
-                          ))}
-                        </QueryClientProvider>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </ScrollArea>
-          ) : null}
-        </CardContent>
+        <QueryClientProvider client={queryClient}>
+          <CardContent
+            className={cn(
+              "flex min-h-0 flex-1 flex-col gap-0 px-5 py-4 transition-opacity duration-150",
+              isContentTransitioning ? "opacity-0" : "opacity-100",
+            )}
+          >
+            {currentMode === "loading" && progress ? (
+              <div className="flex-1 flex flex-col gap-4 items-center justify-center">
+                <MemoryLoader />
+                <p className="text-sm text-muted-foreground max-w-xs text-center">
+                  {getProgressDescription(progress, "preview")}
+                </p>
+              </div>
+            ) : currentMode === "preview" && data ? (
+              <ScrollArea className="flex-1 min-h-0">
+                <Accordion
+                  type="multiple"
+                  defaultValue={data.forms.map(
+                    (form: PreviewRenderData["forms"][number]) =>
+                      form.snapshot.opid,
+                  )}
+                >
+                  {data.forms.map(
+                    (form: PreviewRenderData["forms"][number]) => (
+                      <AccordionItem
+                        value={form.snapshot.opid}
+                        key={form.snapshot.opid}
+                      >
+                        <AccordionTrigger className="text-left text-sm font-semibold">
+                          {form.snapshot.name || "Unnamed form"}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3 py-2">
+                            {form.fields.map((field: PreviewFieldData) => (
+                              <FieldRow
+                                key={field.fieldOpid}
+                                field={field}
+                                selected={selection.has(field.fieldOpid)}
+                                onToggle={(next) =>
+                                  handleToggle(field.fieldOpid, next)
+                                }
+                                onHighlight={() =>
+                                  onHighlight?.(field.fieldOpid)
+                                }
+                                onUnhighlight={() => onUnhighlight?.()}
+                                onMemoryAddition={onMemoryAddition}
+                              />
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ),
+                  )}
+                </Accordion>
+              </ScrollArea>
+            ) : null}
+          </CardContent>
+        </QueryClientProvider>
 
         <CardFooter className="border-t bg-background px-5 py-4">
           {currentMode === "loading" ? (
