@@ -31,20 +31,20 @@ import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
 
+interface EntryFormProps {
+  mode: "create" | "edit";
+  layout?: "compact" | "normal" | "preview";
+  initialData?: Partial<MemoryEntry>;
+  onSuccess?: (data: MemoryEntry) => void;
+  onCancel?: () => void;
+}
+
 const entryFormSchema = z.object({
   question: z.string(),
   answer: z.string().min(1, "Answer is required"),
   tags: z.array(z.string()),
   category: z.enum(allowedCategories),
 });
-
-interface EntryFormProps {
-  mode: "create" | "edit";
-  layout?: "compact" | "normal";
-  initialData?: MemoryEntry;
-  onSuccess?: () => void;
-  onCancel?: () => void;
-}
 
 export function EntryForm({
   mode,
@@ -53,6 +53,7 @@ export function EntryForm({
   onSuccess,
   onCancel,
 }: EntryFormProps) {
+  const isPreviewMode = layout === "preview";
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
@@ -80,8 +81,8 @@ export function EntryForm({
                 value.category as (typeof allowedCategories)[number],
               )
             ) {
-              await updateEntry.mutateAsync({
-                id: initialData.id,
+              const data = await updateEntry.mutateAsync({
+                id: initialData.id as string,
                 updates: {
                   question: value.question,
                   answer: value.answer,
@@ -90,23 +91,24 @@ export function EntryForm({
                     value.category as (typeof allowedCategories)[number],
                 },
               });
+              onSuccess?.(data);
             } else if (
               mode === "create" &&
               allowedCategories.includes(
                 value.category as (typeof allowedCategories)[number],
               )
             ) {
-              await addEntry.mutateAsync({
+              const data = await addEntry.mutateAsync({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
                 category: value.category as (typeof allowedCategories)[number],
                 confidence: 1.0,
               });
+              onSuccess?.(data);
             } else {
               throw new Error("Invalid category selected.");
             }
-            onSuccess?.();
             form.reset();
           } catch (error) {
             logger.error("Failed to save entry:", error);
@@ -309,32 +311,36 @@ export function EntryForm({
       className="space-y-2"
     >
       <FieldGroup className="gap-2">
-        <form.Field name="question">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field
-                data-invalid={isInvalid}
-                className={layout === "compact" ? "gap-1" : ""}
-              >
-                <FieldLabel htmlFor={field.name}>
-                  Memory Label/Question (Optional)
-                </FieldLabel>
-                <Textarea
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={isInvalid}
-                  placeholder="What is this memory about?"
-                />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            );
-          }}
-        </form.Field>
+        {!isPreviewMode ? (
+          <form.Field name="question">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid;
+              return (
+                <Field
+                  data-invalid={isInvalid}
+                  className={layout === "compact" ? "gap-1" : ""}
+                  aria-disabled={isPreviewMode}
+                >
+                  <FieldLabel htmlFor={field.name}>
+                    Memory Label/Question (Optional)
+                  </FieldLabel>
+                  <Textarea
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={isInvalid}
+                    disabled={isPreviewMode}
+                    placeholder="What is this memory about?"
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              );
+            }}
+          </form.Field>
+        ) : null}
 
         <form.Field name="answer">
           {(field) => {
@@ -362,41 +368,43 @@ export function EntryForm({
           }}
         </form.Field>
 
-        <div className="flex flex-wrap justify-center gap-2 py-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={handleRephrase}
-            disabled={isAiRephrasing || !answer.trim()}
-            className="rounded-sm"
-          >
-            {isAiRephrasing ? (
-              <Loader2Icon className="mr-2 size-3 animate-spin" />
-            ) : (
-              <SparklesIcon className="mr-2 size-3 text-yellow-500" />
-            )}
-            Rephrase with AI
-          </Button>
-
-          {mode === "create" && (
+        {!isPreviewMode ? (
+          <div className="flex flex-wrap justify-center gap-2 py-2">
             <Button
               type="button"
               variant="outline"
               size="xs"
-              onClick={handleCategorizingAndTagging}
-              disabled={isAiCategorizing || !answer.trim()}
+              onClick={handleRephrase}
+              disabled={isAiRephrasing || !answer.trim()}
               className="rounded-sm"
             >
-              {isAiCategorizing ? (
+              {isAiRephrasing ? (
                 <Loader2Icon className="mr-2 size-3 animate-spin" />
               ) : (
-                <TagsIcon className="mr-2 size-3" />
+                <SparklesIcon className="mr-2 size-3 text-yellow-500" />
               )}
-              Categorize & Tag with AI
+              Rephrase with AI
             </Button>
-          )}
-        </div>
+
+            {mode === "create" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={handleCategorizingAndTagging}
+                disabled={isAiCategorizing || !answer.trim()}
+                className="rounded-sm"
+              >
+                {isAiCategorizing ? (
+                  <Loader2Icon className="mr-2 size-3 animate-spin" />
+                ) : (
+                  <TagsIcon className="mr-2 size-3" />
+                )}
+                Categorize & Tag with AI
+              </Button>
+            )}
+          </div>
+        ) : null}
 
         <form.Field name="category">
           {(field) => {
@@ -421,17 +429,36 @@ export function EntryForm({
                     <SparklesIcon className="size-3 animate-pulse" />
                   )}
                 </FieldLabel>
-                <Combobox
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onValueChange={field.handleChange}
-                  options={categoryOptions}
-                  placeholder="Select a category"
-                  searchPlaceholder="Search categories..."
-                  emptyText="No category found."
-                  aria-invalid={isInvalid}
-                />
+                {!isPreviewMode ? (
+                  <Combobox
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    options={categoryOptions}
+                    placeholder="Select a category"
+                    searchPlaceholder="Search categories..."
+                    emptyText="No category found."
+                    aria-invalid={isInvalid}
+                  />
+                ) : (
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                  >
+                    <option value="" disabled>
+                      Select a category
+                    </option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
             );

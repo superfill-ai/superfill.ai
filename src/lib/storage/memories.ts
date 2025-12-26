@@ -10,9 +10,7 @@ const logger = createLogger("storage:memories");
 type CreateMemoryEntry = Omit<MemoryEntry, "id" | "metadata">;
 type UpdateMemoryEntry = Partial<Omit<MemoryEntry, "id" | "metadata">>;
 
-export const addEntry = async (
-  entry: CreateMemoryEntry,
-): Promise<MemoryEntry> => {
+export const addEntry = async (entry: CreateMemoryEntry) => {
   try {
     const newEntry: MemoryEntry = {
       ...entry,
@@ -36,9 +34,7 @@ export const addEntry = async (
   }
 };
 
-export const addEntries = async (
-  entries: CreateMemoryEntry[],
-): Promise<MemoryEntry[]> => {
+export const addEntries = async (entries: CreateMemoryEntry[]) => {
   try {
     const newEntries: MemoryEntry[] = entries.map((entry) => ({
       ...entry,
@@ -62,10 +58,7 @@ export const addEntries = async (
   }
 };
 
-export const updateEntry = async (
-  id: string,
-  updates: UpdateMemoryEntry,
-): Promise<void> => {
+export const updateEntry = async (id: string, updates: UpdateMemoryEntry) => {
   try {
     const currentEntries = await storage.memories.getValue();
     const entry = currentEntries.find((e) => e.id === id);
@@ -88,6 +81,8 @@ export const updateEntry = async (
     );
 
     await storage.memories.setValue(updatedEntries);
+
+    return updatedEntry;
   } catch (error) {
     logger.error("Failed to update entry:", error);
     throw error;
