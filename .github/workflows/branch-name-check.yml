@@ -11,6 +11,19 @@ jobs:
       - name: Check branch name
         run: |
           branch="${{ github.head_ref }}"
+          
+          # List of excluded branches
+          excluded_branches=("main" "dev" "prod" "release" "stage" "staging")
+          
+          # Check if branch is in excluded list
+          for excluded in "${excluded_branches[@]}"; do
+            if [[ "$branch" == "$excluded" ]]; then
+              echo "✅ Branch '$branch' is excluded from naming convention checks"
+              exit 0
+            fi
+          done
+          
+          # Check branch name pattern
           if [[ ! $branch =~ ^(feat|fix|lint|chore|docs|style|refactor|perf|test|build|ci|revert)/[a-z0-9-]+$ ]]; then
             echo "❌ Branch name '$branch' does not follow the required pattern"
             echo "Required pattern: type/description"
@@ -18,4 +31,5 @@ jobs:
             echo "Example: feat/add-login-feature"
             exit 1
           fi
+          
           echo "✅ Branch name '$branch' is valid"
