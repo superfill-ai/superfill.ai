@@ -153,15 +153,15 @@ export class FallbackMatcher {
     field: CompressedFieldData,
     memory: CompressedMemoryData,
   ): number {
-    const fieldLabels = field.labels.join(" ").toLowerCase();
+    const fieldLabel = field.labels.join(" ").toLowerCase();
     const category = memory.category.toLowerCase();
 
-    if (fieldLabels.includes(category)) {
+    if (fieldLabel.includes(category)) {
       return 0.8;
     }
 
     const categoryTokens = this.tokenize(category);
-    const labelTokens = this.tokenize(fieldLabels);
+    const labelTokens = this.tokenize(fieldLabel);
     const overlap = this.computeTokenOverlap(categoryTokens, labelTokens);
 
     return overlap > 0 ? Math.min(0.6, overlap * 0.3) : 0;
@@ -206,7 +206,7 @@ export class FallbackMatcher {
         .toLowerCase()
         .includes(memory.category.toLowerCase())
     ) {
-      reasons.push(`Category "${memory.category}" found in field labels`);
+      reasons.push(`Category "${memory.category}" found in field label`);
     }
 
     if (field.context && memory.question) {

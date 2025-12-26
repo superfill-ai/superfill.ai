@@ -13,6 +13,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { Separator } from "@/components/ui/separator";
 import { SliderWithInput } from "@/components/ui/slider-with-input";
 import { Switch } from "@/components/ui/switch";
 import { storage } from "@/lib/storage";
@@ -22,10 +23,14 @@ export const AutofillSettings = () => {
   const autofillEnabledId = useId();
   const autopilotModeId = useId();
   const confidenceThresholdId = useId();
+  const inlineTriggerEnabledId = useId();
+  const contextMenuEnabledId = useId();
 
   const [autoFillEnabled, setAutoFillEnabled] = useState(true);
   const [autopilotMode, setAutopilotMode] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
+  const [inlineTriggerEnabled, setInlineTriggerEnabled] = useState(false);
+  const [contextMenuEnabled, setContextMenuEnabled] = useState(true);
 
   useEffect(() => {
     const fetchAndWatch = async () => {
@@ -34,6 +39,8 @@ export const AutofillSettings = () => {
       setAutoFillEnabled(settings.autoFillEnabled);
       setAutopilotMode(settings.autopilotMode);
       setConfidenceThreshold(settings.confidenceThreshold);
+      setInlineTriggerEnabled(settings.inlineTriggerEnabled);
+      setContextMenuEnabled(settings.contextMenuEnabled);
     };
 
     fetchAndWatch();
@@ -43,6 +50,8 @@ export const AutofillSettings = () => {
         setAutoFillEnabled(newSettings.autoFillEnabled);
         setAutopilotMode(newSettings.autopilotMode);
         setConfidenceThreshold(newSettings.confidenceThreshold);
+        setInlineTriggerEnabled(newSettings.inlineTriggerEnabled);
+        setContextMenuEnabled(newSettings.contextMenuEnabled);
       }
     });
 
@@ -78,11 +87,31 @@ export const AutofillSettings = () => {
     await storage.aiSettings.setValue(updatedSettings);
   };
 
+  const handleSetInlineTriggerEnabled = async (enabled: boolean) => {
+    const currentSettings = await storage.aiSettings.getValue();
+    const updatedSettings: AISettings = {
+      ...currentSettings,
+      inlineTriggerEnabled: enabled,
+    };
+    await storage.aiSettings.setValue(updatedSettings);
+  };
+
+  const handleSetContextMenuEnabled = async (enabled: boolean) => {
+    const currentSettings = await storage.aiSettings.getValue();
+    const updatedSettings: AISettings = {
+      ...currentSettings,
+      contextMenuEnabled: enabled,
+    };
+    await storage.aiSettings.setValue(updatedSettings);
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Autofill Settings</CardTitle>
-        <CardDescription>Control how autofill behaves</CardDescription>
+        <CardTitle>Autofill & trigger Settings</CardTitle>
+        <CardDescription>
+          Control how autofill & trigger behaves
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -133,6 +162,44 @@ export const AutofillSettings = () => {
               Minimum confidence score required for autofill suggestions
               (currently: {confidenceThreshold.toFixed(2)})
             </FieldDescription>
+          </Field>
+
+          <Separator />
+
+          <Field orientation="horizontal" data-invalid={false}>
+            <FieldContent>
+              <FieldLabel htmlFor={inlineTriggerEnabledId}>
+                Inline Fill Trigger Button
+              </FieldLabel>
+              <FieldDescription>
+                Show fill button when focusing on input fields. Note: This can
+                conflict with similar buttons from third-party extensions like
+                Bitwarden.
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id={inlineTriggerEnabledId}
+              checked={inlineTriggerEnabled}
+              onCheckedChange={handleSetInlineTriggerEnabled}
+              disabled={!autoFillEnabled}
+            />
+          </Field>
+
+          <Field orientation="horizontal" data-invalid={false}>
+            <FieldContent>
+              <FieldLabel htmlFor={contextMenuEnabledId}>
+                Right-Click Context Menu
+              </FieldLabel>
+              <FieldDescription>
+                Show "Fill with superfill.ai" option in right-click context menu
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id={contextMenuEnabledId}
+              checked={contextMenuEnabled}
+              onCheckedChange={handleSetContextMenuEnabled}
+              disabled={!autoFillEnabled}
+            />
           </Field>
         </FieldGroup>
       </CardContent>

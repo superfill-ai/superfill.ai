@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { allowedCategories } from "@/lib/copies";
 
+export type AllowedCategory = (typeof allowedCategories)[number];
+
 const memoryEntrySchema = z.object({
   id: z.uuid({
     version: "v7",
@@ -22,31 +24,27 @@ const memoryEntrySchema = z.object({
     updatedAt: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
       message: "Invalid ISO timestamp",
     }),
-    source: z.enum(["manual", "import"]),
+    source: z.enum(["manual", "import", "autofill"]),
   }),
   embedding: z.array(z.number()).optional(), // Phase 2: Vector embedding
 });
 
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
 
-const formFieldSchema = z.object({
-  element: z.any(), // Placeholder for HTMLElement
-  type: z.string(), // 'text' | 'email' | 'textarea' | etc.
-  name: z.string(), // Field name/id
-  label: z.string(), // Visible label (could be html-for or wrapping label or aria-label, etc.)
-  placeholder: z.string().optional(),
-  required: z.boolean(),
-  currentValue: z.string(),
-  rect: z.any().optional(), // Placeholder for DOMRect (positioning)
+const filledFieldSchema = z.object({
+  selector: z.string(),
+  label: z.string(),
+  filledValue: z.string(),
+  fieldType: z.string(),
 });
 
-export type FormField = z.infer<typeof formFieldSchema>;
+export type FilledField = z.infer<typeof filledFieldSchema>;
 
 const formMappingSchema = z.object({
   url: z.url(),
-  formId: z.string().optional(),
-  fields: z.array(formFieldSchema),
-  matches: z.map(z.string(), memoryEntrySchema),
+  pageTitle: z.string().optional(),
+  formSelector: z.string().optional(),
+  fields: z.array(filledFieldSchema),
   confidence: z.number().min(0).max(1),
   timestamp: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
