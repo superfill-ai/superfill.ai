@@ -356,7 +356,7 @@ export class PreviewSidebarManager {
           if (!mapping) continue;
 
           const filledField: FilledField = {
-            selector: `[data-opid="${field.opid}"]`,
+            selector: `[data-superfill-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
             filledValue: mapping.value || "",
             fieldType: field.metadata.fieldType,
