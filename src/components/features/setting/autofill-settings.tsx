@@ -108,7 +108,7 @@ export const AutofillSettings = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Autofill & trigger Settings</CardTitle>
+        <CardTitle>Autofill & Trigger Settings</CardTitle>
         <CardDescription>
           Control how autofill & trigger behaves
         </CardDescription>
