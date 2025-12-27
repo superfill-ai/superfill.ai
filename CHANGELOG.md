@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.2.1
+
+### Patch Changes
+
+- chore: update deps
+
 ## 0.2.0
 
 ### Minor Changes
