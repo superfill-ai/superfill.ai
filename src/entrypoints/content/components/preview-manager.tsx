@@ -7,9 +7,8 @@ import {
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
-import type { AutofillProgress } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
 import type {
+  AutofillProgress,
   DetectedField,
   DetectedFieldSnapshot,
   DetectedForm,
@@ -19,7 +18,8 @@ import type {
   FormOpId,
   PreviewFieldData,
   PreviewSidebarPayload,
-} from "../../../types/autofill";
+} from "@/types/autofill";
+import type { FilledField, FormMapping, MemoryEntry } from "@/types/memory";
 import { AutofillContainer } from "./autofill-container";
 
 const logger = createLogger("preview-manager");
@@ -196,8 +196,62 @@ export class PreviewSidebarManager {
         onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
         onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
         onUnhighlight={() => this.clearHighlight()}
+        onMemoryAddition={async (fieldOpid, data) =>
+          this.handleMemoryAddition(fieldOpid, data)
+        }
       />,
     );
+  }
+
+  private async handleMemoryAddition(fieldOpid: FieldOpId, data: MemoryEntry) {
+    try {
+      const updatedMapping = {
+        fieldOpid,
+        value: data.answer,
+        confidence: 1.0,
+        reasoning: "User-provided value",
+        autoFill: true,
+      };
+
+      logger.debug(`Mapping fields: ${data.id} to fieldOpid: ${fieldOpid}`);
+
+      this.mappingLookup?.set(fieldOpid, updatedMapping);
+
+      if (this.currentData) {
+        const updatedForms = this.currentData.forms.map((form) => ({
+          ...form,
+          fields: form.fields.map((field) =>
+            field.fieldOpid === fieldOpid
+              ? {
+                  ...field,
+                  mapping: updatedMapping,
+                }
+              : field,
+          ),
+        }));
+
+        const matchedFields = updatedForms.reduce(
+          (count, form) =>
+            count + form.fields.filter((f) => f.mapping.value !== null).length,
+          0,
+        );
+
+        this.currentData = {
+          forms: updatedForms,
+          summary: {
+            ...this.currentData.summary,
+            matchedFields,
+          },
+        };
+
+        this.renderCurrentState();
+      }
+
+      logger.debug("Field mapping updated from new memory entry:", data.id);
+    } catch (error) {
+      logger.error("Failed to map memory entry to field preview:", error);
+      throw error;
+    }
   }
 
   destroy() {
@@ -264,7 +318,7 @@ export class PreviewSidebarManager {
           fieldsMatched: matchedCount,
         });
 
-        logger.info("Session completed:", this.sessionId);
+        logger.debug("Session completed:", this.sessionId);
       } catch (error) {
         logger.error("Failed to complete session:", error);
       }
@@ -294,38 +348,28 @@ export class PreviewSidebarManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
           if (!mapping) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: `[data-superfill-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value || "",
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.value) {
-            matches.set(formField.name, mapping.value);
-          }
+          formFields.push(filledField);
         }
 
         if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
+            pageTitle: document.title,
+            formSelector: formMetadata?.name,
             fields: formFields,
-            matches,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });

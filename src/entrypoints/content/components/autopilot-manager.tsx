@@ -15,7 +15,7 @@ import type {
   FieldOpId,
   FormOpId,
 } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
+import type { FilledField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
 import { AutopilotLoader } from "./autopilot-loader";
 
@@ -95,7 +95,7 @@ export class AutopilotManager {
         },
       });
 
-      logger.info("Autopilot manager initialized");
+      logger.debug("Autopilot manager initialized");
     } catch (error) {
       logger.error("Failed to initialize autopilot manager:", error);
       throw error;
@@ -131,7 +131,7 @@ export class AutopilotManager {
     return (
       <AutopilotLoader
         progress={this.currentProgress}
-        onClose={() => this.hide()}
+        onClose={() => this.destroy()}
       />
     );
   }
@@ -150,7 +150,7 @@ export class AutopilotManager {
         this.reactRoot.render(this.renderAutopilotLoader());
       }
 
-      logger.info("Showing autopilot progress:", progress.state);
+      logger.debug("Showing autopilot progress:", progress.state);
     } catch (error) {
       logger.error("Failed to show autopilot progress:", error);
     }
@@ -194,7 +194,7 @@ export class AutopilotManager {
       }
       this.fieldsToFill = fieldsToFill;
 
-      logger.info(
+      logger.debug(
         `Prepared ${this.fieldsToFill.length} fields for autopilot fill`,
       );
 
@@ -233,6 +233,51 @@ export class AutopilotManager {
         status: "filling",
       });
 
+      let filledCount = 0;
+
+      for (const field of this.fieldsToFill) {
+        try {
+          let element = document.querySelector(
+            `[data-superfill-opid="${field.fieldOpid}"]`,
+          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+          if (!element && field.fieldOpid.startsWith("__")) {
+            logger.warn(
+              `Falling back to index-based lookup for ${field.fieldOpid}`,
+            );
+            const index = field.fieldOpid.substring(2);
+            const allInputs = document.querySelectorAll(
+              "input, textarea, select",
+            );
+            element = allInputs[parseInt(index, 10)] as
+              | HTMLInputElement
+              | HTMLTextAreaElement
+              | HTMLSelectElement;
+          }
+
+          if (element && element.type !== "password") {
+            element.value = field.value;
+            element.setAttribute("data-superfill-filled", "true");
+            element.setAttribute("data-superfill-original", field.value);
+
+            element.dispatchEvent(new Event("input", { bubbles: true }));
+            element.dispatchEvent(new Event("change", { bubbles: true }));
+            element.dispatchEvent(new Event("blur", { bubbles: true }));
+
+            filledCount++;
+            logger.debug(
+              `Filled field ${field.fieldOpid} with value: ${field.value}`,
+            );
+          } else {
+            logger.warn(
+              `Field element not found or is password field for opid: ${field.fieldOpid}`,
+            );
+          }
+        } catch (fieldError) {
+          logger.error(`Failed to fill field ${field.fieldOpid}:`, fieldError);
+        }
+      }
+
       try {
         await browser.runtime.sendMessage({
           type: "FILL_ALL_FRAMES",
@@ -251,8 +296,6 @@ export class AutopilotManager {
         return false;
       }
 
-      const filledCount = this.fieldsToFill.length;
-
       await this.showProgress({
         state: "completed",
         message: "Auto-fill completed successfully",
@@ -264,7 +307,7 @@ export class AutopilotManager {
         status: "completed",
       });
 
-      logger.info(
+      logger.debug(
         `Autopilot completed: filled ${filledCount}/${this.fieldsToFill.length} fields`,
       );
 
@@ -297,13 +340,13 @@ export class AutopilotManager {
         sessionId: this.sessionId,
       });
 
-      logger.info(`Session ${this.sessionId} completed successfully`);
+      logger.debug(`Session ${this.sessionId} completed successfully`);
     } catch (error) {
       logger.error("Failed to complete autopilot session:", error);
     }
   }
 
-  async hide(): Promise<void> {
+  destroy() {
     if (this.ui) {
       this.ui.remove();
       this.ui = null;
@@ -315,7 +358,7 @@ export class AutopilotManager {
     this.fieldsToFill = [];
     this.sessionId = null;
 
-    logger.info("Autopilot manager hidden");
+    logger.debug("Autopilot manager hidden");
   }
 
   isActive(): boolean {
@@ -332,8 +375,6 @@ export class AutopilotManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await storage.memories.getValue();
-      const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
       for (const fieldOpid of selectedFieldOpids) {
@@ -349,41 +390,28 @@ export class AutopilotManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
           if (!mapping) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: `[data-superfill-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value || "",
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.value !== null) {
-            const memory = memoryMap.get(mapping.value);
-            if (memory) {
-              matches.set(formField.name, memory);
-            }
-          }
+          formFields.push(filledField);
         }
 
         if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
+            pageTitle: document.title,
+            formSelector: formMetadata?.name,
             fields: formFields,
-            matches,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });

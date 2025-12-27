@@ -1,5 +1,8 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
-import { registerAutofillService } from "@/lib/autofill/autofill-service";
+import {
+  getAutofillService,
+  registerAutofillService,
+} from "@/lib/autofill/autofill-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   getSessionService,
@@ -11,8 +14,11 @@ import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
 import { registerKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import { migrateAISettings } from "./lib/migrate-settings-handler";
 
 const logger = createLogger("background");
+
+const CONTEXT_MENU_ID = "superfill-autofill";
 
 export default defineBackground({
   type: "module",
@@ -23,15 +29,61 @@ export default defineBackground({
     registerCategorizationService();
     registerKeyValidationService();
     registerKeyVaultService();
+    // registerCaptureMemoryService();
     registerModelService();
-    const autofillService = registerAutofillService();
+    registerAutofillService();
     registerSessionService();
-
     const sessionService = getSessionService();
+    // const captureMemoryService = getCaptureMemoryService();
+    // const keyVault = getKeyVaultService();
+    const autofillService = getAutofillService();
+
+    const updateContextMenu = async (enabled: boolean) => {
+      try {
+        if (enabled) {
+          await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+          browser.contextMenus.create({
+            id: CONTEXT_MENU_ID,
+            title: "Fill with superfill.ai",
+            contexts: ["editable", "page"],
+          });
+          logger.debug("Context menu created");
+        } else {
+          await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+          logger.debug("Context menu removed");
+        }
+      } catch (error) {
+        logger.error("Failed to update context menu:", error);
+      }
+    };
+
+    (async () => {
+      const settings = await migrateAISettings();
+      updateContextMenu(settings.contextMenuEnabled);
+    })();
+
+    storage.aiSettings.watch((newSettings) => {
+      if (newSettings) {
+        updateContextMenu(newSettings.contextMenuEnabled);
+      }
+    });
+
+    browser.contextMenus.onClicked.addListener(async (info, tab) => {
+      if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
+        logger.debug("Context menu autofill triggered", { tabId: tab.id });
+        try {
+          await autofillService.startAutofillOnActiveTab();
+        } catch (error) {
+          logger.error("Context menu autofill failed:", error);
+        }
+      }
+    });
 
     browser.runtime.onInstalled.addListener(async (details) => {
       if (details.reason === "install") {
-        logger.info("Extension installed for the first time, opening settings");
+        logger.debug(
+          "Extension installed for the first time, opening settings",
+        );
 
         const currentSettings = await storage.uiSettings.getValue();
         const storedMemories = await storage.memories.getValue();
@@ -64,6 +116,43 @@ export default defineBackground({
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
 
+    // contentAutofillMessaging.onMessage(
+    //   "saveCapturedMemories",
+    //   async ({ data }) => {
+    //     try {
+    //       const aiSettings = await storage.aiSettings.getValue();
+    //       const provider = aiSettings.selectedProvider;
+
+    //       if (!provider) {
+    //         logger.error("No AI provider configured");
+    //         return { success: false, savedCount: 0 };
+    //       }
+
+    //       const apiKey = await keyVault.getKey(provider);
+
+    //       if (!apiKey) {
+    //         logger.error("Failed to retrieve API key for categorization");
+    //         return { success: false, savedCount: 0 };
+    //       }
+
+    //       const modelName = aiSettings.selectedModels?.[provider];
+
+    //       const result = await captureMemoryService.saveCapturedMemories(
+    //         data.capturedFields,
+    //         provider,
+    //         apiKey,
+    //         modelName,
+    //       );
+
+    //       logger.debug("Captured memories saved:", result);
+    //       return result;
+    //     } catch (error) {
+    //       logger.error("Failed to save captured memories:", error);
+    //       return { success: false, savedCount: 0 };
+    //     }
+    //   },
+    // );
+
     browser.runtime.onMessage.addListener((message, sender) => {
       if (
         message.type === "FILL_ALL_FRAMES" &&
@@ -74,7 +163,7 @@ export default defineBackground({
         const tabId = sender.tab.id;
         const fieldsToFill = message.fieldsToFill;
 
-        logger.info(
+        logger.debug(
           `Broadcasting fill command to all frames in tab ${tabId} for ${fieldsToFill.length} fields`,
         );
 
@@ -87,12 +176,12 @@ export default defineBackground({
       return true;
     });
 
-    logger.info("Background script initialized with all services");
+    logger.debug("Background script initialized with all services");
 
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
         autofillService.dispose();
-        logger.info("Background script HMR cleanup completed");
+        logger.debug("Background script HMR cleanup completed");
       });
     }
   },
