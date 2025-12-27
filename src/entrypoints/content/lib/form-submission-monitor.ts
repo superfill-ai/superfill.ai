@@ -40,8 +40,9 @@ export class FormSubmissionMonitor {
     HTMLButtonElement | HTMLInputElement,
     () => void
   > = new Map();
-  private recentSubmissions: Map<HTMLFormElement | "standalone", number> =
-    new Map();
+  private recentFormSubmissions: WeakMap<HTMLFormElement, number> =
+    new WeakMap();
+  private lastStandaloneSubmission: number = 0;
   private isMonitoring = false;
   private observer: MutationObserver | null = null;
 
@@ -190,7 +191,7 @@ export class FormSubmissionMonitor {
       return;
     }
 
-    this.recentSubmissions.set(form, Date.now());
+    this.recentFormSubmissions.set(form, Date.now());
     const fields = this.extractFieldOpids(form);
     logger.debug(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
@@ -202,14 +203,18 @@ export class FormSubmissionMonitor {
       return;
     }
 
-    this.recentSubmissions.set("standalone", Date.now());
+    this.lastStandaloneSubmission = Date.now();
     const fields = this.extractAllVisibleFieldOpids();
     logger.debug(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
   private isDuplicateSubmission(key: HTMLFormElement | "standalone"): boolean {
-    const lastSubmission = this.recentSubmissions.get(key);
+    const lastSubmission =
+      key === "standalone"
+        ? this.lastStandaloneSubmission
+        : this.recentFormSubmissions.get(key);
+
     if (!lastSubmission) return false;
 
     return Date.now() - lastSubmission < SUBMISSION_DEBOUNCE_MS;
