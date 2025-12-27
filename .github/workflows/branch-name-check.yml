@@ -6,7 +6,9 @@ on:
 
 jobs:
   branch-name-check:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    # Skip this check for Dependabot PRs
+    if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot'
     steps:
       - name: Check branch name
         run: |
