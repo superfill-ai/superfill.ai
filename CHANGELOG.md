@@ -1,5 +1,21 @@
 # superfill.ai
 
+## 0.2.0
+
+### Minor Changes
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@mikr13](https://github.com/mikr13)! - feat: capture user filled memories automatically
+
+- [#30](https://github.com/superfill-ai/superfill.ai/pull/30) [`9cf76d8`](https://github.com/superfill-ai/superfill.ai/commit/9cf76d83ed0a6017bb16ddabcdd95f38d1a5133a) Thanks [@mikr13](https://github.com/mikr13)! - refactor: key management to use offscreen document for encryption and decryption
+
+### Patch Changes
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@mikr13](https://github.com/mikr13)! - Added support for radio, checkbox and select
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement fill trigger functionality with in-field button
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@arjun-veer](https://github.com/arjun-veer)! - feat: save memories directly from preview manager
+
 ## 0.1.8
 
 ### Patch Changes
