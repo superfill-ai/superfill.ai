@@ -1,3 +1,4 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import stringComparison from "string-comparison";
 import { v7 as uuidv7 } from "uuid";
 import {
@@ -249,17 +250,5 @@ export class CaptureMemoryService {
   }
 }
 
-let serviceInstance: CaptureMemoryService | null = null;
-
-export function getCaptureMemoryService(): CaptureMemoryService {
-  if (!serviceInstance) {
-    serviceInstance = new CaptureMemoryService();
-  }
-  return serviceInstance;
-}
-
-export function registerCaptureMemoryService(): CaptureMemoryService {
-  serviceInstance = new CaptureMemoryService();
-  logger.debug("CaptureMemoryService registered");
-  return serviceInstance;
-}
+export const [registerCaptureMemoryService, getCaptureMemoryService] =
+  defineProxyService("CaptureMemoryService", () => new CaptureMemoryService());

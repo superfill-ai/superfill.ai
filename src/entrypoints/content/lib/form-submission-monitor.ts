@@ -245,9 +245,10 @@ export class FormSubmissionMonitor {
     >("input, textarea, select");
 
     for (const field of fields) {
-      if (field.offsetParent === null) continue; // Skip invisible fields
+      if (!field.checkVisibility()) continue;
 
       const opid = field.getAttribute("data-superfill-opid");
+
       if (opid) {
         opids.add(opid as FieldOpId);
       }
@@ -289,11 +290,12 @@ export class FormSubmissionMonitor {
               this.attachFormListener(form);
             }
 
-            if (this.isSubmitButton(node)) {
-              this.attachButtonListener(
-                node as HTMLButtonElement | HTMLInputElement,
-              );
-            } else {
+            if (
+              (node instanceof HTMLButtonElement ||
+                node instanceof HTMLInputElement) &&
+              this.isSubmitButton(node)
+            ) {
+              this.attachButtonListener(node);
               const buttons = node.querySelectorAll<
                 HTMLButtonElement | HTMLInputElement
               >("button, input[type='button'], input[type='submit']");
