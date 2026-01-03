@@ -1,12 +1,13 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "wxt-react-starter",
       "dependencies": {
-        "@ai-sdk/anthropic": "^2.0.56",
-        "@ai-sdk/google": "^2.0.51",
-        "@ai-sdk/openai": "^2.0.88",
+        "@ai-sdk/anthropic": "^2.0.57",
+        "@ai-sdk/google": "^2.0.52",
+        "@ai-sdk/openai": "^2.0.89",
         "@langfuse/otel": "^4.5.1",
         "@langfuse/tracing": "^4.5.1",
         "@opentelemetry/api": "^1.9.0",
@@ -38,10 +39,10 @@
         "@radix-ui/react-toggle-group": "^1.1.11",
         "@radix-ui/react-tooltip": "^1.2.8",
         "@tailwindcss/vite": "^4.1.18",
-        "@tanstack/react-form": "^1.27.6",
-        "@tanstack/react-query": "^5.90.12",
+        "@tanstack/react-form": "^1.27.7",
+        "@tanstack/react-query": "^5.90.16",
         "@webext-core/proxy-service": "^1.2.2",
-        "ai": "^5.0.116",
+        "ai": "^5.0.117",
         "ai-sdk-ollama": "^2.2.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -50,7 +51,7 @@
         "date-fns": "^4.1.0",
         "embla-carousel-react": "^8.6.0",
         "input-otp": "^1.4.2",
-        "lucide-react": "^0.561.0",
+        "lucide-react": "^0.562.0",
         "react": "^19.2.3",
         "react-circle-flags": "^0.0.25",
         "react-day-picker": "^9.13.0",
@@ -65,7 +66,7 @@
         "use-debounce": "^10.0.6",
         "uuid": "^13.0.0",
         "vaul": "^1.1.2",
-        "zod": "^4.2.1",
+        "zod": "^4.3.4",
       },
       "devDependencies": {
         "@biomejs/biome": "2.3.10",
@@ -1075,7 +1076,7 @@
 
     "lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
 
-    "lucide-react": ["lucide-react@0.561.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-Y59gMY38tl4/i0qewcqohPdEbieBy7SovpBL9IFebhc2mDd8x4PZSOsiFRkpPcOq6bj1r/mjH/Rk73gSlIJP2A=="],
+    "lucide-react": ["lucide-react@0.562.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-82hOAu7y0dbVuFfmO4bYF1XEwYk/mEbM5E+b1jgci/udUBEE/R7LF5Ip0CCEmXe8AybRM8L+04eP+LGZeDvkiw=="],
 
     "magic-string": ["magic-string@0.30.19", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-2N21sPY9Ws53PZvsEpVtNuSW+ScYbQdp4b9qUaL+9QkHUrGFKo56Lg9Emg5s9V/qrtNBmiR01sYhUOwu3H+VOw=="],
 
