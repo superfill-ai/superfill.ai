@@ -13,7 +13,7 @@ const packageJson = JSON.parse(
 );
 const version = packageJson.version;
 
-console.log(`📦 Syncing version ${version} to wxt.config.ts...`);
+console.log(`📦 Syncing version ${version}...`);
 
 const wxtConfigPath = join(rootDir, "wxt.config.ts");
 let wxtConfig = readFileSync(wxtConfigPath, "utf-8");
@@ -25,4 +25,11 @@ wxtConfig = wxtConfig.replace(
 
 writeFileSync(wxtConfigPath, wxtConfig, "utf-8");
 
-console.log(`✅ Version synced successfully!`);
+const versionJsonPath = join(rootDir, "src", "lib", "version.json");
+const versionJson = JSON.stringify({ version }, null, 2);
+
+writeFileSync(versionJsonPath, versionJson, "utf-8");
+
+console.log(
+  `✅ Version ${version} synced to wxt.config.ts and lib/version.json!`,
+);

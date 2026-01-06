@@ -80,17 +80,35 @@ export default defineBackground({
     });
 
     browser.runtime.onInstalled.addListener(async (details) => {
+      const manifest = browser.runtime.getManifest();
+      const currentVersion = manifest.version;
+      const uiSettings = await storage.uiSettings.getValue();
+
       if (details.reason === "install") {
         logger.debug(
           "Extension installed for the first time, opening settings",
         );
 
-        const currentSettings = await storage.uiSettings.getValue();
         const storedMemories = await storage.memories.getValue();
 
         await storage.uiSettings.setValue({
-          ...currentSettings,
+          ...uiSettings,
           onboardingCompleted: storedMemories.length !== 0,
+          extensionVersion: currentVersion,
+        });
+
+        browser.runtime.openOptionsPage();
+      } else if (details.reason === "update") {
+        const previousVersion = uiSettings.extensionVersion || "0.0.0";
+
+        logger.debug("Extension updated", {
+          from: previousVersion,
+          to: currentVersion,
+        });
+
+        await storage.uiSettings.setValue({
+          ...uiSettings,
+          extensionVersion: currentVersion,
         });
 
         browser.runtime.openOptionsPage();

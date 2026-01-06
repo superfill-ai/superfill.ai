@@ -3,7 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { Toaster } from "@/components/ui/sonner";
 import { queryClient } from "@/lib/query";
-import "~/assets/globals.css";
+import "./options.css";
 import { App } from "./App";
 
 // biome-ignore lint/style/noNonNullAssertion: this is fine in entrypoints

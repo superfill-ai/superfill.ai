@@ -1,0 +1,90 @@
+@import "@/assets/globals.css";
+
+.driver-popover {
+  @apply bg-background border border-border shadow-lg rounded-lg;
+}
+
+.driver-popover-title {
+  @apply text-lg font-semibold text-foreground;
+}
+
+.driver-popover-description {
+  @apply text-sm text-foreground;
+}
+
+.driver-popover-description img {
+  @apply mt-2 rounded-lg border border-border;
+}
+
+.driver-popover-progress-text {
+  @apply text-xs text-muted-foreground;
+}
+
+.driver-popover-next-btn,
+.driver-popover-prev-btn,
+.driver-popover-close-btn {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+}
+
+.driver-popover-prev-btn {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+.driver-popover-close-btn {
+  @apply bg-transparent text-muted-foreground hover:text-foreground hover:bg-transparent;
+}
+
+.driver-active-element {
+  @apply outline-none;
+}
+
+.driver-popover-footer {
+  @apply flex items-center justify-between gap-2;
+}
+
+:is(.dark *) .driver-popover {
+  background-color: oklch(0.31 0 0);
+  border-color: oklch(0.36 0.01 106.85);
+}
+
+:is(.dark *) .driver-popover-title {
+  color: oklch(0.98 0.01 93.48);
+}
+
+:is(.dark *) .driver-popover-description {
+  color: oklch(0.92 0 0);
+}
+
+:is(.dark *) .driver-popover-description img {
+  border-color: oklch(0.36 0.01 106.85);
+}
+
+:is(.dark *) .driver-popover-progress-text {
+  color: oklch(0.77 0.02 100.64);
+}
+
+:is(.dark *) .driver-popover-next-btn {
+  background-color: oklch(0.67 0.13 38.92);
+  color: oklch(1 0 0);
+}
+
+:is(.dark *) .driver-popover-next-btn:hover {
+  background-color: oklch(0.6 0.12 38.92);
+}
+
+:is(.dark *) .driver-popover-prev-btn {
+  background-color: oklch(0.98 0.01 93.48);
+  color: oklch(0.31 0 0);
+}
+
+:is(.dark *) .driver-popover-prev-btn:hover {
+  background-color: oklch(0.9 0.01 93.48);
+}
+
+:is(.dark *) .driver-popover-close-btn {
+  color: oklch(0.77 0.02 100.64);
+}
+
+:is(.dark *) .driver-popover-close-btn:hover {
+  color: oklch(0.92 0 0);
+}

@@ -7,7 +7,10 @@ export const uiSettings = storage.defineItem<UISettings>(
     fallback: {
       theme: Theme.DEFAULT,
       onboardingCompleted: false,
+      extensionVersion: "0.0.0",
+      completedTours: [],
+      lastTourCompletedAt: undefined,
     },
-    version: 3,
+    version: 4,
   },
 );

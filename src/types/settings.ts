@@ -19,6 +19,9 @@ export interface AISettings {
 export interface UISettings {
   theme: Theme;
   onboardingCompleted: boolean;
+  extensionVersion?: string;
+  completedTours?: string[];
+  lastTourCompletedAt?: string;
 }
 
 export interface ProviderOption {
