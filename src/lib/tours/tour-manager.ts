@@ -41,7 +41,7 @@ export class TourManager {
 
   async markTourCompleted(tourId: string): Promise<void> {
     const uiSettings = await storage.uiSettings.getValue();
-    const completedTours = uiSettings.completedTours || [];
+    const completedTours = [...(uiSettings.completedTours || [])];
 
     if (!completedTours.includes(tourId)) {
       completedTours.push(tourId);
@@ -83,8 +83,8 @@ export class TourManager {
   }
 
   compareVersions(v1: string, v2: string): number {
-    const parts1 = v1.split(".").map(Number);
-    const parts2 = v2.split(".").map(Number);
+    const parts1 = v1.split(".").map((p) => parseInt(p, 10) || 0);
+    const parts2 = v2.split(".").map((p) => parseInt(p, 10) || 0);
 
     for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
       const num1 = parts1[i] || 0;

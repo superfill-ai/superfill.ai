@@ -37,7 +37,6 @@ import { storage } from "@/lib/storage";
 import { getCurrentAppTour } from "@/lib/tours/tour-definitions";
 import { tourManager } from "@/lib/tours/tour-manager";
 import { getUpdateForVersion } from "@/lib/tours/version-updates";
-import versionInfo from "@/lib/version.json";
 
 export const App = () => {
   const isMobile = useIsMobile();
@@ -66,14 +65,18 @@ export const App = () => {
       if (!uiSettings.onboardingCompleted && storedMemories.length === 0) {
         setShowOnboarding(true);
       } else {
+        const previousVersion = uiSettings.extensionVersion || "0.0.0";
+        const shouldUpdateVersion = previousVersion !== currentVersion;
+
         await storage.uiSettings.setValue({
           ...uiSettings,
           onboardingCompleted: true,
+          extensionVersion: currentVersion,
         });
 
-        const previousVersion = uiSettings.extensionVersion || "0.0.0";
-        if (previousVersion !== currentVersion && previousVersion !== "0.0.0") {
+        if (shouldUpdateVersion && previousVersion !== "0.0.0") {
           const updateInfo = getUpdateForVersion(currentVersion);
+
           if (updateInfo) {
             setUpdateVersion(currentVersion);
             setUpdateChanges(updateInfo.changes);
@@ -144,7 +147,9 @@ export const App = () => {
 
   const handleStartTour = () => {
     setShowWelcomeTour(false);
-    const currentTour = getCurrentAppTour();
+    const manifest = browser.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const currentTour = getCurrentAppTour(currentVersion);
     const tour = tourManager.createTour(currentTour.id, currentTour.steps);
     tour.drive();
   };
@@ -163,7 +168,9 @@ export const App = () => {
   };
 
   const handleManualTourTrigger = () => {
-    const currentTour = getCurrentAppTour();
+    const manifest = browser.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const currentTour = getCurrentAppTour(currentVersion);
     const tour = tourManager.createTour(currentTour.id, currentTour.steps);
     tour.drive();
   };
@@ -184,7 +191,7 @@ export const App = () => {
             variant="outline"
             className="text-xs text-muted-foreground"
           >
-            v{versionInfo.version}
+            v{browser.runtime.getManifest().version}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
