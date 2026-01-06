@@ -88,8 +88,11 @@ export const App = () => {
 
     checkOnboarding();
 
-    const unsubscribe = storage.uiSettings.watch((newSettings) => {
-      if (newSettings?.onboardingCompleted && showOnboarding) {
+    const unsubscribe = storage.uiSettings.watch((newSettings, oldSettings) => {
+      if (
+        newSettings?.onboardingCompleted &&
+        !oldSettings?.onboardingCompleted
+      ) {
         setShowOnboarding(false);
         setShowWelcomeTour(true);
       }
@@ -98,7 +101,7 @@ export const App = () => {
     return () => {
       unsubscribe();
     };
-  }, [showOnboarding]);
+  }, []);
 
   useHotkeys("c", () => {
     setActiveTab("memory");
