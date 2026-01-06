@@ -113,9 +113,13 @@ export const AutofillSettings = () => {
           Control how autofill & trigger behaves
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-tour="autofill-settings">
         <FieldGroup>
-          <Field orientation="horizontal" data-invalid={false}>
+          <Field
+            orientation="horizontal"
+            data-invalid={false}
+            data-tour="autofill-enabled"
+          >
             <FieldContent>
               <FieldLabel htmlFor={autofillEnabledId}>
                 Enable Autofill
@@ -132,7 +136,11 @@ export const AutofillSettings = () => {
             />
           </Field>
 
-          <Field orientation="horizontal" data-invalid={false}>
+          <Field
+            orientation="horizontal"
+            data-invalid={false}
+            data-tour="autopilot-mode"
+          >
             <FieldContent>
               <FieldLabel htmlFor={autopilotModeId}>Autopilot Mode</FieldLabel>
               <FieldDescription>
@@ -148,7 +156,7 @@ export const AutofillSettings = () => {
             />
           </Field>
 
-          <Field data-invalid={false}>
+          <Field data-invalid={false} data-tour="confidence-threshold">
             <SliderWithInput
               id={confidenceThresholdId}
               label="Confidence Threshold"
@@ -166,7 +174,11 @@ export const AutofillSettings = () => {
 
           <Separator />
 
-          <Field orientation="horizontal" data-invalid={false}>
+          <Field
+            orientation="horizontal"
+            data-invalid={false}
+            data-tour="inline-trigger"
+          >
             <FieldContent>
               <FieldLabel htmlFor={inlineTriggerEnabledId}>
                 Inline Fill Trigger Button
@@ -185,7 +197,11 @@ export const AutofillSettings = () => {
             />
           </Field>
 
-          <Field orientation="horizontal" data-invalid={false}>
+          <Field
+            orientation="horizontal"
+            data-invalid={false}
+            data-tour="context-menu"
+          >
             <FieldContent>
               <FieldLabel htmlFor={contextMenuEnabledId}>
                 Right-Click Context Menu

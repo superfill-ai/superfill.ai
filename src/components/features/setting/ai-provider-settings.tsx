@@ -114,7 +114,7 @@ export const AiProviderSettings = () => {
           </strong>
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-tour="ai-provider">
         <FieldGroup>
           {allConfigs.map((config) => (
             <div key={config.id} className="flex gap-2">
