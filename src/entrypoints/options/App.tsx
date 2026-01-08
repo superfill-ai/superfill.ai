@@ -5,6 +5,7 @@ import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
+import { CaptureSettings } from "@/components/features/setting/capture-settings";
 import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
 import { UpdateTourDialog } from "@/components/features/setting/update-tour-dialog";
 import { WelcomeTourDialog } from "@/components/features/setting/welcome-tour-dialog";
@@ -238,6 +239,7 @@ export const App = () => {
           <TabsContent value="settings" className="flex-1 overflow-auto p-6">
             <div className="max-w-3xl mx-auto space-y-6">
               <AutofillSettings />
+              <CaptureSettings />
               <AiProviderSettings />
             </div>
           </TabsContent>

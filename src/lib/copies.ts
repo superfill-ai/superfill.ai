@@ -27,3 +27,32 @@ export function isTrackableFieldType(
 ): value is TrackableFieldType {
   return TRACKABLE_FIELD_TYPES.includes(value as TrackableFieldType);
 }
+
+export const MESSAGING_SITE_BLOCKLIST = [
+  // Chat & Messaging
+  "discord.com",
+  "web.whatsapp.com",
+  "whatsapp.com",
+  "slack.com",
+  "teams.microsoft.com",
+  "web.telegram.org",
+  "telegram.org",
+  "messenger.com",
+  "facebook.com/messages",
+  "signal.org",
+
+  // Social Media Messaging
+  "twitter.com/messages",
+  "x.com/messages",
+  "reddit.com/chat",
+  "linkedin.com/messaging",
+  "instagram.com/direct",
+
+  // Other Chat Platforms
+  "chat.google.com",
+  "hangouts.google.com",
+  "skype.com",
+  "zoom.us",
+  "meet.google.com",
+  "webex.com",
+] as const;

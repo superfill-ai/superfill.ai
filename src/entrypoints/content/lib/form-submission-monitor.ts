@@ -31,7 +31,15 @@ type SubmissionCallback = (
   submittedFields: Set<FieldOpId>,
 ) => void | Promise<void>;
 
-const SUBMISSION_DEBOUNCE_MS = 500;
+const SUBMISSION_DEBOUNCE_MS = 2000;
+const FORM_SUBMISSION_TIMEOUT_MS = 1500;
+
+interface WebRequestSubmissionMessage {
+  type: "FORM_SUBMITTED_VIA_WEBREQUEST";
+  url: string;
+  method: string;
+  timestamp: number;
+}
 
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
@@ -45,6 +53,12 @@ export class FormSubmissionMonitor {
   private lastStandaloneSubmission: number = 0;
   private isMonitoring = false;
   private observer: MutationObserver | null = null;
+  private lastUrl: string = window.location.href;
+  private pendingSubmissionTimeout: number | null = null;
+  private hasWebRequestAPI = false;
+  private webRequestListener:
+    | ((message: WebRequestSubmissionMessage) => void)
+    | null = null;
 
   start(): void {
     if (this.isMonitoring) {
@@ -52,12 +66,44 @@ export class FormSubmissionMonitor {
       return;
     }
 
+    this.hasWebRequestAPI =
+      typeof browser !== "undefined" &&
+      typeof browser.webRequest !== "undefined";
+
+    this.webRequestListener = (message: WebRequestSubmissionMessage) => {
+      if (message.type === "FORM_SUBMITTED_VIA_WEBREQUEST") {
+        logger.debug(
+          "Received webRequest submission notification:",
+          message.url,
+          message.method,
+        );
+        if (!this.hasWebRequestAPI) {
+          this.hasWebRequestAPI = true;
+          logger.debug(
+            "webRequest API confirmed working via background script",
+          );
+        }
+
+        if (this.pendingSubmissionTimeout) {
+          window.clearTimeout(this.pendingSubmissionTimeout);
+          this.pendingSubmissionTimeout = null;
+          logger.debug("Cancelled pending timeout - webRequest took priority");
+        }
+        this.triggerPendingSubmission();
+      }
+    };
+
+    browser.runtime.onMessage.addListener(this.webRequestListener);
+
     this.attachExistingFormListeners();
     this.attachSubmitButtonListeners();
     this.startMutationObserver();
+    this.startUrlChangeDetection();
     this.isMonitoring = true;
 
-    logger.debug("Form submission monitor started");
+    logger.debug("Form submission monitor started", {
+      hasWebRequestAPI: this.hasWebRequestAPI,
+    });
   }
 
   dispose(): void {
@@ -68,6 +114,16 @@ export class FormSubmissionMonitor {
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
+    }
+
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
+
+    if (this.webRequestListener) {
+      browser.runtime.onMessage.removeListener(this.webRequestListener);
+      this.webRequestListener = null;
     }
 
     this.isMonitoring = false;
@@ -173,6 +229,9 @@ export class FormSubmissionMonitor {
 
     const listener = async () => {
       logger.debug("Submit button clicked", button);
+
+      this.scheduleSubmissionTimeout();
+
       const form = button.closest("form");
       if (form) {
         await this.handleFormSubmission(form);
@@ -181,7 +240,7 @@ export class FormSubmissionMonitor {
       }
     };
 
-    button.addEventListener("click", listener);
+    button.addEventListener("click", listener, { passive: true });
     this.buttonListeners.set(button, listener);
   }
 
@@ -327,6 +386,64 @@ export class FormSubmissionMonitor {
       button.removeEventListener("click", listener);
     }
     this.buttonListeners.clear();
+  }
+
+  private startUrlChangeDetection(): void {
+    window.addEventListener("popstate", () => {
+      this.handleUrlChange();
+    });
+
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+
+    history.pushState = (...args) => {
+      originalPushState.apply(history, args);
+      this.handleUrlChange();
+    };
+
+    history.replaceState = (...args) => {
+      originalReplaceState.apply(history, args);
+      this.handleUrlChange();
+    };
+
+    logger.debug("URL change detection started");
+  }
+
+  private handleUrlChange(): void {
+    const newUrl = window.location.href;
+
+    if (newUrl !== this.lastUrl) {
+      logger.debug("URL changed, checking for pending submission", {
+        from: this.lastUrl,
+        to: newUrl,
+      });
+
+      this.lastUrl = newUrl;
+
+      if (this.pendingSubmissionTimeout) {
+        this.triggerPendingSubmission();
+      }
+    }
+  }
+
+  private scheduleSubmissionTimeout(): void {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+    }
+
+    this.pendingSubmissionTimeout = window.setTimeout(() => {
+      logger.debug("Submission timeout triggered");
+      this.triggerPendingSubmission();
+    }, FORM_SUBMISSION_TIMEOUT_MS);
+  }
+
+  private async triggerPendingSubmission(): Promise<void> {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
+
+    await this.handleStandaloneSubmission();
   }
 }
 

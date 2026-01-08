@@ -3,6 +3,10 @@ import {
   getAutofillService,
   registerAutofillService,
 } from "@/lib/autofill/autofill-service";
+import {
+  getCaptureMemoryService,
+  registerCaptureMemoryService,
+} from "@/lib/autofill/capture-memory-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   getSessionService,
@@ -12,7 +16,10 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
-import { registerKeyVaultService } from "@/lib/security/key-vault-service";
+import {
+  getKeyVaultService,
+  registerKeyVaultService,
+} from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import { migrateAISettings } from "./lib/migrate-settings-handler";
 
@@ -29,13 +36,13 @@ export default defineBackground({
     registerCategorizationService();
     registerKeyValidationService();
     registerKeyVaultService();
-    // registerCaptureMemoryService();
+    registerCaptureMemoryService();
     registerModelService();
     registerAutofillService();
     registerSessionService();
     const sessionService = getSessionService();
-    // const captureMemoryService = getCaptureMemoryService();
-    // const keyVault = getKeyVaultService();
+    const captureMemoryService = getCaptureMemoryService();
+    const keyVault = getKeyVaultService();
     const autofillService = getAutofillService();
 
     const updateContextMenu = async (enabled: boolean) => {
@@ -134,42 +141,85 @@ export default defineBackground({
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
 
-    // contentAutofillMessaging.onMessage(
-    //   "saveCapturedMemories",
-    //   async ({ data }) => {
-    //     try {
-    //       const aiSettings = await storage.aiSettings.getValue();
-    //       const provider = aiSettings.selectedProvider;
+    if (browser.webRequest?.onBeforeRequest) {
+      browser.webRequest.onBeforeRequest.addListener(
+        (details) => {
+          if (
+            details.method === "POST" ||
+            details.method === "PUT" ||
+            details.method === "PATCH"
+          ) {
+            logger.debug(
+              "webRequest detected form submission:",
+              details.method,
+              details.url,
+            );
 
-    //       if (!provider) {
-    //         logger.error("No AI provider configured");
-    //         return { success: false, savedCount: 0 };
-    //       }
+            if (details.tabId && details.tabId !== -1) {
+              browser.tabs
+                .sendMessage(details.tabId, {
+                  type: "FORM_SUBMITTED_VIA_WEBREQUEST",
+                  url: details.url,
+                  method: details.method,
+                  timestamp: Date.now(),
+                })
+                .catch((error) => {
+                  logger.debug("Could not notify content script:", error);
+                });
+            }
+          }
+          return undefined;
+        },
+        {
+          urls: ["<all_urls>"],
+          types: ["xmlhttprequest", "main_frame", "sub_frame"],
+        },
+      );
+      logger.debug(
+        "webRequest listener registered for form submission detection",
+      );
+    } else {
+      logger.debug(
+        "webRequest API not available, using content script detection only",
+      );
+    }
 
-    //       const apiKey = await keyVault.getKey(provider);
+    contentAutofillMessaging.onMessage(
+      "saveCapturedMemories",
+      async ({ data }) => {
+        try {
+          const aiSettings = await storage.aiSettings.getValue();
+          const provider = aiSettings.selectedProvider;
 
-    //       if (!apiKey) {
-    //         logger.error("Failed to retrieve API key for categorization");
-    //         return { success: false, savedCount: 0 };
-    //       }
+          if (!provider) {
+            logger.error("No AI provider configured");
+            return { success: false, savedCount: 0 };
+          }
 
-    //       const modelName = aiSettings.selectedModels?.[provider];
+          const apiKey = await keyVault.getKey(provider);
 
-    //       const result = await captureMemoryService.saveCapturedMemories(
-    //         data.capturedFields,
-    //         provider,
-    //         apiKey,
-    //         modelName,
-    //       );
+          if (!apiKey) {
+            logger.error("Failed to retrieve API key for categorization");
+            return { success: false, savedCount: 0 };
+          }
 
-    //       logger.debug("Captured memories saved:", result);
-    //       return result;
-    //     } catch (error) {
-    //       logger.error("Failed to save captured memories:", error);
-    //       return { success: false, savedCount: 0 };
-    //     }
-    //   },
-    // );
+          const modelName = aiSettings.selectedModels?.[provider];
+
+          const result = await captureMemoryService.saveCapturedMemories(
+            data.capturedFields,
+            provider,
+            apiKey,
+            modelName,
+          );
+
+          logger.debug("Captured memories saved:", result);
+          return result;
+        } catch (error) {
+          logger.error("Failed to save captured memories:", error);
+          return { success: false, savedCount: 0 };
+        }
+      },
+    );
 
     browser.runtime.onMessage.addListener((message, sender) => {
       if (

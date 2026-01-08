@@ -13,5 +13,8 @@
   "cSpell.words": ["Superfill", "autofills", "Autofills", "Opid", "ollama"],
   "[svg]": {
     "editor.defaultFormatter": "jock.svg"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
   }
 }
