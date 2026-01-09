@@ -49,10 +49,9 @@ const CapturePrompt = ({
   onDismiss,
   onNeverAsk,
 }: CapturePromptProps) => {
-  // Group fields by category
   const groupedFields = capturedFields.reduce(
     (acc, field) => {
-      const category = field.fieldMetadata.type || "general";
+      const category = field.fieldMetadata.type ?? "general";
       if (!acc[category]) {
         acc[category] = [];
       }
@@ -65,12 +64,18 @@ const CapturePrompt = ({
   const totalFields = capturedFields.length;
 
   return (
-    <div className="fixed top-4 right-4 z-9999">
+    <div
+      className="fixed top-4 right-4 z-9999"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="save-memory-title"
+    >
       <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-3">
         <CardHeader>
           <CardTitle className="text-sm">Save form data?</CardTitle>
-          <CardDescription className="text-xs text-wrap">
-            {siteTitle}
+          <CardDescription className="text-xs text-wrap" id="save-memory-title">
+            Superfill detected {totalFields} field{totalFields !== 1 ? "s" : ""}{" "}
+            you filled on {siteTitle}. Save them for future use?
           </CardDescription>
           <CardAction>
             <Button
@@ -78,6 +83,7 @@ const CapturePrompt = ({
               size="icon"
               className="shrink-0"
               onClick={onDismiss}
+              aria-label="Dismiss prompt"
             >
               <X className="size-4" />
             </Button>
@@ -85,11 +91,6 @@ const CapturePrompt = ({
         </CardHeader>
 
         <CardContent className="max-h-80 overflow-y-auto">
-          <p className="text-xs text-muted-foreground">
-            Superfill detected {totalFields} field{totalFields !== 1 ? "s" : ""}{" "}
-            you filled. Save them for future use?
-          </p>
-
           <Accordion type="single" collapsible className="w-full">
             {Object.entries(groupedFields).map(([category, fields]) => (
               <AccordionItem key={category} value={category}>

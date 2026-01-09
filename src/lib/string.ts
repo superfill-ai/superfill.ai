@@ -14,7 +14,7 @@ export const normalizeFieldName = (fieldName: string): string => {
     .replace(/\s+/g, " ");
 };
 
-export const CANONICAL_FIELD_QUESTIONS: Record<string, string> = {
+export const CANONICAL_FIELD_QUESTIONS = {
   "first name": "first name",
   "given name": "first name",
   forename: "first name",
@@ -43,9 +43,16 @@ export const CANONICAL_FIELD_QUESTIONS: Record<string, string> = {
   "zip code": "zip code",
   "postal code": "zip code",
   country: "country",
-};
+} as const;
+
+export type CanonicalFieldQuestion =
+  (typeof CANONICAL_FIELD_QUESTIONS)[keyof typeof CANONICAL_FIELD_QUESTIONS];
 
 export const getCanonicalQuestion = (question: string): string => {
   const normalized = normalizeString(question);
-  return CANONICAL_FIELD_QUESTIONS[normalized] || normalized;
+  return (
+    CANONICAL_FIELD_QUESTIONS[
+      normalized as keyof typeof CANONICAL_FIELD_QUESTIONS
+    ] || normalized
+  );
 };

@@ -55,18 +55,28 @@ export function isChatInterface(): boolean {
   >('input[type="text"], textarea');
 
   // More than one input field usually indicates a form, not chat
-  if (inputs.length !== 1) {
+  if (inputs.length === 0) {
     return false;
   }
 
   const hasLogRole = document.querySelector('[role="log"]') !== null;
-  const hasChatClass = document.querySelector('[class*="chat" i]') !== null;
-  const hasMessagesClass =
-    document.querySelector('[class*="message" i]') !== null;
-
-  const hasChatContainer =
-    document.querySelector('[id*="chat" i]') !== null ||
-    document.querySelector('[data-testid*="chat" i]') !== null;
+  const classElements = Array.from(
+    document.querySelectorAll<HTMLElement>("[class]"),
+  );
+  const hasChatClass = classElements.some((el) =>
+    /\bchat\b/i.test(el.className),
+  );
+  const hasMessagesClass = classElements.some((el) =>
+    /\bmessage\b/i.test(el.className),
+  );
+  const idOrTestIdElements = Array.from(
+    document.querySelectorAll<HTMLElement>("[id], [data-testid]"),
+  );
+  const hasChatContainer = idOrTestIdElements.some((el) => {
+    const id = el.id || "";
+    const testId = (el.getAttribute("data-testid") || "").toString();
+    return /chat/i.test(id) || /chat/i.test(testId);
+  });
 
   return hasLogRole || hasChatClass || hasMessagesClass || hasChatContainer;
 }

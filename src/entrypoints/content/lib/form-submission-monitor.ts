@@ -31,7 +31,7 @@ type SubmissionCallback = (
   submittedFields: Set<FieldOpId>,
 ) => void | Promise<void>;
 
-const SUBMISSION_DEBOUNCE_MS = 2000;
+const SUBMISSION_DEBOUNCE_MS = 1000;
 const FORM_SUBMISSION_TIMEOUT_MS = 1500;
 
 // TODO: Re-enable webRequest integration when properly scoped
