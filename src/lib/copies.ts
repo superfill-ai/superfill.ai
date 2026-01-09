@@ -28,7 +28,7 @@ export function isTrackableFieldType(
   return TRACKABLE_FIELD_TYPES.includes(value as TrackableFieldType);
 }
 
-export const MESSAGING_SITE_BLOCKLIST = [
+export const MESSAGING_SITE_BLOCKLIST_DOMAINS = [
   // Chat & Messaging
   "discord.com",
   "web.whatsapp.com",
@@ -38,15 +38,10 @@ export const MESSAGING_SITE_BLOCKLIST = [
   "web.telegram.org",
   "telegram.org",
   "messenger.com",
-  "facebook.com/messages",
   "signal.org",
 
   // Social Media Messaging
-  "twitter.com/messages",
-  "x.com/messages",
-  "reddit.com/chat",
-  "linkedin.com/messaging",
-  "instagram.com/direct",
+  "reddit.com",
 
   // Other Chat Platforms
   "chat.google.com",
@@ -56,3 +51,31 @@ export const MESSAGING_SITE_BLOCKLIST = [
   "meet.google.com",
   "webex.com",
 ] as const;
+
+export const MESSAGING_SITE_BLOCKLIST_PATHS = [
+  { domain: "facebook.com", path: "/messages" },
+  { domain: "twitter.com", path: "/messages" },
+  { domain: "x.com", path: "/messages" },
+  { domain: "reddit.com", path: "/chat" },
+  { domain: "linkedin.com", path: "/messaging" },
+  { domain: "instagram.com", path: "/direct" },
+] as const;
+
+export function isMessagingSite(hostname: string, pathname: string): boolean {
+  const lowerHostname = hostname.toLowerCase();
+  const lowerPathname = pathname.toLowerCase();
+
+  if (
+    MESSAGING_SITE_BLOCKLIST_DOMAINS.some((domain) =>
+      lowerHostname.includes(domain),
+    )
+  ) {
+    return true;
+  }
+
+  return MESSAGING_SITE_BLOCKLIST_PATHS.some(
+    (entry) =>
+      lowerHostname.includes(entry.domain) &&
+      lowerPathname.startsWith(entry.path),
+  );
+}

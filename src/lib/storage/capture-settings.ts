@@ -36,11 +36,17 @@ export function isSiteBlocked(
 ): boolean {
   const domain = hostname.toLowerCase();
 
-  if (settings.neverAskSites.some((site) => domain.includes(site))) {
+  if (
+    settings.neverAskSites.some(
+      (site) => domain === site || domain.endsWith(`.${site}`),
+    )
+  ) {
     return true;
   }
 
-  return settings.blockedDomains.some((blocked) => domain.includes(blocked));
+  return settings.blockedDomains.some(
+    (blocked) => domain === blocked || domain.endsWith(`.${blocked}`),
+  );
 }
 
 export function isChatInterface(): boolean {

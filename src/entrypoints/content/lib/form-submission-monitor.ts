@@ -34,12 +34,13 @@ type SubmissionCallback = (
 const SUBMISSION_DEBOUNCE_MS = 2000;
 const FORM_SUBMISSION_TIMEOUT_MS = 1500;
 
-interface WebRequestSubmissionMessage {
-  type: "FORM_SUBMITTED_VIA_WEBREQUEST";
-  url: string;
-  method: string;
-  timestamp: number;
-}
+// TODO: Re-enable webRequest integration when properly scoped
+// interface WebRequestSubmissionMessage {
+//   type: "FORM_SUBMITTED_VIA_WEBREQUEST";
+//   url: string;
+//   method: string;
+//   timestamp: number;
+// }
 
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
@@ -55,10 +56,14 @@ export class FormSubmissionMonitor {
   private observer: MutationObserver | null = null;
   private lastUrl: string = window.location.href;
   private pendingSubmissionTimeout: number | null = null;
-  private hasWebRequestAPI = false;
-  private webRequestListener:
-    | ((message: WebRequestSubmissionMessage) => void)
-    | null = null;
+  // TODO: Re-enable when webRequest is properly implemented
+  // private hasWebRequestAPI = false;
+  // private webRequestListener:
+  //   | ((message: WebRequestSubmissionMessage) => void)
+  //   | null = null;
+  private originalPushState: typeof history.pushState | null = null;
+  private originalReplaceState: typeof history.replaceState | null = null;
+  private boundPopStateListener: (() => void) | null = null;
 
   start(): void {
     if (this.isMonitoring) {
@@ -66,34 +71,31 @@ export class FormSubmissionMonitor {
       return;
     }
 
-    this.hasWebRequestAPI =
-      typeof browser !== "undefined" &&
-      typeof browser.webRequest !== "undefined";
-
-    this.webRequestListener = (message: WebRequestSubmissionMessage) => {
-      if (message.type === "FORM_SUBMITTED_VIA_WEBREQUEST") {
-        logger.debug(
-          "Received webRequest submission notification:",
-          message.url,
-          message.method,
-        );
-        if (!this.hasWebRequestAPI) {
-          this.hasWebRequestAPI = true;
-          logger.debug(
-            "webRequest API confirmed working via background script",
-          );
-        }
-
-        if (this.pendingSubmissionTimeout) {
-          window.clearTimeout(this.pendingSubmissionTimeout);
-          this.pendingSubmissionTimeout = null;
-          logger.debug("Cancelled pending timeout - webRequest took priority");
-        }
-        this.triggerPendingSubmission();
-      }
-    };
-
-    browser.runtime.onMessage.addListener(this.webRequestListener);
+    // TODO: Re-enable webRequest integration when properly scoped
+    // this.webRequestListener = (message: WebRequestSubmissionMessage) => {
+    //   if (message.type === "FORM_SUBMITTED_VIA_WEBREQUEST") {
+    //     logger.debug(
+    //       "Received webRequest submission notification:",
+    //       message.url,
+    //       message.method,
+    //     );
+    //     if (!this.hasWebRequestAPI) {
+    //       this.hasWebRequestAPI = true;
+    //       logger.debug(
+    //         "webRequest API confirmed working via background script",
+    //       );
+    //     }
+    //
+    //     if (this.pendingSubmissionTimeout) {
+    //       window.clearTimeout(this.pendingSubmissionTimeout);
+    //       this.pendingSubmissionTimeout = null;
+    //       logger.debug("Cancelled pending timeout - webRequest took priority");
+    //     }
+    //     this.triggerPendingSubmission();
+    //   }
+    // };
+    //
+    // browser.runtime.onMessage.addListener(this.webRequestListener);
 
     this.attachExistingFormListeners();
     this.attachSubmitButtonListeners();
@@ -101,9 +103,7 @@ export class FormSubmissionMonitor {
     this.startUrlChangeDetection();
     this.isMonitoring = true;
 
-    logger.debug("Form submission monitor started", {
-      hasWebRequestAPI: this.hasWebRequestAPI,
-    });
+    logger.debug("Form submission monitor started");
   }
 
   dispose(): void {
@@ -121,9 +121,25 @@ export class FormSubmissionMonitor {
       this.pendingSubmissionTimeout = null;
     }
 
-    if (this.webRequestListener) {
-      browser.runtime.onMessage.removeListener(this.webRequestListener);
-      this.webRequestListener = null;
+    // TODO: Re-enable when webRequest is properly implemented
+    // if (this.webRequestListener) {
+    //   browser.runtime.onMessage.removeListener(this.webRequestListener);
+    //   this.webRequestListener = null;
+    // }
+
+    if (this.boundPopStateListener) {
+      window.removeEventListener("popstate", this.boundPopStateListener);
+      this.boundPopStateListener = null;
+    }
+
+    if (this.originalPushState) {
+      history.pushState = this.originalPushState;
+      this.originalPushState = null;
+    }
+
+    if (this.originalReplaceState) {
+      history.replaceState = this.originalReplaceState;
+      this.originalReplaceState = null;
     }
 
     this.isMonitoring = false;
@@ -389,20 +405,25 @@ export class FormSubmissionMonitor {
   }
 
   private startUrlChangeDetection(): void {
-    window.addEventListener("popstate", () => {
+    this.boundPopStateListener = () => {
       this.handleUrlChange();
-    });
+    };
+    window.addEventListener("popstate", this.boundPopStateListener);
 
-    const originalPushState = history.pushState;
-    const originalReplaceState = history.replaceState;
+    this.originalPushState = history.pushState;
+    this.originalReplaceState = history.replaceState;
 
     history.pushState = (...args) => {
-      originalPushState.apply(history, args);
+      if (this.originalPushState) {
+        this.originalPushState.apply(history, args);
+      }
       this.handleUrlChange();
     };
 
     history.replaceState = (...args) => {
-      originalReplaceState.apply(history, args);
+      if (this.originalReplaceState) {
+        this.originalReplaceState.apply(history, args);
+      }
       this.handleUrlChange();
     };
 

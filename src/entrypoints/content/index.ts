@@ -7,7 +7,7 @@ import {
 } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
-import { MESSAGING_SITE_BLOCKLIST } from "@/lib/copies";
+import { isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import {
   getCaptureSettings,
@@ -58,12 +58,11 @@ export default defineContentScript({
     const contextExtractor = new WebsiteContextExtractor();
     const fillTriggerManager = new FillTriggerManager();
     const hostname = window.location.hostname;
+    const pathname = window.location.pathname;
     const captureSettings = await getCaptureSettings();
     const isBlocked =
       isSiteBlocked(hostname, captureSettings) ||
-      MESSAGING_SITE_BLOCKLIST.some((site) =>
-        hostname.toLowerCase().includes(site),
-      ) ||
+      isMessagingSite(hostname, pathname) ||
       isChatInterface();
 
     let fieldTracker: Awaited<ReturnType<typeof getFieldDataTracker>> | null =

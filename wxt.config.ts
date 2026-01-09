@@ -31,7 +31,8 @@ export default defineConfig({
         "storage",
         "offscreen",
         "contextMenus",
-        "webRequest",
+        // TODO: Enable webRequest-based form submission detection with proper scoping
+        // "webRequest",
       ],
       host_permissions: [
         "https://api.openai.com/*",

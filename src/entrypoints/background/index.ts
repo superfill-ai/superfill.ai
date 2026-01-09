@@ -141,48 +141,57 @@ export default defineBackground({
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
 
-    if (browser.webRequest?.onBeforeRequest) {
-      browser.webRequest.onBeforeRequest.addListener(
-        (details) => {
-          if (
-            details.method === "POST" ||
-            details.method === "PUT" ||
-            details.method === "PATCH"
-          ) {
-            logger.debug(
-              "webRequest detected form submission:",
-              details.method,
-              details.url,
-            );
-
-            if (details.tabId && details.tabId !== -1) {
-              browser.tabs
-                .sendMessage(details.tabId, {
-                  type: "FORM_SUBMITTED_VIA_WEBREQUEST",
-                  url: details.url,
-                  method: details.method,
-                  timestamp: Date.now(),
-                })
-                .catch((error) => {
-                  logger.debug("Could not notify content script:", error);
-                });
-            }
-          }
-          return undefined;
-        },
-        {
-          urls: ["<all_urls>"],
-          types: ["xmlhttprequest", "main_frame", "sub_frame"],
-        },
-      );
-      logger.debug(
-        "webRequest listener registered for form submission detection",
-      );
-    } else {
-      logger.debug(
-        "webRequest API not available, using content script detection only",
-      );
-    }
+    // TODO: Implement webRequest-based form submission detection with proper scoping
+    // Currently commented out due to privacy concerns with <all_urls> scope.
+    // Need to:
+    // 1. Scope webRequest to only URLs with detected forms (like Bitwarden does)
+    // 2. Dynamically add/remove listeners based on active tabs with forms
+    // 3. Remove URL logging in production
+    // 4. Add privacy disclosure documentation
+    // See: https://github.com/bitwarden/clients (overlay-notifications.background.ts)
+    //
+    // if (browser.webRequest?.onBeforeRequest) {
+    //   browser.webRequest.onBeforeRequest.addListener(
+    //     (details) => {
+    //       if (
+    //         details.method === "POST" ||
+    //         details.method === "PUT" ||
+    //         details.method === "PATCH"
+    //       ) {
+    //         logger.debug(
+    //           "webRequest detected form submission:",
+    //           details.method,
+    //           details.url,
+    //         );
+    //
+    //         if (details.tabId && details.tabId !== -1) {
+    //           browser.tabs
+    //             .sendMessage(details.tabId, {
+    //               type: "FORM_SUBMITTED_VIA_WEBREQUEST",
+    //               url: details.url,
+    //               method: details.method,
+    //               timestamp: Date.now(),
+    //             })
+    //             .catch((error) => {
+    //               logger.debug("Could not notify content script:", error);
+    //             });
+    //         }
+    //       }
+    //       return undefined;
+    //     },
+    //     {
+    //       urls: ["<all_urls>"],
+    //       types: ["xmlhttprequest", "main_frame", "sub_frame"],
+    //     },
+    //   );
+    //   logger.debug(
+    //     "webRequest listener registered for form submission detection",
+    //   );
+    // } else {
+    //   logger.debug(
+    //     "webRequest API not available, using content script detection only",
+    //   );
+    // }
 
     contentAutofillMessaging.onMessage(
       "saveCapturedMemories",

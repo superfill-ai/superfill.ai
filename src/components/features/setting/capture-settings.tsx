@@ -17,11 +17,14 @@ import {
 } from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { createLogger } from "@/lib/logger";
 import {
   getCaptureSettings,
   removeNeverAskSite,
   updateCaptureSettings,
 } from "@/lib/storage/capture-settings";
+
+const logger = createLogger("capture-settings");
 
 export const CaptureSettings = () => {
   const captureEnabledId = useId();
@@ -31,23 +34,37 @@ export const CaptureSettings = () => {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const settings = await getCaptureSettings();
-      setCaptureEnabled(settings.enabled);
-      setNeverAskSites(settings.neverAskSites);
+      try {
+        const settings = await getCaptureSettings();
+        setCaptureEnabled(settings.enabled);
+        setNeverAskSites(settings.neverAskSites);
+      } catch (error) {
+        logger.error("Failed to fetch capture settings:", error);
+      }
     };
-
     fetchSettings();
   }, []);
 
   const handleSetCaptureEnabled = async (enabled: boolean) => {
-    await updateCaptureSettings({ enabled });
+    const previousState = captureEnabled;
     setCaptureEnabled(enabled);
+    try {
+      await updateCaptureSettings({ enabled });
+    } catch (error) {
+      console.error("Failed to update capture settings:", error);
+      setCaptureEnabled(previousState);
+    }
   };
 
   const handleRemoveSite = async (site: string) => {
-    await removeNeverAskSite(site);
-    const settings = await getCaptureSettings();
-    setNeverAskSites(settings.neverAskSites);
+    const previousSites = neverAskSites;
+    setNeverAskSites(neverAskSites.filter((s) => s !== site));
+    try {
+      await removeNeverAskSite(site);
+    } catch (error) {
+      logger.error("Failed to remove site from never-ask list:", error);
+      setNeverAskSites(previousSites);
+    }
   };
 
   return (
