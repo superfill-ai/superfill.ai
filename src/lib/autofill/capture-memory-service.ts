@@ -11,28 +11,70 @@ import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { CapturedFieldData } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
-import { normalizeString } from "../string";
+import {
+  getCanonicalQuestion,
+  normalizeFieldName,
+  normalizeString,
+} from "../string";
 
 const logger = createLogger("capture-memory-service");
 
 const FALLBACK_CONFIDENCE_ON_ERROR = 0.3;
 const FALLBACK_CONFIDENCE_NO_AI = 0.5;
 const DEFAULT_CATEGORY = "general";
-const QUESTION_SIMILARITY_THRESHOLD = 0.85;
+const SEMANTIC_SIMILARITY_THRESHOLD = 0.7;
+const CANONICAL_MATCH_BOOST = 0.15;
 
 const { diceCoefficient, jaroWinkler } = stringComparison;
 
-function areQuestionsSimilar(q1: string, q2: string): boolean {
+function areQuestionsSimilar(
+  q1: string,
+  q2: string,
+  purpose1?: string,
+  purpose2?: string,
+): boolean {
   const norm1 = normalizeString(q1);
   const norm2 = normalizeString(q2);
 
   if (norm1 === norm2) return true;
 
+  const canonical1 = getCanonicalQuestion(q1);
+  const canonical2 = getCanonicalQuestion(q2);
+
+  if (canonical1 === canonical2) {
+    logger.debug("Canonical match found:", { q1, q2, canonical: canonical1 });
+    return true;
+  }
+
+  if (purpose1 && purpose2 && purpose1 === purpose2 && purpose1 !== "unknown") {
+    logger.debug("Field purpose match:", { purpose: purpose1, q1, q2 });
+    return true;
+  }
+
+  const fieldName1 = normalizeFieldName(q1);
+  const fieldName2 = normalizeFieldName(q2);
+
+  if (fieldName1 === fieldName2 && fieldName1.length > 0) {
+    logger.debug("Normalized field name match:", { fieldName: fieldName1 });
+    return true;
+  }
+
   const diceSim = diceCoefficient.similarity(norm1, norm2);
   const jaroSim = jaroWinkler.similarity(norm1, norm2);
-  const combinedSim = (diceSim + jaroSim) / 2;
+  let combinedSim = (diceSim + jaroSim) / 2;
 
-  return combinedSim >= QUESTION_SIMILARITY_THRESHOLD;
+  if (canonical1 !== norm1 || canonical2 !== norm2) {
+    const canonicalSim = diceCoefficient.similarity(canonical1, canonical2);
+    if (canonicalSim > 0.8) {
+      combinedSim += CANONICAL_MATCH_BOOST;
+      logger.debug("Applied canonical boost:", {
+        original: combinedSim - CANONICAL_MATCH_BOOST,
+        boosted: combinedSim,
+      });
+    }
+  }
+
+  return combinedSim >= SEMANTIC_SIMILARITY_THRESHOLD;
 }
 
 function areAnswersEqual(a1: string, a2: string): boolean {
@@ -56,7 +98,11 @@ export class CaptureMemoryService {
   }
 
   private deduplicateFields(
-    fieldsToSave: Array<{ question: string; answer: string }>,
+    fieldsToSave: Array<{
+      question: string;
+      answer: string;
+      purpose?: string;
+    }>,
     currentMemories: MemoryEntry[],
   ): DeduplicationResult {
     const result: DeduplicationResult = {
@@ -71,7 +117,15 @@ export class CaptureMemoryService {
       for (const existing of currentMemories) {
         if (!existing.question) continue;
 
-        if (areQuestionsSimilar(field.question, existing.question)) {
+        const existingPurpose = existing.metadata?.fieldPurpose;
+        if (
+          areQuestionsSimilar(
+            field.question,
+            existing.question,
+            field.purpose,
+            existingPurpose,
+          )
+        ) {
           foundSimilarQuestion = true;
 
           if (!areAnswersEqual(field.answer, existing.answer)) {
@@ -178,7 +232,11 @@ export class CaptureMemoryService {
       const currentMemories = await storage.memories.getValue();
 
       const { toCreate, toUpdate } = this.deduplicateFields(
-        fieldsToSave.map((f) => ({ question: f.question, answer: f.answer })),
+        fieldsToSave.map((f) => ({
+          question: f.question,
+          answer: f.answer,
+          purpose: f.fieldMetadata.purpose,
+        })),
         currentMemories,
       );
 
@@ -192,6 +250,8 @@ export class CaptureMemoryService {
           ? catResult.category
           : DEFAULT_CATEGORY;
 
+        const originalField = fieldsToSave[item.catIndex];
+
         return {
           id: uuidv7(),
           question: item.question,
@@ -203,6 +263,7 @@ export class CaptureMemoryService {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             source: "autofill",
+            fieldPurpose: originalField.fieldMetadata.purpose,
           },
         };
       });

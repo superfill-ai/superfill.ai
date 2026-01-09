@@ -5,6 +5,7 @@ import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
+import { CaptureSettings } from "@/components/features/setting/capture-settings";
 import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
 import { UpdateTourDialog } from "@/components/features/setting/update-tour-dialog";
 import { WelcomeTourDialog } from "@/components/features/setting/welcome-tour-dialog";
@@ -68,12 +69,6 @@ export const App = () => {
         const previousVersion = uiSettings.extensionVersion || "0.0.0";
         const shouldUpdateVersion = previousVersion !== currentVersion;
 
-        await storage.uiSettings.setValue({
-          ...uiSettings,
-          onboardingCompleted: true,
-          extensionVersion: currentVersion,
-        });
-
         if (shouldUpdateVersion && previousVersion !== "0.0.0") {
           const updateInfo = getUpdateForVersion(currentVersion);
 
@@ -81,8 +76,15 @@ export const App = () => {
             setUpdateVersion(currentVersion);
             setUpdateChanges(updateInfo.changes);
             setShowUpdateTour(true);
+            setActiveTab("settings");
           }
         }
+
+        await storage.uiSettings.setValue({
+          ...uiSettings,
+          onboardingCompleted: true,
+          extensionVersion: currentVersion,
+        });
       }
     };
 
@@ -178,6 +180,18 @@ export const App = () => {
     tour.drive();
   };
 
+  const handleVersionBadgeClick = () => {
+    const manifest = browser.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const updateInfo = getUpdateForVersion(currentVersion);
+
+    if (updateInfo) {
+      setUpdateVersion(currentVersion);
+      setUpdateChanges(updateInfo.changes);
+      setShowUpdateTour(true);
+    }
+  };
+
   return (
     <section
       className="relative w-full h-screen flex flex-col overflow-hidden"
@@ -192,7 +206,8 @@ export const App = () => {
           <Badge
             size="sm"
             variant="outline"
-            className="text-xs text-muted-foreground"
+            className="text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors"
+            onClick={handleVersionBadgeClick}
           >
             v{browser.runtime.getManifest().version}
           </Badge>
@@ -238,6 +253,7 @@ export const App = () => {
           <TabsContent value="settings" className="flex-1 overflow-auto p-6">
             <div className="max-w-3xl mx-auto space-y-6">
               <AutofillSettings />
+              <CaptureSettings />
               <AiProviderSettings />
             </div>
           </TabsContent>

@@ -7,7 +7,13 @@ import {
 } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
+import { isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
+import {
+  getCaptureSettings,
+  isChatInterface,
+  isSiteBlocked,
+} from "@/lib/storage/capture-settings";
 import type {
   AutofillProgress,
   DetectedField,
@@ -17,10 +23,14 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import { FillTriggerManager } from "./components/fill-trigger-manager";
+import { CapturePromptManager } from "./components/capture-prompt-manager";
+import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
+import { getFieldDataTracker } from "./lib/field-data-tracker";
 import { handleFill } from "./lib/fill-handler";
+import { FillTriggerManager } from "./lib/fill-trigger-manager";
 import { FormDetector } from "./lib/form-detector";
+import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 import {
   destroyUIManagers,
   handleShowPreview,
@@ -47,18 +57,62 @@ export default defineContentScript({
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
     const fillTriggerManager = new FillTriggerManager();
-    // const fieldTracker = await getFieldDataTracker();
-    // const submissionMonitor = getFormSubmissionMonitor();
-    // const captureService = new CaptureService();
+    const hostname = window.location.hostname;
+    const pathname = window.location.pathname;
+    let captureSettings: Awaited<ReturnType<typeof getCaptureSettings>>;
 
-    // submissionMonitor.start();
+    try {
+      captureSettings = await getCaptureSettings();
+    } catch (error) {
+      logger.error(
+        "Failed to load capture settings, disabling capture:",
+        error,
+      );
+      captureSettings = {
+        enabled: false,
+        blockedDomains: [],
+        neverAskSites: [],
+      };
+    }
 
-    // await captureService.initializeAutoTracking(
-    //   formDetector,
-    //   fieldTracker,
-    //   formCache,
-    //   fieldCache,
-    // );
+    const isChatPage = isChatInterface();
+    const isBlocked =
+      isSiteBlocked(hostname, captureSettings) ||
+      isMessagingSite(hostname, pathname) ||
+      isChatPage;
+
+    let fieldTracker: Awaited<ReturnType<typeof getFieldDataTracker>> | null =
+      null;
+    let submissionMonitor: ReturnType<typeof getFormSubmissionMonitor> | null =
+      null;
+    let captureService: CaptureService | null = null;
+    let capturePromptManager: CapturePromptManager | null = null;
+
+    if (captureSettings.enabled && !isBlocked && frameInfo.isMainFrame) {
+      logger.debug("Initializing memory capture for site:", hostname);
+      fieldTracker = await getFieldDataTracker();
+      submissionMonitor = getFormSubmissionMonitor();
+      captureService = new CaptureService();
+      capturePromptManager = new CapturePromptManager();
+
+      submissionMonitor.start();
+
+      await captureService.initializeAutoTracking(
+        formDetector,
+        fieldTracker,
+        formCache,
+        fieldCache,
+      );
+    } else {
+      logger.debug("Memory capture disabled for site:", {
+        hostname,
+        enabled: captureSettings.enabled,
+        isBlocked,
+        isChat: isChatPage,
+        isMainFrame: frameInfo.isMainFrame,
+      });
+    }
+
     await fillTriggerManager.initialize();
 
     contentAutofillMessaging.onMessage(
@@ -197,55 +251,59 @@ export default defineContentScript({
       return true;
     });
 
-    // submissionMonitor.onSubmission(async (submittedFieldOpids) => {
-    //   logger.debug(
-    //     `Form submitted with ${submittedFieldOpids.size} fields`,
-    //     Array.from(submittedFieldOpids),
-    //   );
+    if (
+      submissionMonitor &&
+      fieldTracker &&
+      captureService &&
+      capturePromptManager
+    ) {
+      submissionMonitor.onSubmission(async (submittedFieldOpids) => {
+        logger.debug(
+          `Form submitted with ${submittedFieldOpids.size} fields`,
+          Array.from(submittedFieldOpids),
+        );
 
-    //   try {
-    //     const trackedFields = await fieldTracker.getCapturedFields();
+        try {
+          const trackedFields = await fieldTracker.getCapturedFields();
 
-    //     if (trackedFields.length === 0) {
-    //       logger.debug("No tracked fields to capture");
-    //       return;
-    //     }
+          if (trackedFields.length === 0) {
+            logger.debug("No tracked fields to capture");
+            return;
+          }
 
-    //     logger.debug(
-    //       `Processing ${trackedFields.length} tracked fields for capture`,
-    //     );
+          logger.debug(
+            `Processing ${trackedFields.length} tracked fields for capture`,
+          );
 
-    //     const capturedFields =
-    //       captureService.identifyCaptureOpportunities(trackedFields);
+          const capturedFields =
+            captureService.identifyCaptureOpportunities(trackedFields);
 
-    //     if (capturedFields.length === 0) {
-    //       logger.debug("No user-entered fields to capture");
-    //       return;
-    //     }
+          if (capturedFields.length === 0) {
+            logger.debug("No user-entered fields to capture");
+            return;
+          }
 
-    //     logger.debug(`Saving ${capturedFields.length} captured fields directly`);
+          logger.debug(
+            `Showing capture prompt for ${capturedFields.length} fields`,
+          );
 
-    //     const result = await contentAutofillMessaging.sendMessage(
-    //       "saveCapturedMemories",
-    //       {
-    //         capturedFields,
-    //       },
-    //     );
+          await capturePromptManager.show(ctx, capturedFields);
+        } catch (error) {
+          logger.error("Error processing form submission:", error);
+        }
+      });
+    }
 
-    //     if (result.success) {
-    //       logger.debug(
-    //         `Successfully saved ${result.savedCount} memories from form submission`,
-    //       );
-    //       await fieldTracker.clearSession();
-    //     }
-    //   } catch (error) {
-    //     logger.error("Error processing form submission:", error);
-    //   }
-    // });
-
-    // ctx.onInvalidated(() => {
-    //   fieldTracker.dispose();
-    //   submissionMonitor.dispose();
-    // });
+    ctx.onInvalidated(() => {
+      if (fieldTracker) {
+        fieldTracker.dispose();
+      }
+      if (submissionMonitor) {
+        submissionMonitor.dispose();
+      }
+      if (capturePromptManager) {
+        capturePromptManager.hide();
+      }
+    });
   },
 });

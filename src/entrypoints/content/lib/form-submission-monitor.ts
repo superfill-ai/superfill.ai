@@ -31,7 +31,16 @@ type SubmissionCallback = (
   submittedFields: Set<FieldOpId>,
 ) => void | Promise<void>;
 
-const SUBMISSION_DEBOUNCE_MS = 500;
+const DUPLICATE_SUBMISSION_THRESHOLD_MS = 1000;
+const FORM_SUBMISSION_TIMEOUT_MS = 1500;
+
+// TODO: Re-enable webRequest integration when properly scoped
+// interface WebRequestSubmissionMessage {
+//   type: "FORM_SUBMITTED_VIA_WEBREQUEST";
+//   url: string;
+//   method: string;
+//   timestamp: number;
+// }
 
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
@@ -45,6 +54,16 @@ export class FormSubmissionMonitor {
   private lastStandaloneSubmission: number = 0;
   private isMonitoring = false;
   private observer: MutationObserver | null = null;
+  private lastUrl: string = window.location.href;
+  private pendingSubmissionTimeout: number | null = null;
+  // TODO: Re-enable when webRequest is properly implemented
+  // private hasWebRequestAPI = false;
+  // private webRequestListener:
+  //   | ((message: WebRequestSubmissionMessage) => void)
+  //   | null = null;
+  private originalPushState: typeof history.pushState | null = null;
+  private originalReplaceState: typeof history.replaceState | null = null;
+  private boundPopStateListener: (() => void) | null = null;
 
   start(): void {
     if (this.isMonitoring) {
@@ -52,9 +71,36 @@ export class FormSubmissionMonitor {
       return;
     }
 
+    // TODO: Re-enable webRequest integration when properly scoped
+    // this.webRequestListener = (message: WebRequestSubmissionMessage) => {
+    //   if (message.type === "FORM_SUBMITTED_VIA_WEBREQUEST") {
+    //     logger.debug(
+    //       "Received webRequest submission notification:",
+    //       message.url,
+    //       message.method,
+    //     );
+    //     if (!this.hasWebRequestAPI) {
+    //       this.hasWebRequestAPI = true;
+    //       logger.debug(
+    //         "webRequest API confirmed working via background script",
+    //       );
+    //     }
+    //
+    //     if (this.pendingSubmissionTimeout) {
+    //       window.clearTimeout(this.pendingSubmissionTimeout);
+    //       this.pendingSubmissionTimeout = null;
+    //       logger.debug("Cancelled pending timeout - webRequest took priority");
+    //     }
+    //     this.triggerPendingSubmission();
+    //   }
+    // };
+    //
+    // browser.runtime.onMessage.addListener(this.webRequestListener);
+
     this.attachExistingFormListeners();
     this.attachSubmitButtonListeners();
     this.startMutationObserver();
+    this.startUrlChangeDetection();
     this.isMonitoring = true;
 
     logger.debug("Form submission monitor started");
@@ -64,10 +110,37 @@ export class FormSubmissionMonitor {
     if (!this.isMonitoring) return;
 
     this.removeAllListeners();
+    this.submissionCallbacks.clear();
 
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
+    }
+
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
+
+    // TODO: Re-enable when webRequest is properly implemented
+    // if (this.webRequestListener) {
+    //   browser.runtime.onMessage.removeListener(this.webRequestListener);
+    //   this.webRequestListener = null;
+    // }
+
+    if (this.boundPopStateListener) {
+      window.removeEventListener("popstate", this.boundPopStateListener);
+      this.boundPopStateListener = null;
+    }
+
+    if (this.originalPushState) {
+      history.pushState = this.originalPushState;
+      this.originalPushState = null;
+    }
+
+    if (this.originalReplaceState) {
+      history.replaceState = this.originalReplaceState;
+      this.originalReplaceState = null;
     }
 
     this.isMonitoring = false;
@@ -103,7 +176,7 @@ export class FormSubmissionMonitor {
       } catch (error) {
         logger.error("Error handling form submission:", error);
       } finally {
-        form.submit();
+        form.requestSubmit();
       }
     };
 
@@ -173,6 +246,9 @@ export class FormSubmissionMonitor {
 
     const listener = async () => {
       logger.debug("Submit button clicked", button);
+
+      this.scheduleSubmissionTimeout();
+
       const form = button.closest("form");
       if (form) {
         await this.handleFormSubmission(form);
@@ -181,7 +257,7 @@ export class FormSubmissionMonitor {
       }
     };
 
-    button.addEventListener("click", listener);
+    button.addEventListener("click", listener, { passive: true });
     this.buttonListeners.set(button, listener);
   }
 
@@ -195,6 +271,12 @@ export class FormSubmissionMonitor {
     const fields = this.extractFieldOpids(form);
     logger.debug(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
+
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+      logger.debug("Cleared pending submission timeout after form submission");
+    }
   }
 
   private async handleStandaloneSubmission(): Promise<void> {
@@ -207,6 +289,14 @@ export class FormSubmissionMonitor {
     const fields = this.extractAllVisibleFieldOpids();
     logger.debug(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
+
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+      logger.debug(
+        "Cleared pending submission timeout after standalone submission",
+      );
+    }
   }
 
   private isDuplicateSubmission(key: HTMLFormElement | "standalone"): boolean {
@@ -217,7 +307,7 @@ export class FormSubmissionMonitor {
 
     if (!lastSubmission) return false;
 
-    return Date.now() - lastSubmission < SUBMISSION_DEBOUNCE_MS;
+    return Date.now() - lastSubmission < DUPLICATE_SUBMISSION_THRESHOLD_MS;
   }
 
   private extractFieldOpids(form: HTMLFormElement): Set<FieldOpId> {
@@ -327,6 +417,73 @@ export class FormSubmissionMonitor {
       button.removeEventListener("click", listener);
     }
     this.buttonListeners.clear();
+  }
+
+  private startUrlChangeDetection(): void {
+    this.boundPopStateListener = () => {
+      this.handleUrlChange();
+    };
+    window.addEventListener("popstate", this.boundPopStateListener);
+
+    this.originalPushState = history.pushState;
+    this.originalReplaceState = history.replaceState;
+
+    history.pushState = (...args) => {
+      if (this.originalPushState) {
+        this.originalPushState.apply(history, args);
+      }
+      this.handleUrlChange();
+    };
+
+    history.replaceState = (...args) => {
+      if (this.originalReplaceState) {
+        this.originalReplaceState.apply(history, args);
+      }
+      this.handleUrlChange();
+    };
+
+    logger.debug("URL change detection started");
+  }
+
+  private handleUrlChange(): void {
+    const newUrl = window.location.href;
+
+    if (newUrl !== this.lastUrl) {
+      logger.debug("URL changed, checking for pending submission", {
+        from: this.lastUrl,
+        to: newUrl,
+      });
+
+      this.lastUrl = newUrl;
+
+      if (this.pendingSubmissionTimeout) {
+        this.triggerPendingSubmission();
+      }
+    }
+  }
+
+  private scheduleSubmissionTimeout(): void {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+    }
+
+    this.pendingSubmissionTimeout = window.setTimeout(() => {
+      logger.debug("Submission timeout triggered");
+      this.triggerPendingSubmission();
+    }, FORM_SUBMISSION_TIMEOUT_MS);
+  }
+
+  private async triggerPendingSubmission(): Promise<void> {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
+
+    try {
+      await this.handleStandaloneSubmission();
+    } catch (error) {
+      logger.error("Error in triggerPendingSubmission:", error);
+    }
   }
 }
 

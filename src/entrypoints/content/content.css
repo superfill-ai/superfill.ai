@@ -26,6 +26,12 @@
   bottom: auto !important;
 }
 
+:host([data-ui-type="capture"]) {
+  height: fit-content !important;
+  max-height: fit-content !important;
+  bottom: auto !important;
+}
+
 html,
 body {
   position: static !important;
