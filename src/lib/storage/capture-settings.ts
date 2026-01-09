@@ -44,25 +44,33 @@ export async function updateCaptureSettings(
 }
 
 export async function addNeverAskSite(domain: string): Promise<void> {
-  const current = await getCaptureSettings();
-  const normalized = normalizeDomain(domain);
+  try {
+    const current = await getCaptureSettings();
+    const normalized = normalizeDomain(domain);
 
-  if (!normalized) return;
-  if (!current.neverAskSites.includes(normalized)) {
-    await storage.captureSettings.setValue({
-      ...current,
-      neverAskSites: [...current.neverAskSites, normalized],
-    });
+    if (!normalized) return;
+    if (!current.neverAskSites.includes(normalized)) {
+      await storage.captureSettings.setValue({
+        ...current,
+        neverAskSites: [...current.neverAskSites, normalized],
+      });
+    }
+  } catch {
+    throw new Error("Failed to add site to never-ask list.");
   }
 }
 
 export async function removeNeverAskSite(domain: string): Promise<void> {
-  const current = await getCaptureSettings();
-  const normalized = domain.trim().toLowerCase();
-  await storage.captureSettings.setValue({
-    ...current,
-    neverAskSites: current.neverAskSites.filter((d) => d !== normalized),
-  });
+  try {
+    const current = await getCaptureSettings();
+    const normalized = domain.trim().toLowerCase();
+    await storage.captureSettings.setValue({
+      ...current,
+      neverAskSites: current.neverAskSites.filter((d) => d !== normalized),
+    });
+  } catch {
+    throw new Error("Failed to remove site from never-ask list.");
+  }
 }
 
 export function isSiteBlocked(
@@ -89,7 +97,7 @@ export function isChatInterface(): boolean {
     HTMLInputElement | HTMLTextAreaElement
   >('input[type="text"], textarea');
 
-  if (inputs.length > 1) {
+  if (inputs.length === 0) {
     return false;
   }
 

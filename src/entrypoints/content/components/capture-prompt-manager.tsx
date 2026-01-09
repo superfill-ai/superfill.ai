@@ -143,11 +143,6 @@ export class CapturePromptManager {
     ctx: ContentScriptContext,
     capturedFields: CapturedFieldData[],
   ): Promise<void> {
-    if (this.isVisible) {
-      logger.debug("Capture prompt already visible");
-      return;
-    }
-
     this.currentFields = capturedFields;
     const siteTitle = document.title;
     const siteDomain = window.location.hostname;
@@ -157,33 +152,43 @@ export class CapturePromptManager {
       siteDomain,
     });
 
-    if (!this.ui) {
-      this.ui = await createShadowRootUi(ctx, {
-        name: HOST_ID,
-        position: "inline",
-        anchor: "body",
-        append: "last",
-        onMount: (container, shadow, host) => {
-          host.id = HOST_ID;
-          host.setAttribute("data-ui-type", "capture");
-          this.applyTheme(shadow);
+    try {
+      if (!this.ui) {
+        this.ui = await createShadowRootUi(ctx, {
+          name: HOST_ID,
+          position: "inline",
+          anchor: "body",
+          append: "last",
+          onMount: (container, shadow, host) => {
+            host.id = HOST_ID;
+            host.setAttribute("data-ui-type", "capture");
 
-          this.root = createRoot(container);
-          this.render(siteTitle, siteDomain);
-          return this.root;
-        },
-        onRemove: (root) => {
-          root?.unmount();
-          this.root = null;
-        },
-      });
+            void this.applyTheme(shadow);
+            this.root = createRoot(container);
+            this.render(siteTitle, siteDomain);
+            return this.root;
+          },
+          onRemove: (root) => {
+            root?.unmount();
+            this.root = null;
+          },
+        });
+        this.ui.mount();
+      }
 
-      this.ui.mount();
-    } else {
       this.render(siteTitle, siteDomain);
-    }
+      this.isVisible = true;
+    } catch (error) {
+      logger.error("Failed to show capture prompt:", error);
 
-    this.isVisible = true;
+      try {
+        this.ui?.remove();
+      } catch {}
+
+      this.ui = null;
+      this.root = null;
+      this.isVisible = false;
+    }
   }
 
   async hide(): Promise<void> {

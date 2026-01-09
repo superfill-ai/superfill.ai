@@ -31,7 +31,7 @@ type SubmissionCallback = (
   submittedFields: Set<FieldOpId>,
 ) => void | Promise<void>;
 
-const SUBMISSION_DEBOUNCE_MS = 1000;
+const DUPLICATE_SUBMISSION_THRESHOLD_MS = 1000;
 const FORM_SUBMISSION_TIMEOUT_MS = 1500;
 
 // TODO: Re-enable webRequest integration when properly scoped
@@ -176,7 +176,7 @@ export class FormSubmissionMonitor {
       } catch (error) {
         logger.error("Error handling form submission:", error);
       } finally {
-        form.submit();
+        form.requestSubmit();
       }
     };
 
@@ -307,7 +307,7 @@ export class FormSubmissionMonitor {
 
     if (!lastSubmission) return false;
 
-    return Date.now() - lastSubmission < SUBMISSION_DEBOUNCE_MS;
+    return Date.now() - lastSubmission < DUPLICATE_SUBMISSION_THRESHOLD_MS;
   }
 
   private extractFieldOpids(form: HTMLFormElement): Set<FieldOpId> {
