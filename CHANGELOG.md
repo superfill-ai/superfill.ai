@@ -1,5 +1,15 @@
 # superfill.ai
 
+## 0.2.2
+
+### Patch Changes
+
+- [#60](https://github.com/superfill-ai/superfill.ai/pull/60) [`03cf7e0`](https://github.com/superfill-ai/superfill.ai/commit/03cf7e094f4bde413c5615f59e5c0b31b6fb2ab0) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement onboarding and update tours with new dialogs and tour management
+
+- [`274eb3d`](https://github.com/superfill-ai/superfill.ai/commit/274eb3d83e0ae25ddf24d5fd31ad48a3eb158b9c) Thanks [@mikr13](https://github.com/mikr13)! - chore: migrate to tsgo, add extensions recommendations and update dependencies
+
+- [#61](https://github.com/superfill-ai/superfill.ai/pull/61) [`70a0b3f`](https://github.com/superfill-ai/superfill.ai/commit/70a0b3fc403e71a719654f0af5c067e14e3aa332) Thanks [@mikr13](https://github.com/mikr13)! - feat: add memory capture settings and prompt for form submissions
+
 ## 0.2.1
 
 ### Patch Changes

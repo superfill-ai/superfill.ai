@@ -2,7 +2,7 @@ import { getAutofillService } from "@/lib/autofill/autofill-service";
 import { createLogger } from "@/lib/logger";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
-import { FillTriggerButton } from "./fill-trigger-button";
+import { FillTriggerButton } from "../components/fill-trigger-button";
 
 const logger = createLogger("content:fill-trigger-manager");
 
