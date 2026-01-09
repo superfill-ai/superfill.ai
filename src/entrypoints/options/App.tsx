@@ -180,6 +180,18 @@ export const App = () => {
     tour.drive();
   };
 
+  const handleVersionBadgeClick = () => {
+    const manifest = browser.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const updateInfo = getUpdateForVersion(currentVersion);
+
+    if (updateInfo) {
+      setUpdateVersion(currentVersion);
+      setUpdateChanges(updateInfo.changes);
+      setShowUpdateTour(true);
+    }
+  };
+
   return (
     <section
       className="relative w-full h-screen flex flex-col overflow-hidden"
@@ -194,7 +206,8 @@ export const App = () => {
           <Badge
             size="sm"
             variant="outline"
-            className="text-xs text-muted-foreground"
+            className="text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors"
+            onClick={handleVersionBadgeClick}
           >
             v{browser.runtime.getManifest().version}
           </Badge>

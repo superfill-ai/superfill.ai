@@ -51,14 +51,14 @@ export const CaptureSettings = () => {
   };
 
   return (
-    <Card>
+    <Card data-tour="capture-settings">
       <CardHeader>
         <CardTitle>Memory Capture Settings</CardTitle>
         <CardDescription>
           Control when and where automatic memory capture happens
         </CardDescription>
       </CardHeader>
-      <CardContent data-tour="capture-settings">
+      <CardContent>
         <FieldGroup>
           <Field orientation="horizontal" data-invalid={false}>
             <FieldLabel htmlFor={captureEnabledId}>
