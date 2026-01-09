@@ -271,6 +271,12 @@ export class FormSubmissionMonitor {
     const fields = this.extractFieldOpids(form);
     logger.debug(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
+
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+      logger.debug("Cleared pending submission timeout after form submission");
+    }
   }
 
   private async handleStandaloneSubmission(): Promise<void> {
@@ -283,6 +289,14 @@ export class FormSubmissionMonitor {
     const fields = this.extractAllVisibleFieldOpids();
     logger.debug(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
+
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+      logger.debug(
+        "Cleared pending submission timeout after standalone submission",
+      );
+    }
   }
 
   private isDuplicateSubmission(key: HTMLFormElement | "standalone"): boolean {
@@ -465,7 +479,11 @@ export class FormSubmissionMonitor {
       this.pendingSubmissionTimeout = null;
     }
 
-    await this.handleStandaloneSubmission();
+    try {
+      await this.handleStandaloneSubmission();
+    } catch (error) {
+      logger.error("Error in triggerPendingSubmission:", error);
+    }
   }
 }
 

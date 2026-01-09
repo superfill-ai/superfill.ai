@@ -1,32 +1,66 @@
 import { storage } from "@/lib/storage";
 import type { CaptureSettings } from "./data";
 
-export async function getCaptureSettings(): Promise<CaptureSettings> {
-  return await storage.captureSettings.getValue();
+const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
+  enabled: true,
+  blockedDomains: [],
+  neverAskSites: [],
+};
+
+function normalizeDomain(input: string): string {
+  return input.trim().toLowerCase().replace(/^\.+/, "").replace(/\.+$/, "");
 }
 
+export async function getCaptureSettings(): Promise<CaptureSettings> {
+  try {
+    const raw = await storage.captureSettings.getValue();
+    return {
+      ...DEFAULT_CAPTURE_SETTINGS,
+      ...raw,
+      enabled:
+        typeof raw?.enabled === "boolean"
+          ? raw.enabled
+          : DEFAULT_CAPTURE_SETTINGS.enabled,
+      blockedDomains: Array.isArray(raw?.blockedDomains)
+        ? raw.blockedDomains.map(normalizeDomain).filter(Boolean)
+        : DEFAULT_CAPTURE_SETTINGS.blockedDomains,
+      neverAskSites: Array.isArray(raw?.neverAskSites)
+        ? raw.neverAskSites.map(normalizeDomain).filter(Boolean)
+        : DEFAULT_CAPTURE_SETTINGS.neverAskSites,
+    };
+  } catch {
+    throw new Error("Failed to read capture settings.");
+  }
+}
 export async function updateCaptureSettings(
   updates: Partial<CaptureSettings>,
 ): Promise<void> {
-  const current = await getCaptureSettings();
-  await storage.captureSettings.setValue({ ...current, ...updates });
+  try {
+    const current = await getCaptureSettings();
+    await storage.captureSettings.setValue({ ...current, ...updates });
+  } catch {
+    throw new Error("Failed to update capture settings.");
+  }
 }
 
 export async function addNeverAskSite(domain: string): Promise<void> {
   const current = await getCaptureSettings();
-  if (!current.neverAskSites.includes(domain)) {
+  const normalized = domain.trim().toLowerCase();
+  if (!normalized) return;
+  if (!current.neverAskSites.includes(normalized)) {
     await storage.captureSettings.setValue({
       ...current,
-      neverAskSites: [...current.neverAskSites, domain],
+      neverAskSites: [...current.neverAskSites, normalized],
     });
   }
 }
 
 export async function removeNeverAskSite(domain: string): Promise<void> {
   const current = await getCaptureSettings();
+  const normalized = domain.trim().toLowerCase();
   await storage.captureSettings.setValue({
     ...current,
-    neverAskSites: current.neverAskSites.filter((d) => d !== domain),
+    neverAskSites: current.neverAskSites.filter((d) => d !== normalized),
   });
 }
 
@@ -60,23 +94,11 @@ export function isChatInterface(): boolean {
   }
 
   const hasLogRole = document.querySelector('[role="log"]') !== null;
-  const classElements = Array.from(
-    document.querySelectorAll<HTMLElement>("[class]"),
-  );
-  const hasChatClass = classElements.some((el) =>
-    /\bchat\b/i.test(el.className),
-  );
-  const hasMessagesClass = classElements.some((el) =>
-    /\bmessage\b/i.test(el.className),
-  );
-  const idOrTestIdElements = Array.from(
-    document.querySelectorAll<HTMLElement>("[id], [data-testid]"),
-  );
-  const hasChatContainer = idOrTestIdElements.some((el) => {
-    const id = el.id || "";
-    const testId = (el.getAttribute("data-testid") || "").toString();
-    return /chat/i.test(id) || /chat/i.test(testId);
-  });
+  const hasChatClass = document.querySelector(".chat") !== null;
+  const hasMessagesClass =
+    document.querySelector(".message, .messages") !== null;
+  const hasChatContainer =
+    document.querySelector('[id*="chat" i], [data-testid*="chat" i]') !== null;
 
   return hasLogRole || hasChatClass || hasMessagesClass || hasChatContainer;
 }

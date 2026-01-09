@@ -243,11 +243,6 @@ export default defineContentScript({
       capturePromptManager
     ) {
       submissionMonitor.onSubmission(async (submittedFieldOpids) => {
-        if (!fieldTracker || !captureService || !capturePromptManager) {
-          logger.warn("Capture services not initialized");
-          return;
-        }
-
         logger.debug(
           `Form submitted with ${submittedFieldOpids.size} fields`,
           Array.from(submittedFieldOpids),
