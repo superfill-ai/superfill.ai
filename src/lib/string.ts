@@ -5,14 +5,13 @@ export const normalizeString = (str: string): string => {
 export const normalizeFieldName = (fieldName: string): string => {
   if (!fieldName) return "";
 
-  return fieldName
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
-    .replace(/_/g, " ")
-    .replace(/-/g, " ")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
+  return normalizeString(
+    fieldName
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+      .replace(/([a-z\d])([A-Z])/g, "$1 $2")
+      .replace(/_/g, " ")
+      .replace(/-/g, " "),
+  );
 };
 
 export const CANONICAL_FIELD_QUESTIONS = {
@@ -49,11 +48,15 @@ export const CANONICAL_FIELD_QUESTIONS = {
 export type CanonicalFieldQuestion =
   (typeof CANONICAL_FIELD_QUESTIONS)[keyof typeof CANONICAL_FIELD_QUESTIONS];
 
-export const getCanonicalQuestion = (question: string): string => {
+export const getCanonicalQuestion = (
+  question: string,
+): CanonicalFieldQuestion | string => {
   const normalized = normalizeString(question);
-  return (
-    CANONICAL_FIELD_QUESTIONS[
+
+  if (normalized in CANONICAL_FIELD_QUESTIONS) {
+    return CANONICAL_FIELD_QUESTIONS[
       normalized as keyof typeof CANONICAL_FIELD_QUESTIONS
-    ] || normalized
-  );
+    ];
+  }
+  return normalized;
 };

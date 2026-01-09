@@ -64,7 +64,7 @@ export async function removeNeverAskSite(domain: string): Promise<void> {
   try {
     const current = await getCaptureSettings();
     const normalized = normalizeDomain(domain);
-    
+
     await storage.captureSettings.setValue({
       ...current,
       neverAskSites: current.neverAskSites.filter((d) => d !== normalized),
