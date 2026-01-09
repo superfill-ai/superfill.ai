@@ -24,11 +24,11 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import { CapturePromptManager } from "./components/capture-prompt-manager";
-import { FillTriggerManager } from "./components/fill-trigger-manager";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
 import { handleFill } from "./lib/fill-handler";
+import { FillTriggerManager } from "./lib/fill-trigger-manager";
 import { FormDetector } from "./lib/form-detector";
 import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 import {
@@ -59,7 +59,22 @@ export default defineContentScript({
     const fillTriggerManager = new FillTriggerManager();
     const hostname = window.location.hostname;
     const pathname = window.location.pathname;
-    const captureSettings = await getCaptureSettings();
+    let captureSettings: Awaited<ReturnType<typeof getCaptureSettings>>;
+
+    try {
+      captureSettings = await getCaptureSettings();
+    } catch (error) {
+      logger.error(
+        "Failed to load capture settings, disabling capture:",
+        error,
+      );
+      captureSettings = {
+        enabled: false,
+        blockedDomains: [],
+        neverAskSites: [],
+      };
+    }
+
     const isChatPage = isChatInterface();
     const isBlocked =
       isSiteBlocked(hostname, captureSettings) ||

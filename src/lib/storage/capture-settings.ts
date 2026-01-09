@@ -45,7 +45,8 @@ export async function updateCaptureSettings(
 
 export async function addNeverAskSite(domain: string): Promise<void> {
   const current = await getCaptureSettings();
-  const normalized = domain.trim().toLowerCase();
+  const normalized = normalizeDomain(domain);
+
   if (!normalized) return;
   if (!current.neverAskSites.includes(normalized)) {
     await storage.captureSettings.setValue({
@@ -88,8 +89,7 @@ export function isChatInterface(): boolean {
     HTMLInputElement | HTMLTextAreaElement
   >('input[type="text"], textarea');
 
-  // More than one input field usually indicates a form, not chat
-  if (inputs.length === 0) {
+  if (inputs.length > 1) {
     return false;
   }
 

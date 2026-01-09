@@ -109,8 +109,8 @@ export class FormSubmissionMonitor {
   dispose(): void {
     if (!this.isMonitoring) return;
 
-    this.submissionCallbacks.clear();
     this.removeAllListeners();
+    this.submissionCallbacks.clear();
 
     if (this.observer) {
       this.observer.disconnect();
