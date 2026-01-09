@@ -60,10 +60,11 @@ export default defineContentScript({
     const hostname = window.location.hostname;
     const pathname = window.location.pathname;
     const captureSettings = await getCaptureSettings();
+    const isChatPage = isChatInterface();
     const isBlocked =
       isSiteBlocked(hostname, captureSettings) ||
       isMessagingSite(hostname, pathname) ||
-      isChatInterface();
+      isChatPage;
 
     let fieldTracker: Awaited<ReturnType<typeof getFieldDataTracker>> | null =
       null;
@@ -92,7 +93,7 @@ export default defineContentScript({
         hostname,
         enabled: captureSettings.enabled,
         isBlocked,
-        isChat: isChatInterface(),
+        isChat: isChatPage,
         isMainFrame: frameInfo.isMainFrame,
       });
     }

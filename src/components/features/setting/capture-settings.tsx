@@ -28,8 +28,9 @@ const logger = createLogger("capture-settings");
 
 export const CaptureSettings = () => {
   const captureEnabledId = useId();
-
-  const [captureEnabled, setCaptureEnabled] = useState(true);
+  const [captureEnabled, setCaptureEnabled] = useState<boolean | undefined>(
+    undefined,
+  );
   const [neverAskSites, setNeverAskSites] = useState<string[]>([]);
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export const CaptureSettings = () => {
     try {
       await updateCaptureSettings({ enabled });
     } catch (error) {
-      console.error("Failed to update capture settings:", error);
+      logger.error("Failed to update capture settings:", error);
       setCaptureEnabled(previousState);
     }
   };
