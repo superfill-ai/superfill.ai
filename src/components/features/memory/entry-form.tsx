@@ -37,6 +37,7 @@ interface EntryFormProps {
   initialData?: Partial<MemoryEntry>;
   onSuccess?: (data: MemoryEntry) => void;
   onCancel?: () => void;
+  fieldOptions?: Array<{ value: string; label: string | null }>;
 }
 
 const entryFormSchema = z.object({
@@ -52,6 +53,7 @@ export function EntryForm({
   layout = "normal",
   onSuccess,
   onCancel,
+  fieldOptions,
 }: EntryFormProps) {
   const isPreviewMode = layout === "preview";
   const [selectedProvider, setSelectedProvider] = useState<
@@ -353,15 +355,36 @@ export function EntryForm({
                 className={layout === "compact" ? "gap-1" : ""}
               >
                 <FieldLabel htmlFor={field.name}>Answer *</FieldLabel>
-                <Textarea
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={isInvalid}
-                  placeholder="Your information (e.g., email, phone, address)"
-                />
+                {fieldOptions && fieldOptions.length > 0 ? (
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    className="w-full rounded-md text-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                    aria-invalid={isInvalid}
+                  >
+                    <option value="" disabled>
+                      Select an option
+                    </option>
+                    {fieldOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label || option.value}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Textarea
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={isInvalid}
+                    placeholder="Your information (e.g., email, phone, address)"
+                  />
+                )}
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
             );
