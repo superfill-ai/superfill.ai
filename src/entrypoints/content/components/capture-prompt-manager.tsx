@@ -12,18 +12,27 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
 import { addNeverAskSite } from "@/lib/storage/capture-settings";
 import type { CapturedFieldData } from "@/types/autofill";
+import { Theme } from "@/types/theme";
 
 const logger = createLogger("capture-prompt-manager");
 
 const HOST_ID = "superfill-capture-prompt";
 
 interface CapturePromptProps {
-  siteFavicon: string;
   siteTitle: string;
   siteDomain: string;
   capturedFields: CapturedFieldData[];
@@ -33,7 +42,6 @@ interface CapturePromptProps {
 }
 
 const CapturePrompt = ({
-  siteFavicon,
   siteTitle,
   siteDomain,
   capturedFields,
@@ -57,96 +65,70 @@ const CapturePrompt = ({
   const totalFields = capturedFields.length;
 
   return (
-    <Card className="fixed top-4 right-4 w-96 shadow-lg z-999999 bg-background border">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          {siteFavicon && (
-            <img
-              src={siteFavicon}
-              alt=""
-              className="w-4 h-4"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-          )}
-          <div>
-            <h3 className="font-semibold text-sm">Save form data?</h3>
-            <p className="text-xs text-muted-foreground">{siteTitle}</p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={onDismiss}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className="fixed top-4 right-4 z-9999">
+      <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-3">
+        <CardHeader>
+          <CardTitle className="text-sm">Save form data?</CardTitle>
+          <CardDescription className="text-xs text-wrap">
+            {siteTitle}
+          </CardDescription>
+          <CardAction>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={onDismiss}
+            >
+              <X className="size-4" />
+            </Button>
+          </CardAction>
+        </CardHeader>
 
-      {/* Content */}
-      <div className="p-4 max-h-96 overflow-y-auto">
-        <p className="text-sm text-muted-foreground mb-3">
-          Superfill detected {totalFields} field{totalFields !== 1 ? "s" : ""}{" "}
-          you filled. Save them for future use?
-        </p>
+        <CardContent className="max-h-80 overflow-y-auto">
+          <p className="text-xs text-muted-foreground">
+            Superfill detected {totalFields} field{totalFields !== 1 ? "s" : ""}{" "}
+            you filled. Save them for future use?
+          </p>
 
-        <Accordion type="single" collapsible className="w-full">
-          {Object.entries(groupedFields).map(([category, fields]) => (
-            <AccordionItem key={category} value={category}>
-              <AccordionTrigger className="text-sm">
-                {category.charAt(0).toUpperCase() + category.slice(1)} (
-                {fields.length})
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-2">
-                  {fields.map((field, idx) => (
-                    <div
-                      key={`${field.fieldOpid}-${idx}`}
-                      className="p-2 bg-muted/50 rounded-md text-xs"
-                    >
-                      <div className="font-medium mb-1 text-foreground">
-                        {field.question}
+          <Accordion type="single" collapsible className="w-full">
+            {Object.entries(groupedFields).map(([category, fields]) => (
+              <AccordionItem key={category} value={category}>
+                <AccordionTrigger className="text-sm">
+                  {category.charAt(0).toUpperCase() + category.slice(1)} (
+                  {fields.length})
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-1.5">
+                    {fields.map((field, idx) => (
+                      <div
+                        key={`${field.fieldOpid}-${idx}`}
+                        className="p-1.5 bg-muted/50 rounded text-xs"
+                      >
+                        <div className="font-medium mb-0.5 text-foreground">
+                          {field.question}
+                        </div>
+                        <div className="text-muted-foreground truncate">
+                          {field.answer}
+                        </div>
                       </div>
-                      <div className="text-muted-foreground truncate">
-                        {field.answer}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </CardContent>
 
-      {/* Actions */}
-      <div className="p-4 border-t space-y-2">
-        <div className="flex gap-2">
+        <CardFooter className="px-3 py-2 flex-row items-center gap-2">
           <Button onClick={onSave} className="flex-1" size="sm">
             Save All
           </Button>
-          <Button
-            onClick={onDismiss}
-            variant="outline"
-            size="sm"
-            className="flex-1"
-          >
-            Dismiss
+          <Button onClick={onNeverAsk} variant="destructive" size="sm">
+            Never ask for {siteDomain}
           </Button>
-        </div>
-        <Button
-          onClick={onNeverAsk}
-          variant="ghost"
-          size="sm"
-          className="w-full text-xs"
-        >
-          Never ask for {siteDomain}
-        </Button>
-      </div>
-    </Card>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 
@@ -166,10 +148,6 @@ export class CapturePromptManager {
     }
 
     this.currentFields = capturedFields;
-
-    // Get site info
-    const siteFavicon =
-      document.querySelector<HTMLLinkElement>('link[rel*="icon"]')?.href || "";
     const siteTitle = document.title;
     const siteDomain = window.location.hostname;
 
@@ -178,16 +156,19 @@ export class CapturePromptManager {
       siteDomain,
     });
 
-    // Create UI if not exists
     if (!this.ui) {
       this.ui = await createShadowRootUi(ctx, {
         name: HOST_ID,
         position: "inline",
         anchor: "body",
         append: "last",
-        onMount: (container) => {
+        onMount: (container, shadow, host) => {
+          host.id = HOST_ID;
+          host.setAttribute("data-ui-type", "capture");
+          this.applyTheme(shadow);
+
           this.root = createRoot(container);
-          this.render(siteFavicon, siteTitle, siteDomain);
+          this.render(siteTitle, siteDomain);
           return this.root;
         },
         onRemove: (root) => {
@@ -198,7 +179,7 @@ export class CapturePromptManager {
 
       this.ui.mount();
     } else {
-      this.render(siteFavicon, siteTitle, siteDomain);
+      this.render(siteTitle, siteDomain);
     }
 
     this.isVisible = true;
@@ -219,16 +200,34 @@ export class CapturePromptManager {
     this.currentFields = [];
   }
 
-  private render(
-    siteFavicon: string,
-    siteTitle: string,
-    siteDomain: string,
-  ): void {
+  private async applyTheme(shadow: ShadowRoot): Promise<void> {
+    try {
+      const settings = await storage.uiSettings.getValue();
+      const theme = settings.theme;
+
+      const host = shadow.host as HTMLElement;
+      host.classList.remove("light", "dark");
+
+      if (theme === Theme.LIGHT) {
+        host.classList.add("light");
+      } else if (theme === Theme.DARK) {
+        host.classList.add("dark");
+      } else {
+        const isDarkMode =
+          document.documentElement.classList.contains("dark") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        host.classList.add(isDarkMode ? "dark" : "light");
+      }
+    } catch (error) {
+      logger.warn("Failed to apply theme to capture prompt:", error);
+    }
+  }
+
+  private render(siteTitle: string, siteDomain: string): void {
     if (!this.root) return;
 
     this.root.render(
       <CapturePrompt
-        siteFavicon={siteFavicon}
         siteTitle={siteTitle}
         siteDomain={siteDomain}
         capturedFields={this.currentFields}

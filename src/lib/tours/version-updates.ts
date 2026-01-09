@@ -41,7 +41,49 @@ export interface VersionUpdate {
   steps: DriveStep[];
 }
 
-export const versionUpdates: Record<string, VersionUpdate> = {};
+export const versionUpdates: Record<string, VersionUpdate> = {
+  "0.2.2": {
+    version: "0.2.2",
+    tourId: "update-highlights-v0.2.2",
+    changes: [
+      "Automatic memory capture from form submissions",
+      "New capture settings to control when and where to save memories",
+      "Smart deduplication to avoid saving duplicate information",
+    ],
+    steps: [
+      {
+        popover: {
+          title: "🎉 What's New in v0.2.2",
+          description:
+            "Superfill can now automatically capture form data you fill and prompt you to save it as memories! Let's see how it works.",
+        },
+      },
+      {
+        element: '[data-tour="capture-settings"]',
+        popover: {
+          title: "📋 Capture Settings",
+          description:
+            "Control automatic memory capture with new settings. You can enable/disable capture and manage sites where you don't want to be asked.",
+          side: "bottom",
+        },
+      },
+      {
+        popover: {
+          title: "✨ How It Works",
+          description:
+            "When you submit a form, Superfill detects the fields you filled and shows a popup asking if you want to save them as memories. You can save all, dismiss, or choose to never ask for that specific site.",
+        },
+      },
+      {
+        popover: {
+          title: "🧠 Smart Deduplication",
+          description:
+            "Don't worry about duplicates! Superfill automatically detects similar questions and updates existing memories instead of creating duplicates.",
+        },
+      },
+    ],
+  },
+};
 
 export function getUpdateForVersion(
   version: string,

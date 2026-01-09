@@ -12,7 +12,6 @@ import {
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
@@ -56,10 +55,10 @@ export const CaptureSettings = () => {
       <CardHeader>
         <CardTitle>Memory Capture Settings</CardTitle>
         <CardDescription>
-          Control when and where memory capture happens
+          Control when and where automatic memory capture happens
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-tour="capture-settings">
         <FieldGroup>
           <Field orientation="horizontal" data-invalid={false}>
             <FieldLabel htmlFor={captureEnabledId}>
@@ -73,42 +72,28 @@ export const CaptureSettings = () => {
               />
             </FieldContent>
           </Field>
-          <FieldDescription>
-            When enabled, Superfill will prompt you to save form data after
-            submission
-          </FieldDescription>
-
-          {neverAskSites.length > 0 && (
-            <>
-              <Separator className="my-4" />
-              <div className="space-y-2">
-                <FieldLabel>Sites where capture is disabled</FieldLabel>
-                <FieldDescription>
-                  You've chosen to never save memories from these sites
-                </FieldDescription>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {neverAskSites.map((site) => (
-                    <Badge
-                      key={site}
-                      variant="secondary"
-                      className="px-2 py-1 flex items-center gap-1"
-                    >
-                      {site}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 p-0 hover:bg-transparent"
-                        onClick={() => handleRemoveSite(site)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
         </FieldGroup>
+        <Separator className="my-4" />
+        <p className="text-sm font-medium">Sites where capture is disabled</p>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {neverAskSites.map((site) => (
+            <Badge
+              key={site}
+              variant="secondary"
+              className="flex items-center gap-1"
+            >
+              {site}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 p-0 hover:bg-transparent"
+                onClick={() => handleRemoveSite(site)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

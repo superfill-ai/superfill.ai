@@ -69,12 +69,6 @@ export const App = () => {
         const previousVersion = uiSettings.extensionVersion || "0.0.0";
         const shouldUpdateVersion = previousVersion !== currentVersion;
 
-        await storage.uiSettings.setValue({
-          ...uiSettings,
-          onboardingCompleted: true,
-          extensionVersion: currentVersion,
-        });
-
         if (shouldUpdateVersion && previousVersion !== "0.0.0") {
           const updateInfo = getUpdateForVersion(currentVersion);
 
@@ -82,8 +76,15 @@ export const App = () => {
             setUpdateVersion(currentVersion);
             setUpdateChanges(updateInfo.changes);
             setShowUpdateTour(true);
+            setActiveTab("settings");
           }
         }
+
+        await storage.uiSettings.setValue({
+          ...uiSettings,
+          onboardingCompleted: true,
+          extensionVersion: currentVersion,
+        });
       }
     };
 
