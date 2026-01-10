@@ -50,8 +50,6 @@ export const syncMemoryEntrySchema = z.object({
     createdAt: z.number(),
     updatedAt: z.number(),
     source: z.string(),
-    usageCount: z.number(),
-    lastUsed: z.number().optional(),
   }),
   isDeleted: z.boolean(),
   deletedAt: z.number().optional(),

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/cn";
 import { logger } from "@/lib/logger";
 import type { AutofillProgress } from "@/types/autofill";
 import {
@@ -31,7 +32,7 @@ export const AutopilotLoader = ({
 }: AutopilotLoaderProps) => {
   const [isVisible, setIsVisible] = useState(true);
 
-  logger.info("Rendering AutopilotLoader with progress:", progress);
+  logger.debug("Rendering AutopilotLoader with progress:", progress);
 
   useEffect(() => {
     if (progress.state === "completed" || progress.state === "failed") {
@@ -51,11 +52,12 @@ export const AutopilotLoader = ({
 
   return (
     <div
-      className={`fixed top-4 right-4 z-9999 transition-all duration-300 ease-out ${
+      className={cn(
+        "fixed top-4 right-4 z-9999 transition-all duration-300 ease-out",
         isVisible
-          ? "opacity-100 translate-x-0 scale-100"
-          : "opacity-0 translate-x-4 scale-95 pointer-events-none"
-      }`}
+          ? "opacity-100 translate-x-0 scale-100 animate-slide-in-right"
+          : "opacity-0 translate-x-4 scale-95 pointer-events-none",
+      )}
       style={{ width: "500px", maxWidth: "calc(100vw - 32px)" }}
     >
       <Card className="w-full shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95">
@@ -79,13 +81,14 @@ export const AutopilotLoader = ({
                 <div className="space-y-2">
                   <Progress
                     value={progressValue}
-                    className={`h-2 transition-colors ${
+                    className={cn(
+                      "h-2 transition-colors",
                       isError
                         ? "[&>div]:bg-destructive"
                         : isComplete
                           ? "[&>div]:bg-green-500"
-                          : "[&>div]:bg-primary"
-                    }`}
+                          : "[&>div]:bg-primary",
+                    )}
                   />
 
                   <p className="text-sm text-muted-foreground leading-relaxed">

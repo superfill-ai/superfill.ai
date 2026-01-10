@@ -13,18 +13,19 @@ import type {
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
 import { langfuseSpanProcessor } from "../observability/langfuse";
-import { MIN_MATCH_CONFIDENCE } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 
 const logger = createLogger("ai-matcher");
 
 const AIMatchSchema = z.object({
-  fieldOpid: z.string().describe("The field operation ID being matched"),
-  memoryId: z
+  fieldOpid: z.string().describe("The unique field operation ID being matched"),
+  value: z
     .string()
     .nullable()
-    .describe("ID of the best matching memory, or null if no good match"),
+    .describe(
+      "The answer to fill into the field. This can be from a memory, combined from multiple memories, or rephrased. Null if no suitable answer is found. For select/radio fields, MUST be an exact option value.",
+    ),
   confidence: z
     .number()
     .min(0)
@@ -33,17 +34,6 @@ const AIMatchSchema = z.object({
   reasoning: z
     .string()
     .describe("Explanation of why this memory was selected or rejected"),
-  alternativeMemoryIds: z
-    .array(z.string())
-    .max(3)
-    .describe("Up to 3 alternative memory IDs that could also match"),
-  rephrasedAnswer: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(
-      "The rephrased answer, if the context requires it. Otherwise, this should be null.",
-    ),
 });
 
 const AIBatchMatchSchema = z.object({
@@ -73,14 +63,15 @@ export class AIMatcher {
     provider?: AIProvider,
     apiKey?: string,
     modelName?: string,
+    domContext?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
-      logger.info("No fields to match");
+      logger.debug("No fields to match");
       return [];
     }
 
     if (memories.length === 0) {
-      logger.info("No memories available for matching");
+      logger.debug("No memories available for matching");
       return fields.map((field) =>
         createEmptyMapping<CompressedFieldData, FieldMapping>(
           field,
@@ -99,11 +90,7 @@ export class AIMatcher {
           memories,
           websiteContext,
         );
-        const mappings = this.convertAIResultsToMappings(
-          cloudResults,
-          fields,
-          memories,
-        );
+        const mappings = this.convertAIResultsToMappings(cloudResults, fields);
         const elapsed = performance.now() - startTime;
         logger.info(
           `Cloud AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
@@ -122,15 +109,12 @@ export class AIMatcher {
         provider,
         apiKey,
         modelName,
+        domContext,
       );
-      const mappings = this.convertAIResultsToMappings(
-        aiResults,
-        fields,
-        memories,
-      );
+      const mappings = this.convertAIResultsToMappings(aiResults, fields);
 
       const elapsed = performance.now() - startTime;
-      logger.info(
+      logger.debug(
         `AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
 
@@ -201,14 +185,20 @@ export class AIMatcher {
     provider: AIProvider,
     apiKey: string,
     modelName?: string,
+    domContext?: string,
   ): Promise<AIBatchMatchResult> {
     try {
       const model = getAIModel(provider, apiKey, modelName);
 
       const systemPrompt = this.buildSystemPrompt();
-      const userPrompt = this.buildUserPrompt(fields, memories, websiteContext);
+      const userPrompt = this.buildUserPrompt(
+        fields,
+        memories,
+        websiteContext,
+        domContext,
+      );
 
-      logger.info(`AI matching with ${provider} for ${fields.length} fields`, {
+      logger.debug(`AI matching with ${provider} for ${fields.length} fields`, {
         websiteContext,
       });
 
@@ -279,59 +269,162 @@ export class AIMatcher {
 
   private buildSystemPrompt(): string {
     return `You are an expert form-filling assistant that matches form fields to stored user memories.
+    Your task is to analyze form fields and determine which stored memory entry (or entries) best matches each field.
+    
+    Matching Criteria:
+    1. **Semantic Similarity**: The field's purpose should align with the memory's content
+    2. **Context Alignment**: Field labels, placeholders, and helper text should relate to the memory's question/category
+    3. **Type Compatibility**: Email fields need email memories, phone fields need phone memories, etc.
+    4. **Confidence Scoring**: Only suggest matches you're confident about (0.5+ confidence)
+    5. **Website Context is KING**: The website's type and purpose heavily influence the meaning of a field.
+    6. **DOM Context**: Use the provided serialized DOM context to understand field relationships, groupings, and form structure.
+    
+    **CRUCIAL**: Use the provided Website Context to understand the form's purpose. A field labeled "Name" on a 'job_portal' is for a person's name, but on an 'e-commerce' site during checkout, it might be for a credit card name.
+    
+    ## SELECT FIELDS (Dropdowns)
+    For select/dropdown fields, you MUST:
+    - Return a value that EXACTLY matches one of the provided options. The value must be one of the strings from the 'options' array for the field.
+    - Match the user's memory to the closest option semantically.
+    - If user's memory is "United States", and options are ["USA", "Canada", "UK"], return "USA".
+    - If no option matches well or you are uncertain, you MUST set the value to null.
+    
+    ## RADIO BUTTON GROUPS
+    For radio fields, you MUST:
+    - Return a value that EXACTLY matches one of the radio group's values. The value must be one of the strings from the 'radioGroup.values' array.
+    - Match semantically (e.g., memory "Male" matches option "M" or "Male").
+    - Return the exact option text, not the user's memory text.
+    - If no option matches well or you are uncertain, you MUST set the value to null.
+    
+    ## CHECKBOX FIELDS
+    For checkbox fields:
+    - The value MUST be either the string "true" (to check the box), "false" (to leave it unchecked), or null if you cannot determine the correct state.
+    - Analyze the checkbox label/context to determine if it should be checked based on user memories.
+    - Common patterns: "I agree to terms" -> check if user has agreed before.
+    - For preference checkboxes, match to user's stored preferences.
+    
+    Important Rules:
+    1. **ALWAYS USE MEMORIES**: If a user has stored a memory that matches the field, USE IT. The whole point is to fill forms with user's stored data.
+    2. **DERIVE FROM MEMORIES**: You can extract parts from stored memories (e.g., first name from full name, city from full address). This is encouraged.
+    3. **Matching**: Set 'value' to null ONLY if no memory matches AND the data cannot be derived from existing memories.
+    4. **Reasoning**: Provide clear reasoning for each match or derivation.
+    5. **NEVER** match password fields (they should have been filtered out already)
+    6. **Handle Compound Data - SPLITTING**: For data like names or addresses, analyze the field's purpose. If the original answer is a full name and the field asks for a specific part (e.g., 'First Name'), extract only that part.
+    7. **Handle Compound Data - COMBINING**: For compound fields (e.g., 'Full Name', 'Complete Address'), combine multiple related memories intelligently.
+    8. **EXACT OPTION MATCHING**: For select/radio fields, ALWAYS return an exact option value from the provided options list, never the raw memory value.
 
-Your task is to analyze form fields and determine which stored memory entry (if any) best matches each field.
+    ### When NO relevant memory exists:
+    Do NOT invent data - return null instead. The AI should never fabricate:
+    - Personal information (name, email, phone, address)
+    - Dates (birth date, graduation date)  
+    - Numbers (salary, years of experience, GPA)
+    - Unique identifiers (SSN, passport, license numbers)
+    
+    BUT if a memory exists that contains this information (even partially), USE IT or DERIVE from it.
+  
+    **Complex Field Examples**:
+    
+    *Example 1: SELECT Field - Country*
+    - Memory: "United States of America"
+    - Field type: select
+    - Field options: ["USA", "Canada", "United Kingdom", "Australia"]
+    - 'value': "USA" (exact match from options)
+    
+    *Example 2: RADIO Field - Gender*
+    - Memory: "Male"
+    - Field type: radio
+    - Radio group values: ["M", "F", "Other", "Prefer not to say"]
+    - 'value': "M" (semantic match to closest option)
+    
+    *Example 3: CHECKBOX Field - Terms*
+    - Memory: User has previously agreed to terms on similar sites
+    - Field type: checkbox
+    - Field label: "I agree to the Terms of Service"
+    - 'value': "true"
+    
+    *Example 4: Tone & Brevity*
+    - Original Answer: "I am a skilled software engineer with 5 years of experience in React and Node.js."
+    - Field: "Short Bio" on a 'social' network.
+    - 'value': "Software engineer, 5 years with React & Node.js."
+    
+    *Example 5: Splitting Name Data*
+    - Original Answer: "John Fitzgerald Doe"
+    - Field Context: Field Purpose is 'name.first', Field Label is 'First Name'
+    - 'value': "John"
+    
+    *Example 6: COMBINING Name Data*
+    - Memory 1: "John" (category: 'name.first')
+    - Memory 2: "Fitzgerald" (category: 'name.middle')
+    - Memory 3: "Doe" (category: 'name.last')
+    - Field Context: Field Purpose is 'name.full', Field Label is 'Full Name'
+    - 'value': "John Fitzgerald Doe"
 
-Matching Criteria:
-1. **Semantic Similarity**: The field's purpose should align with the memory's content
-2. **Context Alignment**: Field labels, placeholders, and helper text should relate to the memory's question/category
-3. **Type Compatibility**: Email fields need email memories, phone fields need phone memories, etc.
-4. **Confidence Scoring**: Only suggest matches you're confident about (0.5+ confidence)
-5. **Website Context is KING**: The website's type and purpose heavily influence the meaning of a field.
+    *Example 7: COMBINING Address Data*
+    - Memory 1: "123 Main St" (category: 'address.street')
+    - Memory 2: "Anytown" (category: 'address.city')
+    - Memory 3: "CA" (category: 'address.state')
+    - Memory 4: "94105" (category: 'address.zip')
+    - Field Context: Field Purpose is 'address.full', Field Label is 'Full Address' or 'Complete Address'
+    - 'value': "123 Main St, Anytown, CA 94105"
 
-**CRUCIAL**: Use the provided Website Context to understand the form's purpose. A field labeled "Name" on a 'job_portal' is for a person's name, but on an 'e-commerce' site during checkout, it might be for a credit card name.
+    *Example 8: Splitting Address Data*
+    - Original Answer: "123 Main St, Anytown, CA 94105, USA"
+    - Field Context: Field Purpose is 'address.street', Field Label is 'Street Address'
+    - 'value': "123 Main St"
+    - Original Answer: "123 Main St, Anytown, CA 94105, USA"
+    - Field Context: Field Purpose is 'address.city', Field Label is 'City'
+    - 'value': "Anytown"
 
-Important Rules:
-1.  **Rephrasing**: If a stored answer is long or informal, and the website context requires a shorter or more professional tone, provide a 'rephrasedAnswer'. Otherwise, **leave 'rephrasedAnswer' as null**.
-    - DO NOT rephrase simple values like names, emails, or phone numbers.
-    - DO rephrase long "Bio" answers for shorter fields, or adjust the tone for professional vs. social sites.
-2.  **Matching**: Set 'memoryId' to null if no good match exists (confidence < 0.35).
-3.  **Reasoning**: Provide clear reasoning for each match, rejection, or rephrasing decision.
-4. **NEVER** match password fields (they should have been filtered out already)
-5. Consider field purpose, labels, and context together
-
-Output Format:
-- Return an array of matches, one per field
-- Include confidence scores (0-1) for match quality
-- Explain your reasoning concisely
-- Suggest alternatives when multiple memories could fit`;
+    *Example 9: Email Purpose*
+    - Original Answer: "user@example.com category: personal"
+    - Field Context: Field Purpose is 'email', Field Label is 'Personal Email'
+    - 'value': "user@example.com"
+    - Original Answer: "user@work.com category: work"
+    - Field Context: Field Purpose is 'email', Field Label is 'Work Email'
+    - 'value': "user@work.com"
+    
+    Output Format:
+    - Return an array of matches, one per field
+    - Include confidence scores (0-1) for match quality
+    - Explain your reasoning concisely
+    - For select/radio fields, ALWAYS return exact option values
+    `;
   }
 
   private buildUserPrompt(
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
     websiteContext: WebsiteContext,
+    domContext?: string,
   ): string {
     const fieldsMarkdown = fields
-      .map(
-        (f, idx) => `
-**Field ${idx + 1}**
-- opid: ${f.opid}
-- type: ${f.type}
-- purpose: ${f.purpose}
-- labels: ${f.labels.filter(Boolean).join(", ") || "none"}
-- context: ${f.context || "none"}`,
-      )
+      .map((f, idx) => {
+        const parts = [
+          `**Field ${idx + 1}**`,
+          `- fieldOpid: ${f.opid}`,
+          `- type: ${f.type}`,
+          `- purpose: ${f.purpose}`,
+          `- labels: ${f.labels.length > 0 ? f.labels.join(", ") : "none"}`,
+          `- context: ${f.context || "none"}`,
+        ];
+
+        if (f.options && f.options.length > 0) {
+          const optionsList = f.options
+            .map((opt) => `"${opt.value}"${opt.label ? ` (${opt.label})` : ""}`)
+            .join(", ");
+          parts.push(`- options: [${optionsList}]`);
+        }
+
+        return parts.join("\n          ");
+      })
       .join("\n");
 
     const memoriesMarkdown = memories
       .map(
         (m, idx) => `
-**Memory ${idx + 1}**
-- id: ${m.id}
-- question: ${m.question || "none"}
-- answer: ${m.answer.substring(0, 100)}
-- category: ${m.category}`,
+          **Memory ${idx + 1}**
+          - question: ${m.question || "none"}
+          - answer: ${m.answer}
+          - category: ${m.category}`,
       )
       .join("\n");
 
@@ -341,11 +434,22 @@ Output Format:
 **Page Title**: ${websiteContext.metadata.title}
 `;
 
+    const domContextSection = domContext
+      ? `
+          ## Serialized Form DOM Structure
+          Use this to understand field relationships and form layout:
+          \`\`\`
+          ${domContext}
+          \`\`\`
+          `
+      : "";
+
     return `Based on the following website context, match the form fields to the best stored memories.
 
 ## Website Context
 ${contextMarkdown}
 
+          ${domContextSection}
 
 ## Form Fields
 ${fieldsMarkdown}
@@ -353,20 +457,20 @@ ${fieldsMarkdown}
 ## Available Memories
 ${memoriesMarkdown}
 
-For each field, determine:
-1. Which memory (if any) is the best match
-2. Your confidence in that match (0-1)
-3. Why you chose that memory (or why no memory fits)
-4. A 'rephrasedAnswer' ONLY if the context requires it, otherwise null.
-5. Up to 3 alternative memories that could also work.`;
+          For each field, determine:
+          1. Which memory (if any) is the best match
+          2. Your confidence in that match (0-1)
+          3. Why you chose that memory (or why no memory fits)
+          4. The answer in the 'value' field
+          
+          **CRITICAL for select/radio fields**: Return EXACT option values from the provided lists, or null if no suitable option is found. DO NOT return the raw memory text.
+          **CRITICAL for checkbox fields**: Return "true", "false", or null if you are unsure.`;
   }
 
   private convertAIResultsToMappings(
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
-    memories: CompressedMemoryData[],
   ): FieldMapping[] {
-    const memoryMap = new Map(memories.map((m) => [m.id, m]));
     const fieldMap = new Map(fields.map((f) => [f.opid, f]));
 
     return aiResults.matches.map((aiMatch) => {
@@ -381,39 +485,16 @@ For each field, determine:
         );
       }
 
-      const memory = aiMatch.memoryId ? memoryMap.get(aiMatch.memoryId) : null;
-      const alternativeMatches = aiMatch.alternativeMemoryIds
-        .map((memId) => {
-          const altMemory = memoryMap.get(memId);
-          if (!altMemory) return null;
-
-          return {
-            memoryId: altMemory.id,
-            value: altMemory.answer,
-            confidence: Math.max(0, aiMatch.confidence - 0.1),
-          };
-        })
-        .filter((alt): alt is NonNullable<typeof alt> => alt !== null);
-
       const confidence = roundConfidence(aiMatch.confidence);
-      const meetsThreshold = confidence >= MIN_MATCH_CONFIDENCE;
-      const originalAnswer = meetsThreshold && memory ? memory.answer : null;
-      const rephrasedAnswer = aiMatch.rephrasedAnswer || null;
-      const useRephrased = !!rephrasedAnswer;
+      const value = aiMatch.value;
 
       return {
         fieldOpid: aiMatch.fieldOpid,
-        memoryId: meetsThreshold && memory ? memory.id : null,
-        value: originalAnswer,
-        rephrasedValue: useRephrased ? rephrasedAnswer : null,
-        isRephrased: useRephrased,
+        value,
         confidence,
         reasoning:
           aiMatch.reasoning ||
-          (useRephrased
-            ? "AI-powered match with contextual rephrasing."
-            : "AI-powered semantic match."),
-        alternativeMatches,
+          "AI-powered semantic match and value generation.",
       };
     });
   }

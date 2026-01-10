@@ -1,11 +1,11 @@
 let cachedFingerprint: string | null = null;
 let fingerprintCacheTime: number = 0;
-const FINGERPRINT_CACHE_DURATION = 3600000;
+const FINGERPRINT_CACHE_DURATION = 60 * 60 * 1000;
 
 export async function getBrowserFingerprint(): Promise<string> {
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error(
-      "getBrowserFingerprint must be called from a browser context (popup/options/content script), not from background script",
+      "getBrowserFingerprint must be called from a browser context with DOM access",
     );
   }
 

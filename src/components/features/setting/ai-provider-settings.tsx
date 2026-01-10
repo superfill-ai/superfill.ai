@@ -24,10 +24,10 @@ import {
   useSaveApiKeyWithModel,
 } from "@/hooks/use-provider-keys";
 import { getDefaultModel } from "@/lib/ai/model-factory";
-import { getProviderOptions } from "@/lib/providers";
 import {
   type AIProvider,
   getAllProviderConfigs,
+  getProviderOptions,
 } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";
@@ -129,7 +129,7 @@ export const AiProviderSettings = () => {
           </strong>
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-tour="ai-provider">
         <FieldGroup>
           <Field data-invalid={false}>
             <div className="flex items-center justify-between">

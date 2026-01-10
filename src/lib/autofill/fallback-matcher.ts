@@ -26,7 +26,7 @@ export class FallbackMatcher {
       );
 
       const elapsed = performance.now() - startTime;
-      logger.info(
+      logger.debug(
         `Fallback matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
 
@@ -72,32 +72,20 @@ export class FallbackMatcher {
     const bestCandidate = candidates[0];
     const confidence = roundConfidence(bestCandidate.score);
 
-    const alternativeMatches = candidates.slice(1, 4).map((candidate) => ({
-      memoryId: candidate.memory.id,
-      value: candidate.memory.answer,
-      confidence: roundConfidence(candidate.score),
-    }));
-
     if (confidence < MIN_MATCH_CONFIDENCE) {
       return {
         fieldOpid: field.opid,
-        memoryId: null,
         value: null,
         confidence,
         reasoning: `Low confidence match (${(confidence * 100).toFixed(0)}%). ${bestCandidate.reasons.join(" · ")}`,
-        alternativeMatches,
-        rephrasedValue: null,
       };
     }
 
     return {
       fieldOpid: field.opid,
-      memoryId: bestCandidate.memory.id,
       value: bestCandidate.memory.answer,
       confidence,
       reasoning: bestCandidate.reasons.join(" · "),
-      alternativeMatches,
-      rephrasedValue: null,
     };
   }
 
@@ -165,15 +153,15 @@ export class FallbackMatcher {
     field: CompressedFieldData,
     memory: CompressedMemoryData,
   ): number {
-    const fieldLabels = field.labels.join(" ").toLowerCase();
+    const fieldLabel = field.labels.join(" ").toLowerCase();
     const category = memory.category.toLowerCase();
 
-    if (fieldLabels.includes(category)) {
+    if (fieldLabel.includes(category)) {
       return 0.8;
     }
 
     const categoryTokens = this.tokenize(category);
-    const labelTokens = this.tokenize(fieldLabels);
+    const labelTokens = this.tokenize(fieldLabel);
     const overlap = this.computeTokenOverlap(categoryTokens, labelTokens);
 
     return overlap > 0 ? Math.min(0.6, overlap * 0.3) : 0;
@@ -218,7 +206,7 @@ export class FallbackMatcher {
         .toLowerCase()
         .includes(memory.category.toLowerCase())
     ) {
-      reasons.push(`Category "${memory.category}" found in field labels`);
+      reasons.push(`Category "${memory.category}" found in field label`);
     }
 
     if (field.context && memory.question) {

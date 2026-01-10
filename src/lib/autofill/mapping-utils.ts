@@ -1,34 +1,41 @@
 type MappingBase = {
   fieldOpid: string;
-  memoryId: string | null;
   value: string | null;
   confidence: number;
   reasoning: string;
-  alternativeMatches: unknown;
   autoFill?: boolean;
 };
 
+type FieldWithOpid = { fieldOpid: string } | { opid: string };
+
+const getFieldOpid = (field: FieldWithOpid): string => {
+  if ("fieldOpid" in field) {
+    return field.fieldOpid;
+  }
+  return field.opid;
+};
+
 export const createEmptyMapping = <
-  TField extends { opid: string },
+  TField extends FieldWithOpid,
   TMapping extends MappingBase,
 >(
   field: TField,
   reason: string,
   overrides?: Omit<Partial<TMapping>, "fieldOpid">,
 ): TMapping => {
+  const fieldOpid = getFieldOpid(field);
+
   const base: MappingBase = {
-    fieldOpid: field.opid,
-    memoryId: null,
+    fieldOpid,
     value: null,
     confidence: 0,
     reasoning: reason,
-    alternativeMatches: [] as TMapping["alternativeMatches"],
   };
 
   return {
     ...base,
     ...(overrides ?? {}),
-    fieldOpid: field.opid,
+    fieldOpid,
   } as TMapping;
 };
 

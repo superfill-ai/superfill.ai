@@ -16,6 +16,7 @@ web-ext.config.ts
 
 # Editor directories and files
 .vscode/*
+!.vscode/settings.json
 !.vscode/extensions.json
 .idea
 .DS_Store
@@ -44,5 +45,11 @@ tsconfig.tsbuildinfo
 # Build outputs
 *.zip
 
+# Safari xcode project
+Superfill.ai
+
 # Documentation
 docs/
+
+# GitHub
+.github/copilot-instructions.md

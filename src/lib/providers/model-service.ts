@@ -1,4 +1,5 @@
 import { defineProxyService } from "@webext-core/proxy-service";
+import { createLogger } from "../logger";
 import type { AIProvider } from "./registry";
 
 export interface ModelInfo {
@@ -77,6 +78,8 @@ const DEFAULT_MODELS: Record<AIProvider, ModelInfo[]> = {
   ],
 };
 
+const logger = createLogger("model-service");
+
 class ModelService {
   async getModels(provider: AIProvider, apiKey?: string): Promise<ModelInfo[]> {
     try {
@@ -101,7 +104,7 @@ class ModelService {
           return DEFAULT_MODELS[provider] || [];
       }
     } catch (error) {
-      console.error(`Failed to fetch models for ${provider}:`, error);
+      logger.error(`Failed to fetch models for ${provider}:`, error);
       return DEFAULT_MODELS[provider] || [];
     }
   }

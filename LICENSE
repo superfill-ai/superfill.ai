@@ -2,7 +2,7 @@ Copyright (c) 2025 mikr13
 
 This software is licensed under the MIT License, with the following clarification:
 
-The MIT License applies only to the self-hosted and Bring Your Own Key (BYOK) features of this project (Phase 1). Features introduced in Phase 2, including but not limited to cloud sync, managed AI models, and SOC 2 compliance, are not covered under the MIT License and may be subject to separate licensing terms.
+The MIT License applies only to the self-hosted and Bring Your Own Key (BYOK) features of this project (Phase 1).
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

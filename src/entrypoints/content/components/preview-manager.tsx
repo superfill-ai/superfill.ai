@@ -7,9 +7,8 @@ import {
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
-import type { AutofillProgress } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
 import type {
+  AutofillProgress,
   DetectedField,
   DetectedFieldSnapshot,
   DetectedForm,
@@ -19,9 +18,9 @@ import type {
   FormOpId,
   PreviewFieldData,
   PreviewSidebarPayload,
-} from "../../../types/autofill";
-import { AutofillLoading } from "./autofill-loading";
-import { AutofillPreview } from "./autofill-preview";
+} from "@/types/autofill";
+import type { FilledField, FormMapping, MemoryEntry } from "@/types/memory";
+import { AutofillContainer } from "./autofill-container";
 
 const logger = createLogger("preview-manager");
 
@@ -59,7 +58,6 @@ const getPrimaryLabel = (
     metadata.labelData,
     metadata.labelTop,
     metadata.labelLeft,
-    metadata.labelRight,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -84,12 +82,9 @@ const buildPreviewFields = (
         mappingLookup.get(field.opid) ??
         ({
           fieldOpid: field.opid,
-          memoryId: null,
           value: null,
-          rephrasedValue: null,
           confidence: 0,
           reasoning: "No suggestion generated",
-          alternativeMatches: [],
           autoFill: false,
         } satisfies FieldMapping);
 
@@ -132,6 +127,9 @@ export class PreviewSidebarManager {
   private highlightedElement: HTMLElement | null = null;
   private mappingLookup: Map<string, FieldMapping> = new Map();
   private sessionId: string | null = null;
+  private currentMode: "loading" | "preview" = "loading";
+  private currentProgress: AutofillProgress | null = null;
+  private currentData: PreviewRenderData | null = null;
 
   constructor(options: PreviewSidebarManagerOptions) {
     this.options = options;
@@ -145,9 +143,14 @@ export class PreviewSidebarManager {
     }
 
     this.sessionId = payload.sessionId;
+    this.currentMode = "preview";
+    this.currentData = renderData;
 
     const ui = await this.ensureUi();
-    ui.mount();
+
+    if (!ui.mounted) {
+      ui.mount();
+    }
 
     const root = ui.mounted ?? this.reactRoot;
 
@@ -156,33 +159,99 @@ export class PreviewSidebarManager {
     }
 
     this.reactRoot = root;
+    this.renderCurrentState();
+  }
 
-    root.render(
-      <AutofillPreview
-        data={renderData}
+  async showProgress(progress: AutofillProgress) {
+    this.currentMode = "loading";
+    this.currentProgress = progress;
+
+    const ui = await this.ensureUi();
+
+    if (!ui.mounted) {
+      ui.mount();
+    }
+
+    const root = ui.mounted ?? this.reactRoot;
+
+    if (!root) {
+      return;
+    }
+
+    this.reactRoot = root;
+    this.renderCurrentState();
+  }
+
+  private renderCurrentState() {
+    if (!this.reactRoot) {
+      return;
+    }
+
+    this.reactRoot.render(
+      <AutofillContainer
+        mode={this.currentMode}
+        progress={this.currentProgress ?? undefined}
+        data={this.currentData ?? undefined}
         onClose={() => this.destroy()}
         onFill={(fieldsToFill) => this.handleFill(fieldsToFill)}
         onHighlight={(fieldOpid: FieldOpId) => this.highlightField(fieldOpid)}
         onUnhighlight={() => this.clearHighlight()}
+        onMemoryAddition={async (fieldOpid, data) =>
+          this.handleMemoryAddition(fieldOpid, data)
+        }
       />,
     );
   }
 
-  async showProgress(progress: AutofillProgress) {
-    const ui = await this.ensureUi();
-    ui.mount();
+  private async handleMemoryAddition(fieldOpid: FieldOpId, data: MemoryEntry) {
+    try {
+      const updatedMapping = {
+        fieldOpid,
+        value: data.answer,
+        confidence: 1.0,
+        reasoning: "User-provided value",
+        autoFill: true,
+      };
 
-    const root = ui.mounted ?? this.reactRoot;
+      logger.debug(`Mapping fields: ${data.id} to fieldOpid: ${fieldOpid}`);
 
-    if (!root) {
-      return;
+      this.mappingLookup?.set(fieldOpid, updatedMapping);
+
+      if (this.currentData) {
+        const updatedForms = this.currentData.forms.map((form) => ({
+          ...form,
+          fields: form.fields.map((field) =>
+            field.fieldOpid === fieldOpid
+              ? {
+                  ...field,
+                  mapping: updatedMapping,
+                }
+              : field,
+          ),
+        }));
+
+        const matchedFields = updatedForms.reduce(
+          (count, form) =>
+            count + form.fields.filter((f) => f.mapping.value !== null).length,
+          0,
+        );
+
+        this.currentData = {
+          forms: updatedForms,
+          summary: {
+            ...this.currentData.summary,
+            matchedFields,
+          },
+        };
+
+        this.renderCurrentState();
+      }
+
+      logger.debug("Field mapping updated from new memory entry:", data.id);
+    } catch (error) {
+      logger.error("Failed to map memory entry to field preview:", error);
+      throw error;
     }
-
-    this.reactRoot = root;
-
-    root.render(
-      <AutofillLoading progress={progress} onClose={() => this.destroy()} />,
-    );
   }
 
   destroy() {
@@ -198,37 +267,25 @@ export class PreviewSidebarManager {
   private async handleFill(
     fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
   ) {
-    const memoryIds: string[] = [];
-    const filledFieldOpids: FieldOpId[] = [];
-
-    for (const { fieldOpid, value } of fieldsToFill) {
-      const detected = this.options.getFieldMetadata(fieldOpid);
-
-      if (!detected) {
-        continue;
-      }
-
-      this.applyValueToElement(detected.element, value);
-      filledFieldOpids.push(fieldOpid);
-
-      const mapping = this.mappingLookup.get(fieldOpid);
-
-      if (mapping?.memoryId) {
-        memoryIds.push(mapping.memoryId);
-      }
+    try {
+      await browser.runtime.sendMessage({
+        type: "FILL_ALL_FRAMES",
+        fieldsToFill: fieldsToFill.map((f) => ({
+          fieldOpid: f.fieldOpid,
+          value: f.value,
+        })),
+      });
+    } catch (error) {
+      logger.error("Failed to send fill request to background:", error);
+      await this.showProgress({
+        state: "failed",
+        message: "Failed to auto-fill fields. Please try again.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return;
     }
 
-    logger.info("Filled fields, incrementing memory usage for:", memoryIds);
-
-    if (memoryIds.length > 0) {
-      try {
-        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
-          memoryIds,
-        });
-      } catch (error) {
-        logger.error("Failed to increment memory usage:", error);
-      }
-    }
+    const filledFieldOpids = fieldsToFill.map((f) => f.fieldOpid);
 
     if (this.sessionId) {
       try {
@@ -250,14 +307,18 @@ export class PreviewSidebarManager {
           sessionId: this.sessionId,
         });
 
+        const matchedCount = filledFieldOpids.filter(
+          (opid) => this.mappingLookup.get(opid)?.value !== null,
+        ).length;
+
         await this.showProgress({
           state: "completed",
           message: "Auto-fill completed successfully",
           fieldsDetected: filledFieldOpids.length,
-          fieldsMatched: memoryIds.length,
+          fieldsMatched: matchedCount,
         });
 
-        logger.info("Session completed:", this.sessionId);
+        logger.debug("Session completed:", this.sessionId);
       } catch (error) {
         logger.error("Failed to complete session:", error);
       }
@@ -272,8 +333,6 @@ export class PreviewSidebarManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await storage.memories.getValue();
-      const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
       for (const fieldOpid of selectedFieldOpids) {
@@ -289,41 +348,28 @@ export class PreviewSidebarManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
           if (!mapping) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: `[data-superfill-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value || "",
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.memoryId) {
-            const memory = memoryMap.get(mapping.memoryId);
-            if (memory) {
-              matches.set(formField.name, memory);
-            }
-          }
+          formFields.push(filledField);
         }
 
         if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
+            pageTitle: document.title,
+            formSelector: formMetadata?.name,
             fields: formFields,
-            matches,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });
@@ -343,63 +389,13 @@ export class PreviewSidebarManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.memoryId) {
+      if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
       }
     }
 
     return count > 0 ? totalConfidence / count : 0;
-  }
-
-  private applyValueToElement(
-    element: DetectedField["element"],
-    value: string,
-  ) {
-    if (element instanceof HTMLInputElement) {
-      element.focus({ preventScroll: true });
-
-      if (element.type === "checkbox" || element.type === "radio") {
-        element.checked = value === "true" || value === "on" || value === "1";
-      } else {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLTextAreaElement) {
-      element.focus({ preventScroll: true });
-      element.value = value;
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      return;
-    }
-
-    if (element instanceof HTMLSelectElement) {
-      const normalizedValue = value.toLowerCase();
-      let matched = false;
-
-      for (const option of Array.from(element.options)) {
-        if (
-          option.value.toLowerCase() === normalizedValue ||
-          option.text.toLowerCase() === normalizedValue
-        ) {
-          option.selected = true;
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-    }
   }
 
   private highlightField(fieldOpid: FieldOpId) {
@@ -447,7 +443,6 @@ export class PreviewSidebarManager {
       onMount: (uiContainer, _shadow, host) => {
         host.id = HOST_ID;
         host.setAttribute("data-ui-type", "preview");
-        uiContainer.innerHTML = "";
 
         const mountPoint = document.createElement("div");
         mountPoint.id = "superfill-autofill-preview-root";
@@ -505,7 +500,7 @@ export class PreviewSidebarManager {
     );
 
     const matchedFields = payload.mappings.filter(
-      (mapping: FieldMapping) => mapping.memoryId !== null,
+      (mapping: FieldMapping) => mapping.value !== null,
     ).length;
 
     return {

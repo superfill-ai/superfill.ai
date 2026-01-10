@@ -141,13 +141,11 @@ export type Database = {
           embedding: string | null;
           id: string;
           is_deleted: boolean;
-          last_used: string | null;
           local_id: string;
           question: string | null;
           source: string;
           tags: string[] | null;
           updated_at: string;
-          usage_count: number;
           user_id: string;
         };
         Insert: {
@@ -159,13 +157,11 @@ export type Database = {
           embedding?: string | null;
           id?: string;
           is_deleted?: boolean;
-          last_used?: string | null;
           local_id: string;
           question?: string | null;
           source: string;
           tags?: string[] | null;
           updated_at?: string;
-          usage_count?: number;
           user_id: string;
         };
         Update: {
@@ -177,13 +173,11 @@ export type Database = {
           embedding?: string | null;
           id?: string;
           is_deleted?: boolean;
-          last_used?: string | null;
           local_id?: string;
           question?: string | null;
           source?: string;
           tags?: string[] | null;
           updated_at?: string;
-          usage_count?: number;
           user_id?: string;
         };
         Relationships: [];
@@ -432,13 +426,11 @@ export type Database = {
           embedding: string;
           id: string;
           is_deleted: boolean;
-          last_used: string;
           local_id: string;
           question: string;
           source: string;
           tags: string[];
           updated_at: string;
-          usage_count: number;
         }[];
       };
       get_user_active_subscription: {
@@ -456,25 +448,43 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: boolean;
       };
-      upsert_memory: {
-        Args: {
-          p_answer: string;
-          p_category: string;
-          p_confidence: number;
-          p_created_at: string;
-          p_deleted_at?: string;
-          p_embedding: string;
-          p_is_deleted?: boolean;
-          p_last_used: string;
-          p_local_id: string;
-          p_question: string;
-          p_source: string;
-          p_tags: string[];
-          p_updated_at: string;
-          p_usage_count: number;
-        };
-        Returns: string;
-      };
+      upsert_memory:
+        | {
+            Args: {
+              p_answer: string;
+              p_category: string;
+              p_confidence: number;
+              p_created_at: string;
+              p_deleted_at?: string;
+              p_embedding: string;
+              p_is_deleted?: boolean;
+              p_local_id: string;
+              p_question: string;
+              p_source: string;
+              p_tags: string[];
+              p_updated_at: string;
+            };
+            Returns: string;
+          }
+        | {
+            Args: {
+              p_answer: string;
+              p_category: string;
+              p_confidence: number;
+              p_created_at: string;
+              p_deleted_at?: string;
+              p_embedding: string;
+              p_is_deleted?: boolean;
+              p_last_used: string;
+              p_local_id: string;
+              p_question: string;
+              p_source: string;
+              p_tags: string[];
+              p_updated_at: string;
+              p_usage_count: number;
+            };
+            Returns: string;
+          };
     };
     Enums: {
       [_ in never]: never;

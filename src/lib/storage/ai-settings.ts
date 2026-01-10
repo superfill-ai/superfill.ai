@@ -5,6 +5,8 @@ export const aiSettingsFallback: AISettings = {
   autopilotMode: false,
   confidenceThreshold: 0.6,
   cloudModelsEnabled: false,
+  inlineTriggerEnabled: false,
+  contextMenuEnabled: true,
 };
 
 export const aiSettings = storage.defineItem<AISettings>(

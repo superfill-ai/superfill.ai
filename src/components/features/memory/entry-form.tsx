@@ -25,26 +25,26 @@ import {
 } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { keyVault } from "@/lib/security/key-vault";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
 
+interface EntryFormProps {
+  mode: "create" | "edit";
+  layout?: "compact" | "normal" | "preview";
+  initialData?: Partial<MemoryEntry>;
+  onSuccess?: (data: MemoryEntry) => void;
+  onCancel?: () => void;
+}
+
 const entryFormSchema = z.object({
   question: z.string(),
   answer: z.string().min(1, "Answer is required"),
   tags: z.array(z.string()),
-  category: z.string().min(1, "Category is required"),
+  category: z.enum(allowedCategories),
 });
-
-interface EntryFormProps {
-  mode: "create" | "edit";
-  layout?: "compact" | "normal";
-  initialData?: MemoryEntry;
-  onSuccess?: () => void;
-  onCancel?: () => void;
-}
 
 export function EntryForm({
   mode,
@@ -53,15 +53,13 @@ export function EntryForm({
   onSuccess,
   onCancel,
 }: EntryFormProps) {
+  const isPreviewMode = layout === "preview";
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
-
   const { addEntry, updateEntry } = useMemoryMutations();
   const top10Tags = useTopUsedTags(10);
-
   const categorizationService = getCategorizationService();
-
   const form = useForm({
     defaultValues: {
       question: initialData?.question || "",
@@ -76,27 +74,41 @@ export function EntryForm({
       toast.promise(
         async () => {
           try {
-            if (mode === "edit" && initialData) {
-              await updateEntry.mutateAsync({
-                id: initialData.id,
+            if (
+              initialData &&
+              mode === "edit" &&
+              allowedCategories.includes(
+                value.category as (typeof allowedCategories)[number],
+              )
+            ) {
+              const data = await updateEntry.mutateAsync({
+                id: initialData.id as string,
                 updates: {
                   question: value.question,
                   answer: value.answer,
                   tags: value.tags,
-                  category: value.category,
+                  category:
+                    value.category as (typeof allowedCategories)[number],
                 },
               });
-            } else {
-              await addEntry.mutateAsync({
+              onSuccess?.(data);
+            } else if (
+              mode === "create" &&
+              allowedCategories.includes(
+                value.category as (typeof allowedCategories)[number],
+              )
+            ) {
+              const data = await addEntry.mutateAsync({
                 question: value.question,
                 answer: value.answer,
                 tags: value.tags,
-                category: value.category,
+                category: value.category as (typeof allowedCategories)[number],
                 confidence: 1.0,
               });
+              onSuccess?.(data);
+            } else {
+              throw new Error("Invalid category selected.");
             }
-
-            onSuccess?.();
             form.reset();
           } catch (error) {
             logger.error("Failed to save entry:", error);
@@ -135,15 +147,16 @@ export function EntryForm({
           },
           dismissible: true,
         });
-        throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
+        throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
       }
 
-      const apiKey = await keyVault.getKey(selectedProvider);
+      const keyVaultService = getKeyVaultService();
+      const apiKey = await keyVaultService.getKey(selectedProvider);
 
       if (!apiKey) {
         toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
           description:
-            "Please configure an AI provider in settings to use rephrasing.",
+            "Please configure an AI key in settings to use rephrasing.",
           action: {
             label: "Open Settings",
             onClick: () => browser.runtime.openOptionsPage(),
@@ -153,11 +166,7 @@ export function EntryForm({
         throw new Error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED);
       }
 
-      return categorizationService.rephrase(
-        currentAnswer,
-        currentQuestion,
-        apiKey || undefined,
-      );
+      return categorizationService.rephrase(currentAnswer, currentQuestion);
     },
     onSuccess: (data) => {
       if (data?.rephrasedQuestion) {
@@ -180,25 +189,25 @@ export function EntryForm({
           dismissible: true,
         });
       }
-      const apiKey = await keyVault.getKey(selectedProvider ?? "openai");
 
-      if (!apiKey) {
-        toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
-          description:
-            "Please configure an AI provider in settings to use categorization. Using fallback categorization instead!",
-          action: {
-            label: "Open Settings",
-            onClick: () => browser.runtime.openOptionsPage(),
-          },
-          dismissible: true,
-        });
+      if (selectedProvider) {
+        const keyVaultService = getKeyVaultService();
+        const apiKey = await keyVaultService.getKey(selectedProvider);
+
+        if (!apiKey) {
+          toast.error(ERROR_MESSAGE_API_KEY_NOT_CONFIGURED, {
+            description:
+              "Please configure an AI key in settings to use categorization. Using fallback categorization instead!",
+            action: {
+              label: "Open Settings",
+              onClick: () => browser.runtime.openOptionsPage(),
+            },
+            dismissible: true,
+          });
+        }
       }
 
-      return categorizationService.categorize(
-        answer,
-        question,
-        apiKey || undefined,
-      );
+      return categorizationService.categorize(answer, question);
     },
     onSuccess: (data) => {
       if (data?.category) {
@@ -302,32 +311,36 @@ export function EntryForm({
       className="space-y-2"
     >
       <FieldGroup className="gap-2">
-        <form.Field name="question">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field
-                data-invalid={isInvalid}
-                className={layout === "compact" ? "gap-1" : ""}
-              >
-                <FieldLabel htmlFor={field.name}>
-                  Question (Optional)
-                </FieldLabel>
-                <Textarea
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={isInvalid}
-                  placeholder="What information does this answer?"
-                />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            );
-          }}
-        </form.Field>
+        {!isPreviewMode ? (
+          <form.Field name="question">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid;
+              return (
+                <Field
+                  data-invalid={isInvalid}
+                  className={layout === "compact" ? "gap-1" : ""}
+                  aria-disabled={isPreviewMode}
+                >
+                  <FieldLabel htmlFor={field.name}>
+                    Memory Label/Question (Optional)
+                  </FieldLabel>
+                  <Textarea
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={isInvalid}
+                    disabled={isPreviewMode}
+                    placeholder="What is this memory about?"
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              );
+            }}
+          </form.Field>
+        ) : null}
 
         <form.Field name="answer">
           {(field) => {
@@ -355,39 +368,43 @@ export function EntryForm({
           }}
         </form.Field>
 
-        <div className="flex gap-2 flex-1 justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={handleRephrase}
-            disabled={isAiRephrasing || !answer.trim()}
-          >
-            {isAiRephrasing ? (
-              <Loader2Icon className="mr-2 size-3 animate-spin" />
-            ) : (
-              <SparklesIcon className="mr-2 size-3" />
-            )}
-            Rephrase with AI
-          </Button>
-
-          {mode === "create" && (
+        {!isPreviewMode ? (
+          <div className="flex flex-wrap justify-center gap-2 py-2">
             <Button
               type="button"
               variant="outline"
               size="xs"
-              onClick={handleCategorizingAndTagging}
-              disabled={isAiCategorizing || !answer.trim()}
+              onClick={handleRephrase}
+              disabled={isAiRephrasing || !answer.trim()}
+              className="rounded-sm"
             >
-              {isAiCategorizing ? (
+              {isAiRephrasing ? (
                 <Loader2Icon className="mr-2 size-3 animate-spin" />
               ) : (
-                <TagsIcon className="mr-2 size-3" />
+                <SparklesIcon className="mr-2 size-3 text-yellow-500" />
               )}
-              Categorize & Tag with AI
+              Rephrase with AI
             </Button>
-          )}
-        </div>
+
+            {mode === "create" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={handleCategorizingAndTagging}
+                disabled={isAiCategorizing || !answer.trim()}
+                className="rounded-sm"
+              >
+                {isAiCategorizing ? (
+                  <Loader2Icon className="mr-2 size-3 animate-spin" />
+                ) : (
+                  <TagsIcon className="mr-2 size-3" />
+                )}
+                Categorize & Tag with AI
+              </Button>
+            )}
+          </div>
+        ) : null}
 
         <form.Field name="category">
           {(field) => {
@@ -412,17 +429,36 @@ export function EntryForm({
                     <SparklesIcon className="size-3 animate-pulse" />
                   )}
                 </FieldLabel>
-                <Combobox
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onValueChange={field.handleChange}
-                  options={categoryOptions}
-                  placeholder="Select a category"
-                  searchPlaceholder="Search categories..."
-                  emptyText="No category found."
-                  aria-invalid={isInvalid}
-                />
+                {!isPreviewMode ? (
+                  <Combobox
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    options={categoryOptions}
+                    placeholder="Select a category"
+                    searchPlaceholder="Search categories..."
+                    emptyText="No category found."
+                    aria-invalid={isInvalid}
+                  />
+                ) : (
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                  >
+                    <option value="" disabled>
+                      Select a category
+                    </option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
             );

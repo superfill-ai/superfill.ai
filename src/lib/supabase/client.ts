@@ -21,7 +21,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: {
       getItem: async (key: string) => {
         const value = await browser.storage.local.get(key);
-        return value[key] || null;
+        const item = value[key];
+        return typeof item === "string" ? item : null;
       },
       setItem: async (key: string, value: string) => {
         await browser.storage.local.set({ [key]: value });

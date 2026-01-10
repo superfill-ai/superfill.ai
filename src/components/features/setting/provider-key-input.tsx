@@ -1,18 +1,21 @@
 import {
   AlertCircleIcon,
   CheckCircle2,
+  ExternalLinkIcon,
   EyeIcon,
   EyeOffIcon,
   Trash2,
   XCircle,
 } from "lucide-react";
 import { useId, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { ProviderConfig } from "@/lib/providers/registry";
 import { getKeyValidationService } from "@/lib/security/key-validation-service";
+import { OllamaCorsDialog } from "./ollama-cors-dialog";
 
 interface ProviderKeyInputProps {
   providerId: string;
@@ -128,19 +131,15 @@ export const ProviderKeyInput = ({
               Make sure Ollama is running on http://localhost:11434
             </span>
           ) : (
-            <span className="text-destructive text-xs">
-              <AlertCircleIcon className="inline-block size-4" /> To use Ollama
-              with this extension, please ensure that{" "}
-              <a
-                href="https://medium.com/dcoderai/how-to-handle-cors-settings-in-ollama-a-comprehensive-guide-ee2a5a1beef0"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-foreground"
-              >
-                CORS settings are properly configured
-              </a>
-              .
-            </span>
+            <Alert variant="destructive">
+              <AlertDescription>
+                <span className="text-destructive text-xs">
+                  <AlertCircleIcon className="inline-block size-4" /> To use
+                  Ollama with this extension, please ensure that{" "}
+                  <OllamaCorsDialog />
+                </span>
+              </AlertDescription>
+            </Alert>
           )}
         </FieldDescription>
       </Field>
@@ -225,9 +224,22 @@ export const ProviderKeyInput = ({
         <FieldDescription>
           API key is already configured. Enter a new key to update it.
         </FieldDescription>
-      ) : config.description ? (
-        <FieldDescription>{config.description}</FieldDescription>
-      ) : null}
+      ) : (
+        <FieldDescription className="inline-flex justify-between items-center">
+          {config.description && <span>{config.description}. </span>}
+          {config.apiKeyUrl && (
+            <a
+              href={config.apiKeyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary text-xs hover:underline"
+            >
+              Get your API key here
+              <ExternalLinkIcon className="size-3" />
+            </a>
+          )}
+        </FieldDescription>
+      )}
     </Field>
   );
 };

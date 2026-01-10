@@ -1,3 +1,6 @@
+import type { ProviderOption } from "@/types/settings";
+import { getKeyVaultService } from "../security/key-vault-service";
+
 export interface ProviderConfig {
   id: string;
   name: string;
@@ -5,6 +8,7 @@ export interface ProviderConfig {
   keyPlaceholder: string;
   description?: string;
   requiresApiKey: boolean;
+  apiKeyUrl?: string;
   validateKey?: (key: string) => boolean;
 }
 
@@ -16,6 +20,7 @@ export const PROVIDER_REGISTRY = {
     keyPlaceholder: "sk-...",
     description: "GPT-5, GPT-o models and more",
     requiresApiKey: true,
+    apiKeyUrl: "https://platform.openai.com/api-keys",
     validateKey: (key: string) => key.startsWith("sk-") && key.length > 20,
   },
   anthropic: {
@@ -25,6 +30,7 @@ export const PROVIDER_REGISTRY = {
     keyPlaceholder: "sk-ant-...",
     description: "Claude 4.1 models (Opus, Sonnet, Haiku)",
     requiresApiKey: true,
+    apiKeyUrl: "https://console.anthropic.com/settings/keys",
     validateKey: (key: string) => key.startsWith("sk-ant-") && key.length > 20,
   },
   groq: {
@@ -34,6 +40,7 @@ export const PROVIDER_REGISTRY = {
     keyPlaceholder: "gsk_...",
     description: "Ultra-fast inference with Llama and Mixtral",
     requiresApiKey: true,
+    apiKeyUrl: "https://console.groq.com/keys",
     validateKey: (key: string) => key.startsWith("gsk_") && key.length > 20,
   },
   deepseek: {
@@ -43,6 +50,7 @@ export const PROVIDER_REGISTRY = {
     keyPlaceholder: "sk-...",
     description: "DeepSeek models",
     requiresApiKey: true,
+    apiKeyUrl: "https://platform.deepseek.com/api_keys",
     validateKey: (key: string) => key.startsWith("sk-") && key.length > 20,
   },
   gemini: {
@@ -52,6 +60,7 @@ export const PROVIDER_REGISTRY = {
     keyPlaceholder: "AIza...",
     description: "Google Gemini models with large context windows",
     requiresApiKey: true,
+    apiKeyUrl: "https://aistudio.google.com/app/api-keys",
     validateKey: (key: string) => key.startsWith("AIza") && key.length > 20,
   },
   ollama: {
@@ -89,4 +98,28 @@ export function validateProviderKey(
   if (!config.requiresApiKey) return true;
   if (!key || key.trim() === "") return false;
   return config.validateKey ? config.validateKey(key) : true;
+}
+
+export async function getProviderOptions(): Promise<ProviderOption[]> {
+  const keyVaultService = getKeyVaultService();
+  const keyStatuses = await Promise.all(
+    AI_PROVIDERS.map(async (provider) => ({
+      provider,
+      hasKey: await keyVaultService.hasKey(provider),
+    })),
+  );
+
+  return AI_PROVIDERS.map((provider) => {
+    const config = getProviderConfig(provider);
+    const hasKey =
+      keyStatuses.find((s) => s.provider === provider)?.hasKey ?? false;
+
+    return {
+      value: provider,
+      label: config.name,
+      description: config.description,
+      available: config.requiresApiKey ? hasKey : true,
+      requiresApiKey: config.requiresApiKey,
+    };
+  });
 }

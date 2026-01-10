@@ -15,7 +15,7 @@ import type {
   FieldOpId,
   FormOpId,
 } from "@/types/autofill";
-import type { FormField, FormMapping } from "@/types/memory";
+import type { FilledField, FormMapping } from "@/types/memory";
 import { Theme } from "@/types/theme";
 import { AutopilotLoader } from "./autopilot-loader";
 
@@ -27,7 +27,6 @@ export interface AutopilotFillData {
   fieldOpid: string;
   value: string;
   confidence: number;
-  memoryId: string;
 }
 
 const getPrimaryLabel = (
@@ -39,7 +38,6 @@ const getPrimaryLabel = (
     metadata.labelData,
     metadata.labelTop,
     metadata.labelLeft,
-    metadata.labelRight,
     metadata.placeholder,
     metadata.name,
     metadata.id,
@@ -97,7 +95,7 @@ export class AutopilotManager {
         },
       });
 
-      logger.info("Autopilot manager initialized");
+      logger.debug("Autopilot manager initialized");
     } catch (error) {
       logger.error("Failed to initialize autopilot manager:", error);
       throw error;
@@ -133,7 +131,7 @@ export class AutopilotManager {
     return (
       <AutopilotLoader
         progress={this.currentProgress}
-        onClose={() => this.hide()}
+        onClose={() => this.destroy()}
       />
     );
   }
@@ -152,7 +150,7 @@ export class AutopilotManager {
         this.reactRoot.render(this.renderAutopilotLoader());
       }
 
-      logger.info("Showing autopilot progress:", progress.state);
+      logger.debug("Showing autopilot progress:", progress.state);
     } catch (error) {
       logger.error("Failed to show autopilot progress:", error);
     }
@@ -180,11 +178,10 @@ export class AutopilotManager {
 
       const fieldsToFill: AutopilotFillData[] = [];
       for (const mapping of mappings) {
-        const valueToFill = mapping.rephrasedValue ?? mapping.value;
+        const valueToFill = mapping.value;
 
         if (
           valueToFill !== null &&
-          mapping.memoryId !== null &&
           mapping.confidence >= confidenceThreshold &&
           mapping.autoFill !== false
         ) {
@@ -192,13 +189,12 @@ export class AutopilotManager {
             fieldOpid: mapping.fieldOpid,
             value: valueToFill,
             confidence: mapping.confidence,
-            memoryId: mapping.memoryId,
           });
         }
       }
       this.fieldsToFill = fieldsToFill;
 
-      logger.info(
+      logger.debug(
         `Prepared ${this.fieldsToFill.length} fields for autopilot fill`,
       );
 
@@ -242,10 +238,13 @@ export class AutopilotManager {
       for (const field of this.fieldsToFill) {
         try {
           let element = document.querySelector(
-            `[data-wxt-field-opid="${field.fieldOpid}"]`,
+            `[data-superfill-opid="${field.fieldOpid}"]`,
           ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
           if (!element && field.fieldOpid.startsWith("__")) {
+            logger.warn(
+              `Falling back to index-based lookup for ${field.fieldOpid}`,
+            );
             const index = field.fieldOpid.substring(2);
             const allInputs = document.querySelectorAll(
               "input, textarea, select",
@@ -258,7 +257,8 @@ export class AutopilotManager {
 
           if (element && element.type !== "password") {
             element.value = field.value;
-            element.setAttribute("data-autopilot-filled", "true");
+            element.setAttribute("data-superfill-filled", "true");
+            element.setAttribute("data-superfill-original", field.value);
 
             element.dispatchEvent(new Event("input", { bubbles: true }));
             element.dispatchEvent(new Event("change", { bubbles: true }));
@@ -278,6 +278,24 @@ export class AutopilotManager {
         }
       }
 
+      try {
+        await browser.runtime.sendMessage({
+          type: "FILL_ALL_FRAMES",
+          fieldsToFill: this.fieldsToFill.map((f) => ({
+            fieldOpid: f.fieldOpid,
+            value: f.value,
+          })),
+        });
+      } catch (error) {
+        logger.error("Failed to send fill request to background:", error);
+        await this.showProgress({
+          state: "failed",
+          message: "Auto-fill failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        return false;
+      }
+
       await this.showProgress({
         state: "completed",
         message: "Auto-fill completed successfully",
@@ -289,7 +307,7 @@ export class AutopilotManager {
         status: "completed",
       });
 
-      logger.info(
+      logger.debug(
         `Autopilot completed: filled ${filledCount}/${this.fieldsToFill.length} fields`,
       );
 
@@ -318,34 +336,17 @@ export class AutopilotManager {
     }
 
     try {
-      const usedMemoryIds = Array.from(
-        new Set(this.fieldsToFill.map((field) => field.memoryId)),
-      );
-
-      logger.info(
-        `Completing session ${this.sessionId} with ${usedMemoryIds.length} memories used`,
-      );
-
-      if (usedMemoryIds.length > 0) {
-        await contentAutofillMessaging.sendMessage("incrementMemoryUsage", {
-          memoryIds: usedMemoryIds,
-        });
-        logger.info(
-          `Incremented usage count for ${usedMemoryIds.length} memories`,
-        );
-      }
-
       await contentAutofillMessaging.sendMessage("completeSession", {
         sessionId: this.sessionId,
       });
 
-      logger.info(`Session ${this.sessionId} completed successfully`);
+      logger.debug(`Session ${this.sessionId} completed successfully`);
     } catch (error) {
       logger.error("Failed to complete autopilot session:", error);
     }
   }
 
-  async hide(): Promise<void> {
+  destroy() {
     if (this.ui) {
       this.ui.remove();
       this.ui = null;
@@ -357,7 +358,7 @@ export class AutopilotManager {
     this.fieldsToFill = [];
     this.sessionId = null;
 
-    logger.info("Autopilot manager hidden");
+    logger.debug("Autopilot manager hidden");
   }
 
   isActive(): boolean {
@@ -374,8 +375,6 @@ export class AutopilotManager {
     try {
       const pageUrl = window.location.href;
       const formMappings: FormMapping[] = [];
-      const memories = await storage.memories.getValue();
-      const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
       const formGroups = new Map<FormOpId, DetectedField[]>();
       for (const fieldOpid of selectedFieldOpids) {
@@ -391,41 +390,28 @@ export class AutopilotManager {
 
       for (const [formOpid, fields] of formGroups) {
         const formMetadata = this.options.getFormMetadata(formOpid);
-        const formId = formMetadata?.name || formOpid;
 
-        const formFields: FormField[] = [];
-        const matches = new Map();
+        const formFields: FilledField[] = [];
 
         for (const field of fields) {
           const mapping = this.mappingLookup.get(field.opid);
           if (!mapping) continue;
 
-          const formField: FormField = {
-            element: field.element,
-            type: field.metadata.fieldType,
-            name: field.metadata.name || field.opid,
+          const filledField: FilledField = {
+            selector: `[data-superfill-opid="${field.opid}"]`,
             label: getPrimaryLabel(field.metadata),
-            placeholder: field.metadata.placeholder || undefined,
-            required: field.metadata.required,
-            currentValue: mapping.value || "",
-            rect: field.metadata.rect,
+            filledValue: mapping.value || "",
+            fieldType: field.metadata.fieldType,
           };
-          formFields.push(formField);
-
-          if (mapping.memoryId) {
-            const memory = memoryMap.get(mapping.memoryId);
-            if (memory) {
-              matches.set(formField.name, memory);
-            }
-          }
+          formFields.push(filledField);
         }
 
         if (formFields.length > 0) {
           formMappings.push({
             url: pageUrl,
-            formId,
+            pageTitle: document.title,
+            formSelector: formMetadata?.name,
             fields: formFields,
-            matches,
             confidence: this.calculateAverageConfidence(fields),
             timestamp: new Date().toISOString(),
           });
@@ -445,7 +431,7 @@ export class AutopilotManager {
 
     for (const field of fields) {
       const mapping = this.mappingLookup.get(field.opid);
-      if (mapping?.memoryId) {
+      if (mapping?.value !== null && mapping !== undefined) {
         totalConfidence += mapping.confidence;
         count++;
       }

@@ -1,3 +1,4 @@
+import { CircleHelp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { LoginDialog } from "@/components/features/auth/login-dialog";
@@ -5,8 +6,11 @@ import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
+import { CaptureSettings } from "@/components/features/setting/capture-settings";
 import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
-import { TriggerSettings } from "@/components/features/setting/trigger-settings";
+import { UpdateTourDialog } from "@/components/features/setting/update-tour-dialog";
+import { WelcomeTourDialog } from "@/components/features/setting/welcome-tour-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +27,11 @@ import {
 } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { APP_NAME } from "@/constants";
 import { useAuth } from "@/hooks/use-auth";
 import { useMemories } from "@/hooks/use-memories";
@@ -30,6 +39,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useSync } from "@/hooks/use-sync";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
+import { getCurrentAppTour } from "@/lib/tours/tour-definitions";
+import { tourManager } from "@/lib/tours/tour-manager";
+import { getUpdateForVersion } from "@/lib/tours/version-updates";
 
 const logger = createLogger("options:App");
 
@@ -43,6 +55,10 @@ export const App = () => {
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const { entries } = useMemories();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showWelcomeTour, setShowWelcomeTour] = useState(false);
+  const [showUpdateTour, setShowUpdateTour] = useState(false);
+  const [updateVersion, setUpdateVersion] = useState("");
+  const [updateChanges, setUpdateChanges] = useState<string[]>([]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: not needed
   useEffect(() => {
@@ -68,22 +84,43 @@ export const App = () => {
 
       const uiSettings = await storage.uiSettings.getValue();
       const storedMemories = await storage.memories.getValue();
+      const manifest = browser.runtime.getManifest();
+      const currentVersion = manifest.version;
 
       if (!uiSettings.onboardingCompleted && storedMemories.length === 0) {
         setShowOnboarding(true);
       } else {
+        const previousVersion = uiSettings.extensionVersion || "0.0.0";
+        const shouldUpdateVersion = previousVersion !== currentVersion;
+
+        if (shouldUpdateVersion && previousVersion !== "0.0.0") {
+          const updateInfo = getUpdateForVersion(currentVersion);
+
+          if (updateInfo) {
+            setUpdateVersion(currentVersion);
+            setUpdateChanges(updateInfo.changes);
+            setShowUpdateTour(true);
+            setActiveTab("settings");
+          }
+        }
+
         await storage.uiSettings.setValue({
           ...uiSettings,
           onboardingCompleted: true,
+          extensionVersion: currentVersion,
         });
       }
     };
 
     checkOnboarding();
 
-    const unsubscribe = storage.uiSettings.watch((newSettings) => {
-      if (newSettings?.onboardingCompleted) {
+    const unsubscribe = storage.uiSettings.watch((newSettings, oldSettings) => {
+      if (
+        newSettings?.onboardingCompleted &&
+        !oldSettings?.onboardingCompleted
+      ) {
         setShowOnboarding(false);
+        setShowWelcomeTour(true);
       }
     });
 
@@ -161,15 +198,71 @@ export const App = () => {
     return "Sync";
   };
 
+  const handleExploreApp = () => {
+    setShowWelcomeTour(false);
+  };
+
+  const handleStartTour = () => {
+    setShowWelcomeTour(false);
+    const manifest = browser.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const currentTour = getCurrentAppTour(currentVersion);
+    const tour = tourManager.createTour(currentTour.id, currentTour.steps);
+    tour.drive();
+  };
+
+  const handleDismissUpdate = () => {
+    setShowUpdateTour(false);
+  };
+
+  const handleStartUpdateTour = () => {
+    setShowUpdateTour(false);
+    const updateInfo = getUpdateForVersion(updateVersion);
+    if (updateInfo) {
+      const tour = tourManager.createTour(updateInfo.tourId, updateInfo.steps);
+      tour.drive();
+    }
+  };
+
+  const handleManualTourTrigger = () => {
+    const manifest = browser.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const currentTour = getCurrentAppTour(currentVersion);
+    const tour = tourManager.createTour(currentTour.id, currentTour.steps);
+    tour.drive();
+  };
+
+  const handleVersionBadgeClick = () => {
+    const manifest = browser.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const updateInfo = getUpdateForVersion(currentVersion);
+
+    if (updateInfo) {
+      setUpdateVersion(currentVersion);
+      setUpdateChanges(updateInfo.changes);
+      setShowUpdateTour(true);
+    }
+  };
+
   return (
     <section
       className="relative w-full h-screen flex flex-col overflow-hidden"
       aria-label="Options page"
     >
       <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-background">
-        <div className="flex items-center gap-2">
-          <img src="/favicon.svg" alt="" className="size-6" />
-          <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <img src="/favicon.svg" alt="" className="size-6" />
+            <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
+          </div>
+          <Badge
+            size="sm"
+            variant="outline"
+            className="text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors"
+            onClick={handleVersionBadgeClick}
+          >
+            v{browser.runtime.getManifest().version}
+          </Badge>
         </div>
         <div className="flex items-center gap-2">
           {!isAuthenticated ? (
@@ -196,6 +289,19 @@ export const App = () => {
               </Button>
             </>
           )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleManualTourTrigger}
+                aria-label="Show guided tour"
+              >
+                <CircleHelp className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Show Tour</TooltipContent>
+          </Tooltip>
           <ThemeToggle />
         </div>
       </header>
@@ -209,11 +315,11 @@ export const App = () => {
           className="h-full flex flex-col gap-0"
         >
           <TabsList className="w-full rounded-none border-b">
-            <TabsTrigger value="settings">
+            <TabsTrigger value="settings" data-tour="settings-tab">
               Settings
               <Kbd>s</Kbd>
             </TabsTrigger>
-            <TabsTrigger value="memory">
+            <TabsTrigger value="memory" data-tour="memory-tab">
               Memory
               <KbdGroup>
                 <Kbd>m</Kbd> or
@@ -225,8 +331,8 @@ export const App = () => {
           <TabsContent value="settings" className="flex-1 overflow-auto p-6">
             <div className="max-w-3xl mx-auto space-y-6">
               <AutofillSettings />
+              <CaptureSettings />
               <AiProviderSettings />
-              <TriggerSettings />
             </div>
           </TabsContent>
 
@@ -281,6 +387,18 @@ export const App = () => {
       </main>
 
       <OnboardingDialog open={showOnboarding} />
+      <WelcomeTourDialog
+        open={showWelcomeTour}
+        onExplore={handleExploreApp}
+        onStartTour={handleStartTour}
+      />
+      <UpdateTourDialog
+        open={showUpdateTour}
+        version={updateVersion}
+        changes={updateChanges}
+        onDismiss={handleDismissUpdate}
+        onStartTour={handleStartUpdateTour}
+      />
     </section>
   );
 };

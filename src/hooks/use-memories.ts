@@ -140,22 +140,8 @@ export const useMemoryStats = () => {
 
   return useMemo(() => {
     const memoryCount = entries.length;
-    const totalAutofills = entries.reduce(
-      (sum, entry) => sum + entry.metadata.usageCount,
-      0,
-    );
-    return { memoryCount, totalAutofills };
+    return { memoryCount };
   }, [entries]);
-};
-
-export const useTopMemories = (limit = 10) => {
-  const { entries } = useMemories();
-
-  return useMemo(() => {
-    return [...entries]
-      .sort((a, b) => b.metadata.usageCount - a.metadata.usageCount)
-      .slice(0, limit);
-  }, [entries, limit]);
 };
 
 export const useTopUsedTags = (

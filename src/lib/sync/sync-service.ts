@@ -191,7 +191,7 @@ class SyncService {
             syncId: remoteMemory.local_id,
             question: remoteMemory.question || undefined,
             answer: remoteMemory.answer,
-            category: remoteMemory.category,
+            category: remoteMemory.category as MemoryEntry["category"],
             tags: remoteMemory.tags,
             confidence: Number(remoteMemory.confidence),
             embedding: remoteMemory.embedding
@@ -204,8 +204,6 @@ class SyncService {
               createdAt: remoteMemory.created_at,
               updatedAt: remoteMemory.updated_at,
               source: remoteMemory.source as "manual" | "import",
-              usageCount: remoteMemory.usage_count,
-              lastUsed: remoteMemory.last_used || undefined,
             },
           };
           localMemories.push(newMemory);
@@ -229,7 +227,7 @@ class SyncService {
                 syncId: remoteMemory.local_id,
                 question: remoteMemory.question || undefined,
                 answer: remoteMemory.answer,
-                category: remoteMemory.category,
+                category: remoteMemory.category as MemoryEntry["category"],
                 tags: remoteMemory.tags,
                 confidence: Number(remoteMemory.confidence),
                 embedding: remoteMemory.embedding
@@ -242,8 +240,6 @@ class SyncService {
                   createdAt: remoteMemory.created_at,
                   updatedAt: remoteMemory.updated_at,
                   source: remoteMemory.source as "manual" | "import",
-                  usageCount: remoteMemory.usage_count,
-                  lastUsed: remoteMemory.last_used || undefined,
                 },
               };
               conflictsResolved++;
@@ -340,8 +336,6 @@ class SyncService {
               ? `[${memory.embedding.join(",")}]`
               : null) as string,
             p_source: memory.metadata.source,
-            p_usage_count: memory.metadata.usageCount,
-            p_last_used: (memory.metadata.lastUsed || null) as string,
             p_created_at: memory.metadata.createdAt,
             p_updated_at: memory.metadata.updatedAt,
           });

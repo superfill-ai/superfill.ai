@@ -1,5 +1,66 @@
 # superfill.ai
 
+## 0.2.2
+
+### Patch Changes
+
+- [#60](https://github.com/superfill-ai/superfill.ai/pull/60) [`03cf7e0`](https://github.com/superfill-ai/superfill.ai/commit/03cf7e094f4bde413c5615f59e5c0b31b6fb2ab0) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement onboarding and update tours with new dialogs and tour management
+
+- [`274eb3d`](https://github.com/superfill-ai/superfill.ai/commit/274eb3d83e0ae25ddf24d5fd31ad48a3eb158b9c) Thanks [@mikr13](https://github.com/mikr13)! - chore: migrate to tsgo, add extensions recommendations and update dependencies
+
+- [#61](https://github.com/superfill-ai/superfill.ai/pull/61) [`70a0b3f`](https://github.com/superfill-ai/superfill.ai/commit/70a0b3fc403e71a719654f0af5c067e14e3aa332) Thanks [@mikr13](https://github.com/mikr13)! - feat: add memory capture settings and prompt for form submissions
+
+## 0.2.1
+
+### Patch Changes
+
+- chore: update deps
+
+## 0.2.0
+
+### Minor Changes
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@mikr13](https://github.com/mikr13)! - feat: capture user filled memories automatically - WIP
+
+- [#30](https://github.com/superfill-ai/superfill.ai/pull/30) [`9cf76d8`](https://github.com/superfill-ai/superfill.ai/commit/9cf76d83ed0a6017bb16ddabcdd95f38d1a5133a) Thanks [@mikr13](https://github.com/mikr13)! - refactor: key management to use offscreen document for encryption and decryption
+
+### Patch Changes
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - Added support for radio, checkbox and select
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@Andro-human](https://github.com/Andro-human) & [@sweta-tw](https://github.com/sweta-tw)! - feat: implement fill trigger functionality with in-field button
+
+- [#45](https://github.com/superfill-ai/superfill.ai/pull/45) [`c66a8dd`](https://github.com/superfill-ai/superfill.ai/commit/c66a8dd58796a5d8b93ea5fb4ef835f6cc48cb83) Thanks [@arjun-veer](https://github.com/arjun-veer)! - feat: save memories directly from preview manager
+
+## 0.1.8
+
+### Patch Changes
+
+- [`f5e21fb`](https://github.com/superfill-ai/superfill.ai/commit/f5e21fb5e9a6e8430acb88c31ab1be66806f9fd7) Thanks [@mikr13](https://github.com/mikr13)! - fix: update answer display in AIMatcher to show full answer instead of truncated version
+
+## 0.1.7
+
+### Patch Changes
+
+- [#20](https://github.com/superfill-ai/superfill.ai/pull/20) [`8b20ca6`](https://github.com/superfill-ai/superfill.ai/commit/8b20ca6644927eff6ee427d03f5ad13762cde13a) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - removed memory usage tracking
+
+- [`33d249d`](https://github.com/superfill-ai/superfill.ai/commit/33d249d3c4856028049a3e1fd49f6b5a0e4664c6) Thanks [@mikr13](https://github.com/mikr13)! - feat: add API key URL to provider configuration and update UI to display link
+
+- [#18](https://github.com/superfill-ai/superfill.ai/pull/18) [`a4a1992`](https://github.com/superfill-ai/superfill.ai/commit/a4a1992a6283f0fe020a15f3c8c74e00335b40ce) Thanks [@Andro-human](https://github.com/Andro-human)! - fix(onboarding): improve country and phone number field handling
+
+- [#20](https://github.com/superfill-ai/superfill.ai/pull/20) [`8b20ca6`](https://github.com/superfill-ai/superfill.ai/commit/8b20ca6644927eff6ee427d03f5ad13762cde13a) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - - Updated prompt to deal in compound input fields
+
+  - Made prompt lenient to make it more flexible to fill generic info\
+  - Made change to handle a memory id as string or array (A field can be mapped to multiple memory ids)
+
+- [#17](https://github.com/superfill-ai/superfill.ai/pull/17) [`f687093`](https://github.com/superfill-ai/superfill.ai/commit/f687093105ea165079a18a9d309ddd3d8c1ff271) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement CORS dialog and enhance form field detection quality
+
+## 0.1.6
+
+### Patch Changes
+
+- [`5da8cff`](https://github.com/superfill-ai/superfill.ai/commit/5da8cff987324cec8328eb5685fe5965c4c81a0c) Thanks [@mikr13](https://github.com/mikr13)! - feat: animations added for sidebar and improved card styles
+
 ## 0.1.5
 
 ### Patch Changes

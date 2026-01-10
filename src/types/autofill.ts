@@ -1,4 +1,7 @@
+import type { TRACKABLE_FIELD_TYPES } from "@/lib/copies";
 import type { WebsiteContext } from "./context";
+
+export type TrackableFieldType = (typeof TRACKABLE_FIELD_TYPES)[number];
 
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;
@@ -11,8 +14,22 @@ export type DetectFormsResult =
       forms: DetectedFormSnapshot[];
       totalFields: number;
       websiteContext: WebsiteContext;
+      frameInfo: FrameInfo;
     }
-  | { success: false; forms: never[]; totalFields: 0; error: string };
+  | {
+      success: false;
+      forms: never[];
+      totalFields: 0;
+      error: string;
+      frameInfo: FrameInfo;
+    };
+
+export interface FrameInfo {
+  isMainFrame: boolean;
+  frameUrl: string;
+  parentUrl: string;
+  frameDepth: number;
+}
 
 export interface DetectedForm {
   opid: FormOpId;
@@ -35,13 +52,27 @@ export interface DetectedField {
   formOpid: FormOpId;
 }
 
-export interface FieldMetadataSnapshot extends Omit<FieldMetadata, "rect"> {
+export interface FieldMetadataSnapshot
+  extends Omit<FieldMetadata, "rect" | "options"> {
   rect: DOMRectInit;
+  options?: RadioOptionSnapshot[];
 }
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
+  frameId?: number;
   metadata: FieldMetadataSnapshot;
+}
+
+export interface RadioOption {
+  value: string;
+  label: string | null;
+  element: HTMLInputElement;
+}
+
+export interface RadioOptionSnapshot {
+  value: string;
+  label: string | null;
 }
 
 export interface FieldMetadata {
@@ -54,7 +85,6 @@ export interface FieldMetadata {
   labelData: string | null;
   labelAria: string | null;
   labelLeft: string | null;
-  labelRight: string | null;
   labelTop: string | null;
 
   placeholder: string | null;
@@ -72,6 +102,9 @@ export interface FieldMetadata {
 
   fieldType: FieldType;
   fieldPurpose: FieldPurpose;
+
+  /** For radio/checkbox groups: list of available options */
+  options?: RadioOption[];
 }
 
 export type FieldType =
@@ -111,6 +144,7 @@ export interface CompressedFieldData {
   purpose: FieldPurpose;
   labels: string[];
   context: string;
+  options?: RadioOptionSnapshot[];
 }
 
 export interface CompressedMemoryData {
@@ -122,16 +156,9 @@ export interface CompressedMemoryData {
 
 export interface FieldMapping {
   fieldOpid: string;
-  memoryId: string | null;
   value: string | null;
-  rephrasedValue: string | null;
   confidence: number;
   reasoning: string;
-  alternativeMatches: Array<{
-    memoryId: string;
-    value: string;
-    confidence: number;
-  }>;
   autoFill?: boolean;
 }
 
@@ -174,3 +201,55 @@ export interface AutofillProgress {
   fieldsMatched?: number;
   error?: string;
 }
+
+export interface CapturedFieldData {
+  fieldOpid: FieldOpId;
+  formOpid: FormOpId;
+  question: string;
+  answer: string;
+  timestamp: number;
+  wasAIFilled: boolean;
+  originalAIValue?: string;
+  aiConfidence?: number;
+  fieldMetadata: {
+    type: FieldType;
+    purpose: FieldPurpose;
+    labels: string[];
+    placeholder?: string;
+    required: boolean;
+  };
+}
+
+export interface TrackedFieldData {
+  fieldOpid: FieldOpId;
+  formOpid: FormOpId;
+  value: string;
+  timestamp: number;
+  wasAIFilled: boolean;
+  originalAIValue?: string;
+  aiConfidence?: number;
+  metadata: FieldMetadataSnapshot;
+}
+
+export interface CaptureSession {
+  sessionId: string;
+  url: string;
+  pageTitle: string;
+  trackedFields: Map<FieldOpId, TrackedFieldData>;
+  startedAt: number;
+}
+
+export interface FilterStats {
+  total: number;
+  filtered: number;
+  reasons: {
+    noQuality: number;
+    duplicate: number;
+    unknownUnlabeled: number;
+  };
+}
+
+export type FieldsToFillData = Array<{
+  fieldOpid: FieldOpId;
+  value: string;
+}>;

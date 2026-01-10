@@ -1,6 +1,5 @@
 import type { AIProvider } from "@/lib/providers/registry";
 import type { Theme } from "./theme";
-import type { Trigger } from "./trigger";
 
 export interface EncryptedKey {
   encrypted: string;
@@ -14,10 +13,22 @@ export interface AISettings {
   autopilotMode: boolean;
   confidenceThreshold: number;
   cloudModelsEnabled: boolean;
+  inlineTriggerEnabled: boolean;
+  contextMenuEnabled: boolean;
 }
 
 export interface UISettings {
   theme: Theme;
-  trigger: Trigger;
   onboardingCompleted: boolean;
+  extensionVersion?: string;
+  completedTours?: string[];
+  lastTourCompletedAt?: string;
+}
+
+export interface ProviderOption {
+  value: AIProvider;
+  label: string;
+  description?: string;
+  available: boolean;
+  requiresApiKey: boolean;
 }
