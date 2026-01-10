@@ -1,5 +1,6 @@
-import { X } from "lucide-react";
+import { SparklesIcon, X } from "lucide-react";
 import { createRoot, type Root } from "react-dom/client";
+import { Toaster, toast } from "sonner";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import {
   createShadowRootUi,
@@ -11,6 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,11 +30,11 @@ import { addNeverAskSite } from "@/lib/storage/capture-settings";
 import type { CapturedFieldData } from "@/types/autofill";
 import { Theme } from "@/types/theme";
 
-const logger = createLogger("capture-prompt-manager");
+const logger = createLogger("capture-memory-manager");
 
-const HOST_ID = "superfill-capture-prompt";
+const HOST_ID = "superfill-capture-memory";
 
-interface CapturePromptProps {
+interface CaptureMemoryProps {
   siteTitle: string;
   siteDomain: string;
   capturedFields: CapturedFieldData[];
@@ -41,14 +43,14 @@ interface CapturePromptProps {
   onNeverAsk: () => void;
 }
 
-const CapturePrompt = ({
+const CaptureMemory = ({
   siteTitle,
   siteDomain,
   capturedFields,
   onSave,
   onDismiss,
   onNeverAsk,
-}: CapturePromptProps) => {
+}: CaptureMemoryProps) => {
   const groupedFields = capturedFields.reduce(
     (acc, field) => {
       const category = field.fieldMetadata.type ?? "general";
@@ -64,76 +66,92 @@ const CapturePrompt = ({
   const totalFields = capturedFields.length;
 
   return (
-    <div
-      className="fixed top-4 right-4 z-9999"
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="save-memory-title"
-    >
-      <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-3">
-        <CardHeader>
-          <CardTitle className="text-sm">Save form data?</CardTitle>
-          <CardDescription className="text-xs text-wrap" id="save-memory-title">
-            Superfill detected {totalFields} field{totalFields !== 1 ? "s" : ""}{" "}
-            you filled on {siteTitle}. Save them for future use?
-          </CardDescription>
-          <CardAction>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              onClick={onDismiss}
-              aria-label="Dismiss prompt"
+    <>
+      <Toaster position="top-right" />
+      <div
+        className="fixed top-4 right-4 z-9999"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="save-memory-title"
+      >
+        <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-3">
+          <CardHeader>
+            <CardTitle className="text-sm">Save form data?</CardTitle>
+            <CardDescription
+              className="text-xs text-wrap"
+              id="save-memory-title"
             >
-              <X className="size-4" />
+              Superfill detected {totalFields} field
+              {totalFields !== 1 ? "s" : ""} you filled on {siteTitle}. Save
+              them for future use?
+            </CardDescription>
+            <CardAction>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={onDismiss}
+                aria-label="Dismiss prompt"
+              >
+                <X className="size-4" />
+              </Button>
+            </CardAction>
+          </CardHeader>
+
+          <CardContent className="max-h-80 overflow-y-auto">
+            <Accordion type="single" collapsible className="w-full">
+              {Object.entries(groupedFields).map(([category, fields]) => (
+                <AccordionItem key={category} value={category}>
+                  <AccordionTrigger className="text-sm">
+                    {category.charAt(0).toUpperCase() + category.slice(1)} (
+                    {fields.length})
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-1.5">
+                      {fields.map((field, idx) => (
+                        <div
+                          key={`${field.formOpid}-${field.fieldOpid}-${idx}`}
+                          className="p-1.5 bg-muted/50 rounded text-xs"
+                        >
+                          <div className="font-medium mb-0.5 text-foreground">
+                            {field.question}
+                          </div>
+                          <div className="text-muted-foreground truncate">
+                            {field.answer}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+
+            <Alert variant="default" className="items-center">
+              <SparklesIcon className="size-3" />
+              <span className="sr-only">Info</span>
+              <span className="text-xs">
+                Superfill's AI will intelligently handle duplicate fields by
+                either merging them or skipping them!
+              </span>
+            </Alert>
+          </CardContent>
+
+          <CardFooter className="px-3 py-2 flex-row items-center gap-2">
+            <Button onClick={onSave} className="flex-1" size="sm">
+              Save All
             </Button>
-          </CardAction>
-        </CardHeader>
-
-        <CardContent className="max-h-80 overflow-y-auto">
-          <Accordion type="single" collapsible className="w-full">
-            {Object.entries(groupedFields).map(([category, fields]) => (
-              <AccordionItem key={category} value={category}>
-                <AccordionTrigger className="text-sm">
-                  {category.charAt(0).toUpperCase() + category.slice(1)} (
-                  {fields.length})
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-1.5">
-                    {fields.map((field, idx) => (
-                      <div
-                        key={`${field.fieldOpid}-${idx}`}
-                        className="p-1.5 bg-muted/50 rounded text-xs"
-                      >
-                        <div className="font-medium mb-0.5 text-foreground">
-                          {field.question}
-                        </div>
-                        <div className="text-muted-foreground truncate">
-                          {field.answer}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </CardContent>
-
-        <CardFooter className="px-3 py-2 flex-row items-center gap-2">
-          <Button onClick={onSave} className="flex-1" size="sm">
-            Save All
-          </Button>
-          <Button onClick={onNeverAsk} variant="destructive" size="sm">
-            Never ask for {siteDomain}
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+            <Button onClick={onNeverAsk} variant="destructive" size="sm">
+              Never ask for {siteDomain}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    </>
   );
 };
 
-export class CapturePromptManager {
+export class CaptureMemoryManager {
   private ui: ShadowRootContentScriptUi<Root> | null = null;
   private root: Root | null = null;
   private currentFields: CapturedFieldData[] = [];
@@ -147,7 +165,7 @@ export class CapturePromptManager {
     const siteTitle = document.title;
     const siteDomain = window.location.hostname;
 
-    logger.debug("Showing capture prompt", {
+    logger.debug("Showing capture memory", {
       fieldsCount: capturedFields.length,
       siteDomain,
     });
@@ -179,7 +197,7 @@ export class CapturePromptManager {
       this.render(siteTitle, siteDomain);
       this.isVisible = true;
     } catch (error) {
-      logger.error("Failed to show capture prompt:", error);
+      logger.error("Failed to show capture memory:", error);
 
       try {
         this.ui?.remove();
@@ -194,7 +212,7 @@ export class CapturePromptManager {
   async hide(): Promise<void> {
     if (!this.isVisible) return;
 
-    logger.debug("Hiding capture prompt");
+    logger.debug("Hiding capture memory");
 
     if (this.ui) {
       this.ui.remove();
@@ -225,7 +243,7 @@ export class CapturePromptManager {
         host.classList.add(isDarkMode ? "dark" : "light");
       }
     } catch (error) {
-      logger.warn("Failed to apply theme to capture prompt:", error);
+      logger.warn("Failed to apply theme to capture memory:", error);
     }
   }
 
@@ -233,7 +251,7 @@ export class CapturePromptManager {
     if (!this.root) return;
 
     this.root.render(
-      <CapturePrompt
+      <CaptureMemory
         siteTitle={siteTitle}
         siteDomain={siteDomain}
         capturedFields={this.currentFields}
@@ -257,18 +275,36 @@ export class CapturePromptManager {
 
       if (result.success) {
         logger.debug(`Saved ${result.savedCount} memories`);
+
+        const totalFields = this.currentFields.length;
+        const savedCount = result.savedCount;
+        const skippedCount = totalFields - savedCount;
+
+        if (savedCount > 0) {
+          toast.success(
+            `Saved ${savedCount} ${savedCount === 1 ? "memory" : "memories"}${
+              skippedCount > 0
+                ? `, skipped ${skippedCount} duplicate${skippedCount === 1 ? "" : "s"}`
+                : ""
+            }`,
+          );
+        } else {
+          toast.info("All fields were duplicates, no new memories saved");
+        }
       } else {
         logger.error("Failed to save memories");
+        toast.error("Failed to save memories. Please try again.");
       }
     } catch (error) {
       logger.error("Error saving memories:", error);
+      toast.error("An error occurred while saving memories");
     }
 
     await this.hide();
   }
 
   private async handleDismiss(): Promise<void> {
-    logger.debug("Dismissing capture prompt");
+    logger.debug("Dismissing capture memory");
     await this.hide();
   }
 

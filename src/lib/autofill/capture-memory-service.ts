@@ -1,154 +1,22 @@
 import { defineProxyService } from "@webext-core/proxy-service";
-import stringComparison from "string-comparison";
 import { v7 as uuidv7 } from "uuid";
-import {
-  BulkCategorizer,
-  type CategorizedField,
-} from "@/lib/ai/bulk-categorizer";
+import { DeduplicationCategorizer } from "@/lib/ai/deduplication-categorizer";
 import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { CapturedFieldData } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
-import {
-  getCanonicalQuestion,
-  normalizeFieldName,
-  normalizeString,
-} from "../string";
 
 const logger = createLogger("capture-memory-service");
 
-const FALLBACK_CONFIDENCE_ON_ERROR = 0.3;
-const FALLBACK_CONFIDENCE_NO_AI = 0.5;
 const DEFAULT_CATEGORY = "general";
-const SEMANTIC_SIMILARITY_THRESHOLD = 0.7;
-const CANONICAL_MATCH_BOOST = 0.15;
-
-const { diceCoefficient, jaroWinkler } = stringComparison;
-
-function areQuestionsSimilar(
-  q1: string,
-  q2: string,
-  purpose1?: string,
-  purpose2?: string,
-): boolean {
-  const norm1 = normalizeString(q1);
-  const norm2 = normalizeString(q2);
-
-  if (norm1 === norm2) return true;
-
-  const canonical1 = getCanonicalQuestion(q1);
-  const canonical2 = getCanonicalQuestion(q2);
-
-  if (canonical1 === canonical2) {
-    logger.debug("Canonical match found:", { q1, q2, canonical: canonical1 });
-    return true;
-  }
-
-  if (purpose1 && purpose2 && purpose1 === purpose2 && purpose1 !== "unknown") {
-    logger.debug("Field purpose match:", { purpose: purpose1, q1, q2 });
-    return true;
-  }
-
-  const fieldName1 = normalizeFieldName(q1);
-  const fieldName2 = normalizeFieldName(q2);
-
-  if (fieldName1 === fieldName2 && fieldName1.length > 0) {
-    logger.debug("Normalized field name match:", { fieldName: fieldName1 });
-    return true;
-  }
-
-  const diceSim = diceCoefficient.similarity(norm1, norm2);
-  const jaroSim = jaroWinkler.similarity(norm1, norm2);
-  let combinedSim = (diceSim + jaroSim) / 2;
-
-  if (canonical1 !== norm1 || canonical2 !== norm2) {
-    const canonicalSim = diceCoefficient.similarity(canonical1, canonical2);
-    if (canonicalSim > 0.8) {
-      combinedSim += CANONICAL_MATCH_BOOST;
-      logger.debug("Applied canonical boost:", {
-        original: combinedSim - CANONICAL_MATCH_BOOST,
-        boosted: combinedSim,
-      });
-    }
-  }
-
-  return combinedSim >= SEMANTIC_SIMILARITY_THRESHOLD;
-}
-
-function areAnswersEqual(a1: string, a2: string): boolean {
-  return normalizeString(a1) === normalizeString(a2);
-}
-
-type DeduplicationResult = {
-  toCreate: Array<{ question: string; answer: string; catIndex: number }>;
-  toUpdate: Array<{
-    existingMemory: MemoryEntry;
-    newAnswer: string;
-    catIndex: number;
-  }>;
-};
 
 export class CaptureMemoryService {
-  private categorizer: BulkCategorizer;
+  private deduplicator: DeduplicationCategorizer;
 
   constructor() {
-    this.categorizer = new BulkCategorizer();
-  }
-
-  private deduplicateFields(
-    fieldsToSave: Array<{
-      question: string;
-      answer: string;
-      purpose?: string;
-    }>,
-    currentMemories: MemoryEntry[],
-  ): DeduplicationResult {
-    const result: DeduplicationResult = {
-      toCreate: [],
-      toUpdate: [],
-    };
-
-    for (let i = 0; i < fieldsToSave.length; i++) {
-      const field = fieldsToSave[i];
-      let foundSimilarQuestion = false;
-
-      for (const existing of currentMemories) {
-        if (!existing.question) continue;
-
-        const existingPurpose = existing.metadata?.fieldPurpose;
-        if (
-          areQuestionsSimilar(
-            field.question,
-            existing.question,
-            field.purpose,
-            existingPurpose,
-          )
-        ) {
-          foundSimilarQuestion = true;
-
-          if (!areAnswersEqual(field.answer, existing.answer)) {
-            result.toUpdate.push({
-              existingMemory: existing,
-              newAnswer: field.answer,
-              catIndex: i,
-            });
-          }
-          break;
-        }
-      }
-
-      if (!foundSimilarQuestion) {
-        result.toCreate.push({
-          question: field.question,
-          answer: field.answer,
-          catIndex: i,
-        });
-      }
-    }
-
-    return result;
+    this.deduplicator = new DeduplicationCategorizer();
   }
 
   async saveCapturedMemories(
@@ -193,114 +61,87 @@ export class CaptureMemoryService {
         `${fieldsToSave.length} fields passed question+answer filter`,
       );
 
-      let categorized: CategorizedField[] = [];
-
-      if (provider && apiKey) {
-        try {
-          categorized = await this.categorizer.categorizeFields(
-            fieldsToSave.map((f) => ({
-              question: f.question,
-              answer: f.answer,
-            })),
-            provider,
-            apiKey,
-            modelName,
-          );
-          logger.debug(
-            "Bulk categorization completed",
-            categorized.map((c) => c.category),
-          );
-        } catch (error) {
-          logger.error("Bulk categorization failed, using fallback:", error);
-          categorized = fieldsToSave.map(() => ({
-            category: DEFAULT_CATEGORY,
-            confidence: FALLBACK_CONFIDENCE_ON_ERROR,
-          }));
-        }
-      } else {
-        logger.debug("No AI provider configured, using fallback categories");
-        categorized = fieldsToSave.map(() => ({
-          category: DEFAULT_CATEGORY,
-          confidence: FALLBACK_CONFIDENCE_NO_AI,
-        }));
-      }
-
-      const isValidCategory = (cat: string): cat is MemoryEntry["category"] => {
-        return allowedCategories.includes(cat as MemoryEntry["category"]);
-      };
-
       const currentMemories = await storage.memories.getValue();
 
-      const { toCreate, toUpdate } = this.deduplicateFields(
-        fieldsToSave.map((f) => ({
+      if (!provider || !apiKey) {
+        logger.debug("No AI provider configured, using fallback deduplication");
+        const fallbackResult = await this.deduplicator.processFields(
+          fieldsToSave.map((f, index) => ({
+            index,
+            question: f.question,
+            answer: f.answer,
+            fieldPurpose: f.fieldMetadata.purpose,
+          })),
+          currentMemories,
+          "openai",
+          "",
+        );
+
+        const { newMemories, updatedMemories } = this.applyOperations(
+          fallbackResult.operations,
+          fieldsToSave,
+          currentMemories,
+        );
+
+        const finalMemories = [...updatedMemories, ...newMemories];
+        await storage.memories.setValue(finalMemories);
+
+        const totalChanges =
+          newMemories.length +
+          fallbackResult.operations.filter((op) => op.action === "update")
+            .length;
+        logger.debug(
+          `Fallback saved ${newMemories.length} new memories and updated ${fallbackResult.operations.filter((op) => op.action === "update").length} existing`,
+        );
+
+        return { success: true, savedCount: totalChanges };
+      }
+
+      const deduplicationResult = await this.deduplicator.processFields(
+        fieldsToSave.map((f, index) => ({
+          index,
           question: f.question,
           answer: f.answer,
-          purpose: f.fieldMetadata.purpose,
+          fieldPurpose: f.fieldMetadata.purpose,
         })),
+        currentMemories,
+        provider,
+        apiKey,
+        modelName,
+      );
+
+      logger.debug(
+        `Deduplication completed:`,
+        deduplicationResult.operations.map((op) => ({
+          action: op.action,
+          fieldIndex: op.fieldIndex,
+        })),
+      );
+
+      const { newMemories, updatedMemories } = this.applyOperations(
+        deduplicationResult.operations,
+        fieldsToSave,
         currentMemories,
       );
 
-      logger.debug(
-        `Deduplication: ${toCreate.length} new, ${toUpdate.length} updates, ${fieldsToSave.length - toCreate.length - toUpdate.length} skipped`,
-      );
-
-      const newMemories: MemoryEntry[] = toCreate.map((item) => {
-        const catResult = categorized[item.catIndex];
-        const validCategory = isValidCategory(catResult.category)
-          ? catResult.category
-          : DEFAULT_CATEGORY;
-
-        const originalField = fieldsToSave[item.catIndex];
-
-        return {
-          id: uuidv7(),
-          question: item.question,
-          answer: item.answer,
-          category: validCategory,
-          tags: [],
-          confidence: catResult.confidence,
-          metadata: {
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            source: "autofill",
-            fieldPurpose: originalField.fieldMetadata.purpose,
-          },
-        };
-      });
-
-      const updatedExistingMemories = currentMemories.map((memory) => {
-        const updateItem = toUpdate.find(
-          (u) => u.existingMemory.id === memory.id,
-        );
-        if (updateItem) {
-          const catResult = categorized[updateItem.catIndex];
-          const validCategory = isValidCategory(catResult.category)
-            ? catResult.category
-            : memory.category;
-
-          return {
-            ...memory,
-            answer: updateItem.newAnswer,
-            category: validCategory,
-            confidence: catResult.confidence,
-            metadata: {
-              ...memory.metadata,
-              updatedAt: new Date().toISOString(),
-            },
-          };
-        }
-        return memory;
-      });
-
-      const finalMemories = [...updatedExistingMemories, ...newMemories];
+      const finalMemories = [...updatedMemories, ...newMemories];
       await storage.memories.setValue(finalMemories);
 
-      const totalChanges = newMemories.length + toUpdate.length;
+      const createCount = deduplicationResult.operations.filter(
+        (op) => op.action === "create",
+      ).length;
+      const updateCount = deduplicationResult.operations.filter(
+        (op) => op.action === "update",
+      ).length;
+      const skipCount = deduplicationResult.operations.filter(
+        (op) => op.action === "skip",
+      ).length;
+
       logger.debug(
-        `Successfully saved ${newMemories.length} new memories and updated ${toUpdate.length} existing`,
+        `Successfully processed: ${createCount} created, ${updateCount} updated, ${skipCount} skipped`,
       );
 
-      return { success: true, savedCount: totalChanges };
+      return { success: true, savedCount: createCount + updateCount };
     } catch (error) {
       logger.error("Failed to save captured memories:", error);
       return {
@@ -308,6 +149,88 @@ export class CaptureMemoryService {
         savedCount: 0,
       };
     }
+  }
+
+  private applyOperations(
+    operations: Array<
+      | {
+          action: "create";
+          fieldIndex: number;
+          category: string;
+          tags: string[];
+          confidence: number;
+        }
+      | {
+          action: "update";
+          fieldIndex: number;
+          existingMemoryId: string;
+          newAnswer: string;
+          category: string;
+          tags: string[];
+          confidence: number;
+        }
+      | { action: "skip"; fieldIndex: number; existingMemoryId: string }
+    >,
+    fieldsToSave: CapturedFieldData[],
+    currentMemories: MemoryEntry[],
+  ): {
+    newMemories: MemoryEntry[];
+    updatedMemories: MemoryEntry[];
+  } {
+    const isValidCategory = (cat: string): cat is MemoryEntry["category"] => {
+      return allowedCategories.includes(cat as MemoryEntry["category"]);
+    };
+
+    const newMemories: MemoryEntry[] = [];
+    const memoryMap = new Map(currentMemories.map((m) => [m.id, m]));
+
+    for (const op of operations) {
+      if (op.action === "create") {
+        const field = fieldsToSave[op.fieldIndex];
+        const validCategory = isValidCategory(op.category)
+          ? op.category
+          : DEFAULT_CATEGORY;
+
+        newMemories.push({
+          id: uuidv7(),
+          question: field.question,
+          answer: field.answer,
+          category: validCategory,
+          tags: op.tags || [],
+          confidence: op.confidence,
+          metadata: {
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            source: "autofill",
+            fieldPurpose: field.fieldMetadata.purpose,
+          },
+        });
+      } else if (op.action === "update") {
+        const existingMemory = memoryMap.get(op.existingMemoryId);
+        if (existingMemory) {
+          const validCategory = isValidCategory(op.category)
+            ? op.category
+            : existingMemory.category;
+
+          memoryMap.set(op.existingMemoryId, {
+            ...existingMemory,
+            answer: op.newAnswer,
+            category: validCategory,
+            tags: op.tags || existingMemory.tags,
+            confidence: op.confidence,
+            metadata: {
+              ...existingMemory.metadata,
+              updatedAt: new Date().toISOString(),
+            },
+          });
+        }
+      }
+    }
+
+    return {
+      newMemories,
+      updatedMemories: Array.from(memoryMap.values()),
+    };
   }
 }
 

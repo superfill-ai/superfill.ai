@@ -92,22 +92,3 @@ export function isSiteBlocked(
     (blocked) => domain === blocked || domain.endsWith(`.${blocked}`),
   );
 }
-
-export function isChatInterface(): boolean {
-  const inputs = document.querySelectorAll<
-    HTMLInputElement | HTMLTextAreaElement
-  >('input[type="text"], textarea');
-
-  if (inputs.length === 0) {
-    return false;
-  }
-
-  const hasLogRole = document.querySelector('[role="log"]') !== null;
-  const hasChatClass = document.querySelector(".chat") !== null;
-  const hasMessagesClass =
-    document.querySelector(".message, .messages") !== null;
-  const hasChatContainer =
-    document.querySelector('[id*="chat" i], [data-testid*="chat" i]') !== null;
-
-  return hasLogRole || hasChatClass || hasMessagesClass || hasChatContainer;
-}

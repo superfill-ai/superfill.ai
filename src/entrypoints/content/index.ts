@@ -11,7 +11,6 @@ import { isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import {
   getCaptureSettings,
-  isChatInterface,
   isSiteBlocked,
 } from "@/lib/storage/capture-settings";
 import type {
@@ -23,7 +22,7 @@ import type {
   FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
-import { CapturePromptManager } from "./components/capture-prompt-manager";
+import { CaptureMemoryManager } from "./components/capture-memory-manager";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
@@ -75,28 +74,28 @@ export default defineContentScript({
       };
     }
 
-    const isChatPage = isChatInterface();
-    const isBlocked =
+    const isAutoCaptureBlocked =
       isSiteBlocked(hostname, captureSettings) ||
-      isMessagingSite(hostname, pathname) ||
-      isChatPage;
-
+      isMessagingSite(hostname, pathname);
     let fieldTracker: Awaited<ReturnType<typeof getFieldDataTracker>> | null =
       null;
     let submissionMonitor: ReturnType<typeof getFormSubmissionMonitor> | null =
       null;
     let captureService: CaptureService | null = null;
-    let capturePromptManager: CapturePromptManager | null = null;
+    let captureMemoryManager: CaptureMemoryManager | null = null;
 
-    if (captureSettings.enabled && !isBlocked && frameInfo.isMainFrame) {
+    if (
+      captureSettings.enabled &&
+      !isAutoCaptureBlocked &&
+      frameInfo.isMainFrame
+    ) {
       logger.debug("Initializing memory capture for site:", hostname);
       fieldTracker = await getFieldDataTracker();
       submissionMonitor = getFormSubmissionMonitor();
       captureService = new CaptureService();
-      capturePromptManager = new CapturePromptManager();
+      captureMemoryManager = new CaptureMemoryManager();
 
       submissionMonitor.start();
-
       await captureService.initializeAutoTracking(
         formDetector,
         fieldTracker,
@@ -104,11 +103,10 @@ export default defineContentScript({
         fieldCache,
       );
     } else {
-      logger.debug("Memory capture disabled for site:", {
+      logger.info("Memory capture disabled for site:", {
         hostname,
         enabled: captureSettings.enabled,
-        isBlocked,
-        isChat: isChatPage,
+        isAutoCaptureBlocked,
         isMainFrame: frameInfo.isMainFrame,
       });
     }
@@ -255,7 +253,7 @@ export default defineContentScript({
       submissionMonitor &&
       fieldTracker &&
       captureService &&
-      capturePromptManager
+      captureMemoryManager
     ) {
       submissionMonitor.onSubmission(async (submittedFieldOpids) => {
         logger.debug(
@@ -287,7 +285,7 @@ export default defineContentScript({
             `Showing capture prompt for ${capturedFields.length} fields`,
           );
 
-          await capturePromptManager.show(ctx, capturedFields);
+          await captureMemoryManager.show(ctx, capturedFields);
         } catch (error) {
           logger.error("Error processing form submission:", error);
         }
@@ -301,8 +299,11 @@ export default defineContentScript({
       if (submissionMonitor) {
         submissionMonitor.dispose();
       }
-      if (capturePromptManager) {
-        capturePromptManager.hide();
+      if (captureService) {
+        captureService.dispose();
+      }
+      if (captureMemoryManager) {
+        captureMemoryManager.hide();
       }
     });
   },
