@@ -22,7 +22,7 @@ import {
   registerKeyVaultService,
 } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
-import { getSyncService } from "@/lib/sync/sync-service";
+import { getSyncService, registerSyncService } from "@/lib/sync/sync-service";
 import { migrateAISettings } from "./lib/migrate-settings-handler";
 
 const logger = createLogger("background");
@@ -52,19 +52,21 @@ export default defineBackground({
       tracerProvider.register();
     }
 
+    registerAutofillService();
+    registerAuthService();
+    registerCaptureMemoryService();
     registerCategorizationService();
     registerKeyValidationService();
     registerKeyVaultService();
-    registerCaptureMemoryService();
     registerModelService();
-    registerAutofillService();
-    registerAuthService();
     registerSessionService();
-    const syncService = getSyncService();
-    const sessionService = getSessionService();
+    registerSyncService();
+
+    const autofillService = getAutofillService();
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();
-    const autofillService = getAutofillService();
+    const sessionService = getSessionService();
+    const syncService = getSyncService();
 
     const updateContextMenu = async (enabled: boolean) => {
       try {
