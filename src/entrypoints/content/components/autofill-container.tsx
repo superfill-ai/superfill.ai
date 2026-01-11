@@ -151,6 +151,7 @@ const FieldRow = ({
               <EntryForm
                 mode="create"
                 layout="preview"
+                fieldMetadata={field.metadata}
                 initialData={{
                   id: "",
                   question: field.primaryLabel,

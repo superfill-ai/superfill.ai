@@ -27,6 +27,7 @@ import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import type { FieldMetadataSnapshot } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
@@ -35,6 +36,7 @@ interface EntryFormProps {
   mode: "create" | "edit";
   layout?: "compact" | "normal" | "preview";
   initialData?: Partial<MemoryEntry>;
+  fieldMetadata?: FieldMetadataSnapshot;
   onSuccess?: (data: MemoryEntry) => void;
   onCancel?: () => void;
 }
@@ -50,6 +52,7 @@ export function EntryForm({
   mode,
   initialData,
   layout = "normal",
+  fieldMetadata,
   onSuccess,
   onCancel,
 }: EntryFormProps) {
@@ -347,21 +350,48 @@ export function EntryForm({
             const isInvalid =
               field.state.meta.isTouched && !field.state.meta.isValid;
 
+            const isRadioWithOptions =
+              isPreviewMode &&
+              fieldMetadata?.fieldType === "radio" &&
+              fieldMetadata?.options &&
+              fieldMetadata.options.length > 0;
+
             return (
               <Field
                 data-invalid={isInvalid}
                 className={layout === "compact" ? "gap-1" : ""}
               >
                 <FieldLabel htmlFor={field.name}>Answer *</FieldLabel>
-                <Textarea
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={isInvalid}
-                  placeholder="Your information (e.g., email, phone, address)"
-                />
+                {isRadioWithOptions ? (
+                  <select
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={isInvalid}
+                    className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                  >
+                    <option value="" disabled>
+                      Select an option
+                    </option>
+                    {fieldMetadata.options?.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label || option.value}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Textarea
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={isInvalid}
+                    placeholder="Your information (e.g., email, phone, address)"
+                  />
+                )}
                 {isInvalid && <FieldError errors={field.state.meta.errors} />}
               </Field>
             );
