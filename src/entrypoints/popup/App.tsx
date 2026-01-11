@@ -355,20 +355,20 @@ export const App = () => {
               <Button
                 variant="shine"
                 className="w-full flex gap-2"
-                disabled={!hasMemories}
-                onClick={handleAutofill}
+                onClick={hasMemories ? handleAutofill : () => setActiveTab("add-memory")}
               >
                 <SparklesIcon className="size-4" />
-                Autofill with AI
+                {hasMemories ? "Autofill with AI" : "Create Memory First"}
               </Button>
             </div>
 
             <Card className="gap-2">
               <CardHeader>
-                <CardTitle>Ready to Autofill</CardTitle>
+                <CardTitle>{hasMemories ? "Ready to Autofill" : "No Memories Yet"}</CardTitle>
                 <CardDescription>
-                  Click the button above to intelligently fill form fields on
-                  this page using your stored memories.
+                  {hasMemories 
+                    ? "Click the button above to intelligently fill form fields on this page using your stored memories."
+                    : "Create your first memory entry to start using AI-powered autofill on web forms."}
                 </CardDescription>
               </CardHeader>
               {selectedProvider && (

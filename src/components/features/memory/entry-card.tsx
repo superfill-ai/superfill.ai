@@ -127,6 +127,30 @@ export function EntryCard({
                 <CopyIcon className="size-4" />
               )}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm">
+                  <MoreVerticalIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(entry.id)}>
+                  <Edit2Icon className="mr-2 size-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDuplicate(entry.id)}>
+                  <CopyIcon className="mr-2 size-4" />
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDelete(entry.id)}
+                  className="text-destructive"
+                >
+                  <Trash2Icon className="mr-2 size-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardAction>
         </CardHeader>
 
@@ -161,40 +185,6 @@ export function EntryCard({
             )}
           </div>
         </CardContent>
-
-        <CardFooter className="justify-between py-0 my-0">
-          <div className="flex items-center gap-2 ml-auto">
-            {isHovered && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Kbd>e</Kbd> to edit
-              </span>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm">
-                  <MoreVerticalIcon />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(entry.id)}>
-                  <Edit2Icon className="mr-2 size-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicate(entry.id)}>
-                  <CopyIcon className="mr-2 size-4" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete(entry.id)}
-                  className="text-destructive"
-                >
-                  <Trash2Icon className="mr-2 size-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardFooter>
       </Card>
     );
   }
