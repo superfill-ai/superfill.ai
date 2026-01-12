@@ -1,13 +1,13 @@
 import { createLogger } from "@/lib/logger";
 import type { AllowedCategory } from "@/types/memory";
 import type {
-    ResumeCertification,
-    ResumeData,
-    ResumeEducation,
-    ResumeExperience,
-    ResumeImportItem,
-    ResumeParserResult,
-    ResumeProject,
+  ResumeCertification,
+  ResumeData,
+  ResumeEducation,
+  ResumeExperience,
+  ResumeImportItem,
+  ResumeParserResult,
+  ResumeProject,
 } from "@/types/resume";
 
 const logger = createLogger("resume-parser");

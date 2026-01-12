@@ -1,8 +1,8 @@
 import { createLogger } from "@/lib/logger";
 import type {
-    LinkedInImportItem,
-    LinkedInProfileData,
-    LinkedInScraperResult,
+  LinkedInImportItem,
+  LinkedInProfileData,
+  LinkedInScraperResult,
 } from "@/types/linkedin";
 import type { AllowedCategory } from "@/types/memory";
 

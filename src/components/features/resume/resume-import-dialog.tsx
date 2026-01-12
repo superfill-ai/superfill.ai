@@ -1,45 +1,45 @@
+import {
+  AlertCircleIcon,
+  AwardIcon,
+  BriefcaseIcon,
+  CheckCircle2Icon,
+  FileTextIcon,
+  FolderKanbanIcon,
+  GraduationCapIcon,
+  Loader2Icon,
+  MailIcon,
+  MedalIcon,
+  SparklesIcon,
+  UploadIcon,
+  UserIcon,
+} from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemoryMutations } from "@/hooks/use-memories";
 import { createLogger } from "@/lib/logger";
 import {
-    convertResumeToImportItems,
-    parseResumePDF,
+  convertResumeToImportItems,
+  parseResumePDF,
 } from "@/lib/resume/resume-parser";
 import type { MemoryEntry } from "@/types/memory";
 import type {
-    ResumeData,
-    ResumeImportItem,
-    ResumeParserStatus,
+  ResumeData,
+  ResumeImportItem,
+  ResumeParserStatus,
 } from "@/types/resume";
-import {
-    AlertCircleIcon,
-    AwardIcon,
-    BriefcaseIcon,
-    CheckCircle2Icon,
-    FileTextIcon,
-    FolderKanbanIcon,
-    GraduationCapIcon,
-    Loader2Icon,
-    MailIcon,
-    MedalIcon,
-    SparklesIcon,
-    UploadIcon,
-    UserIcon,
-} from "lucide-react";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
 
 const logger = createLogger("component:resume-import-dialog");
 
