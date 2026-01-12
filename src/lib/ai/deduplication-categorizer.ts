@@ -55,14 +55,6 @@ export interface FieldToProcess {
   fieldPurpose?: string;
 }
 
-export interface ExistingMemory {
-  id: string;
-  question?: string;
-  answer: string;
-  category: string;
-  fieldPurpose?: string;
-}
-
 export class DeduplicationCategorizer {
   async processFields(
     newFields: FieldToProcess[],
