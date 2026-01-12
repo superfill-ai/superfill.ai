@@ -1,27 +1,13 @@
-import {
-  AlertCircleIcon,
-  BriefcaseIcon,
-  CheckCircle2Icon,
-  GraduationCapIcon,
-  LinkedinIcon,
-  Loader2Icon,
-  MailIcon,
-  MapPinIcon,
-  SparklesIcon,
-  UserIcon,
-} from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -29,11 +15,25 @@ import { useMemoryMutations } from "@/hooks/use-memories";
 import { getLinkedInService } from "@/lib/linkedin/linkedin-service";
 import { createLogger } from "@/lib/logger";
 import type {
-  LinkedInImportItem,
-  LinkedInProfileData,
-  LinkedInScraperStatus,
+    LinkedInImportItem,
+    LinkedInProfileData,
+    LinkedInScraperStatus,
 } from "@/types/linkedin";
 import type { MemoryEntry } from "@/types/memory";
+import {
+    AlertCircleIcon,
+    BriefcaseIcon,
+    CheckCircle2Icon,
+    GraduationCapIcon,
+    LinkedinIcon,
+    Loader2Icon,
+    MailIcon,
+    MapPinIcon,
+    SparklesIcon,
+    UserIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const logger = createLogger("component:linkedin-import-dialog");
 
