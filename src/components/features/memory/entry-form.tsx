@@ -487,7 +487,12 @@ export function EntryForm({
                     name={field.name}
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                    onBlur={field.handleBlur}
+                    className={cn(
+                      "w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+                      isInvalid &&
+                        "border-destructive ring-2 ring-destructive/20 dark:ring-destructive/40",
+                    )}
                     aria-invalid={isInvalid}
                     aria-describedby={isInvalid ? `${field.name}-error` : undefined}
                   >
