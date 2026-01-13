@@ -18,6 +18,7 @@ import { InputBadge } from "@/components/ui/input-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
+import { cn } from "@/lib/cn";
 import { allowedCategories } from "@/lib/copies";
 import {
   ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
@@ -370,11 +371,13 @@ export function EntryForm({
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={isInvalid}
-                    className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                    aria-describedby={isInvalid ? `${field.name}-error` : undefined}
+                    className={cn(
+                      "w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      isInvalid && "border-destructive ring-2 ring-destructive/20 dark:ring-destructive/40"
+                    )}
                   >
-                    <option value="" disabled>
-                      Select an option
-                    </option>
+                    {!field.state.value && <option value="">-- Choose an option --</option>}
                     {fieldMetadata.options?.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label || option.value}
@@ -392,7 +395,12 @@ export function EntryForm({
                     placeholder="Your information (e.g., email, phone, address)"
                   />
                 )}
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id={`${field.name}-error`}
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             );
           }}
@@ -478,6 +486,7 @@ export function EntryForm({
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                    aria-invalid={isInvalid}
                   >
                     <option value="" disabled>
                       Select a category
