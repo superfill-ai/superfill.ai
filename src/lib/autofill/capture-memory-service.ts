@@ -190,6 +190,7 @@ export class CaptureMemoryService {
         });
       } else if (op.action === "update") {
         const existingMemory = memoryMap.get(op.existingMemoryId);
+
         if (existingMemory) {
           const validCategory = isValidCategory(op.category)
             ? op.category
@@ -206,6 +207,11 @@ export class CaptureMemoryService {
               updatedAt: new Date().toISOString(),
             },
           });
+        } else {
+          logger.warn(
+            "CaptureMemoryService: update operation referenced non-existent memory",
+            { existingMemoryId: op.existingMemoryId },
+          );
         }
       }
     }
