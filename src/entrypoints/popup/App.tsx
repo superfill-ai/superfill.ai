@@ -4,7 +4,7 @@ import {
   TargetIcon,
   TrophyIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
@@ -167,6 +167,10 @@ export const App = () => {
   useHotkeys("s", () => {
     handleOpenSettings();
   });
+
+  const handleCreateMemoryFirst = useCallback(() => {
+    setActiveTab("add-memory");
+  }, []);
 
   const handleAutofill = async () => {
     try {
@@ -336,7 +340,7 @@ export const App = () => {
           className="h-full flex flex-col gap-0"
         >
           <TabsList className="w-full rounded-none border-b">
-            <TabsTrigger value="autofill" disabled={!hasMemories}>
+            <TabsTrigger value="autofill">
               Autofill <Kbd>a</Kbd>
             </TabsTrigger>
             <TabsTrigger value="add-memory">
@@ -355,7 +359,7 @@ export const App = () => {
               <Button
                 variant="shine"
                 className="w-full flex gap-2"
-                onClick={hasMemories ? handleAutofill : () => setActiveTab("add-memory")}
+                onClick={hasMemories ? handleAutofill : handleCreateMemoryFirst}
               >
                 <SparklesIcon className="size-4" />
                 {hasMemories ? "Autofill with AI" : "Create Memory First"}
@@ -364,9 +368,11 @@ export const App = () => {
 
             <Card className="gap-2">
               <CardHeader>
-                <CardTitle>{hasMemories ? "Ready to Autofill" : "No Memories Yet"}</CardTitle>
+                <CardTitle>
+                  {hasMemories ? "Ready to Autofill" : "No Memories Yet"}
+                </CardTitle>
                 <CardDescription>
-                  {hasMemories 
+                  {hasMemories
                     ? "Click the button above to intelligently fill form fields on this page using your stored memories."
                     : "Create your first memory entry to start using AI-powered autofill on web forms."}
                 </CardDescription>
