@@ -27,7 +27,12 @@ export function EntryActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size={triggerSize} className={triggerClassName}>
+        <Button
+          variant="ghost"
+          size={triggerSize}
+          className={triggerClassName}
+          aria-label="Entry actions"
+        >
           <MoreVerticalIcon className="size-4" />
         </Button>
       </DropdownMenuTrigger>

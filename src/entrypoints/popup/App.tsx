@@ -4,7 +4,7 @@ import {
   TargetIcon,
   TrophyIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { EntryCard } from "@/components/features/memory/entry-card";
@@ -168,9 +168,9 @@ export const App = () => {
     handleOpenSettings();
   });
 
-  const handleCreateMemoryFirst = useCallback(() => {
+  const handleCreateMemoryFirst = () => {
     setActiveTab("add-memory");
-  }, []);
+  };
 
   const handleAutofill = async () => {
     try {
