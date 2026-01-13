@@ -140,7 +140,7 @@ export const App = () => {
     };
   }, []);
 
-  const handleCreateMemoryFirst = () => {
+  useHotkeys("c", () => {
     setActiveTab("add-memory");
     setTimeout(() => {
       const questionField = document.querySelector(
@@ -148,10 +148,6 @@ export const App = () => {
       ) as HTMLTextAreaElement;
       questionField?.focus();
     }, 100);
-  };
-
-  useHotkeys("c", () => {
-    handleCreateMemoryFirst();
   });
 
   useHotkeys("m", () => {
@@ -171,6 +167,10 @@ export const App = () => {
   useHotkeys("s", () => {
     handleOpenSettings();
   });
+
+  const handleCreateMemoryFirst = () => {
+    setActiveTab("add-memory");
+  };
 
   const handleAutofill = async () => {
     try {
