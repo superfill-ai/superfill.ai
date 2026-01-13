@@ -1,6 +1,9 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { v7 as uuidv7 } from "uuid";
-import { DeduplicationCategorizer } from "@/lib/ai/deduplication-categorizer";
+import {
+  DeduplicationCategorizer,
+  type DeduplicationOperation,
+} from "@/lib/ai/deduplication-categorizer";
 import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -65,7 +68,7 @@ export class CaptureMemoryService {
 
       if (!provider || !apiKey) {
         logger.debug("No AI provider configured, using fallback deduplication");
-        const fallbackResult = await this.deduplicator.processFields(
+        const fallbackResult = this.deduplicator.fallbackDeduplication(
           fieldsToSave.map((f, index) => ({
             index,
             question: f.question,
@@ -73,17 +76,15 @@ export class CaptureMemoryService {
             fieldPurpose: f.fieldMetadata.purpose,
           })),
           currentMemories,
-          "openai",
-          "",
         );
 
-        const { newMemories, updatedMemories } = this.applyOperations(
+        const { newMemories, existingMemories } = this.applyOperations(
           fallbackResult.operations,
           fieldsToSave,
           currentMemories,
         );
 
-        const finalMemories = [...updatedMemories, ...newMemories];
+        const finalMemories = [...existingMemories, ...newMemories];
         await storage.memories.setValue(finalMemories);
 
         const totalChanges =
@@ -118,13 +119,13 @@ export class CaptureMemoryService {
         })),
       );
 
-      const { newMemories, updatedMemories } = this.applyOperations(
+      const { newMemories, existingMemories } = this.applyOperations(
         deduplicationResult.operations,
         fieldsToSave,
         currentMemories,
       );
 
-      const finalMemories = [...updatedMemories, ...newMemories];
+      const finalMemories = [...existingMemories, ...newMemories];
       await storage.memories.setValue(finalMemories);
 
       const createCount = deduplicationResult.operations.filter(
@@ -152,30 +153,12 @@ export class CaptureMemoryService {
   }
 
   private applyOperations(
-    operations: Array<
-      | {
-          action: "create";
-          fieldIndex: number;
-          category: string;
-          tags: string[];
-          confidence: number;
-        }
-      | {
-          action: "update";
-          fieldIndex: number;
-          existingMemoryId: string;
-          newAnswer: string;
-          category: string;
-          tags: string[];
-          confidence: number;
-        }
-      | { action: "skip"; fieldIndex: number; existingMemoryId: string }
-    >,
+    operations: DeduplicationOperation[],
     fieldsToSave: CapturedFieldData[],
     currentMemories: MemoryEntry[],
   ): {
     newMemories: MemoryEntry[];
-    updatedMemories: MemoryEntry[];
+    existingMemories: MemoryEntry[];
   } {
     const isValidCategory = (cat: string): cat is MemoryEntry["category"] => {
       return allowedCategories.includes(cat as MemoryEntry["category"]);
@@ -229,7 +212,7 @@ export class CaptureMemoryService {
 
     return {
       newMemories,
-      updatedMemories: Array.from(memoryMap.values()),
+      existingMemories: Array.from(memoryMap.values()),
     };
   }
 }

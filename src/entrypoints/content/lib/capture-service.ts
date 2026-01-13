@@ -123,10 +123,23 @@ export class CaptureService {
       }
     });
 
-    this.mutationObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    if (document.body) {
+      this.mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    } else {
+      const onBodyReady = () => {
+        if (this.mutationObserver && document.body) {
+          this.mutationObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+          });
+        }
+        document.removeEventListener("DOMContentLoaded", onBodyReady);
+      };
+      document.addEventListener("DOMContentLoaded", onBodyReady);
+    }
   }
 
   private recheckForms = (() => {
@@ -158,6 +171,22 @@ export class CaptureService {
       this.mutationObserver.disconnect();
       this.mutationObserver = null;
     }
+
+    this.formDetector = null;
+    this.fieldTracker = null;
+
+    if (this.formCache) {
+      this.formCache.clear();
+      this.formCache = null;
+    }
+
+    if (this.fieldCache) {
+      this.fieldCache.clear();
+      this.fieldCache = null;
+    }
+
+    this.sessionId = null;
+    this.lastFormCount = 0;
   }
 
   identifyCaptureOpportunities(

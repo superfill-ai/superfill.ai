@@ -28,10 +28,13 @@ import { storage } from "@/lib/storage";
 import { addNeverAskSite } from "@/lib/storage/capture-settings";
 import type { CapturedFieldData } from "@/types/autofill";
 import { Theme } from "@/types/theme";
+import { CaptureResultLoader } from "./capture-result-loader";
 
 const logger = createLogger("capture-memory-manager");
 
 const HOST_ID = "superfill-capture-memory";
+
+type CaptureResultState = "saving" | "success" | "info" | "error";
 
 interface CaptureMemoryProps {
   siteTitle: string;
@@ -40,6 +43,10 @@ interface CaptureMemoryProps {
   onSave: () => void;
   onDismiss: () => void;
   onNeverAsk: () => void;
+  resultState: CaptureResultState | null;
+  savedCount: number;
+  skippedCount: number;
+  onResultClose: () => void;
 }
 
 const CaptureMemory = ({
@@ -49,6 +56,10 @@ const CaptureMemory = ({
   onSave,
   onDismiss,
   onNeverAsk,
+  resultState,
+  savedCount,
+  skippedCount,
+  onResultClose,
 }: CaptureMemoryProps) => {
   const groupedFields = capturedFields.reduce(
     (acc, field) => {
@@ -65,82 +76,96 @@ const CaptureMemory = ({
   const totalFields = capturedFields.length;
 
   return (
-    <div
-      className="fixed top-4 right-4 z-9999"
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="save-memory-title"
-    >
-      <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-3">
-        <CardHeader>
-          <CardTitle className="text-sm">Save form data?</CardTitle>
-          <CardDescription className="text-xs text-wrap" id="save-memory-title">
-            Superfill detected {totalFields} field
-            {totalFields !== 1 ? "s" : ""} you filled on {siteTitle}. Save them
-            for future use?
-          </CardDescription>
-          <CardAction>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              onClick={onDismiss}
-              aria-label="Dismiss prompt"
+    <>
+      <div
+        className="fixed top-4 right-4 z-9999"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="save-memory-title"
+      >
+        <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-3">
+          <CardHeader>
+            <CardTitle className="text-sm">Save form data?</CardTitle>
+            <CardDescription
+              className="text-xs text-wrap"
+              id="save-memory-title"
             >
-              <X className="size-4" />
+              Superfill detected {totalFields} field
+              {totalFields !== 1 ? "s" : ""} you filled on {siteTitle}. Save
+              them for future use?
+            </CardDescription>
+            <CardAction>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={onDismiss}
+                aria-label="Dismiss prompt"
+              >
+                <X className="size-4" />
+              </Button>
+            </CardAction>
+          </CardHeader>
+
+          <CardContent className="max-h-80 overflow-y-auto">
+            <Accordion type="single" collapsible className="w-full">
+              {Object.entries(groupedFields).map(([category, fields]) => (
+                <AccordionItem key={category} value={category}>
+                  <AccordionTrigger className="text-sm">
+                    {category.charAt(0).toUpperCase() + category.slice(1)} (
+                    {fields.length})
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-1.5">
+                      {fields.map((field, idx) => (
+                        <div
+                          key={`${field.formOpid}-${field.fieldOpid}-${idx}`}
+                          className="p-1.5 bg-muted/50 rounded text-xs"
+                        >
+                          <div className="font-medium mb-0.5 text-foreground">
+                            {field.question}
+                          </div>
+                          <div className="text-muted-foreground truncate">
+                            {field.answer}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+
+            <Alert variant="default" className="items-center">
+              <SparklesIcon className="size-3" />
+              <span className="sr-only">Info</span>
+              <span className="text-xs">
+                Superfill's AI will intelligently handle duplicate fields by
+                either merging them or skipping them!
+              </span>
+            </Alert>
+          </CardContent>
+
+          <CardFooter className="px-3 py-2 flex-row items-center gap-2">
+            <Button onClick={onSave} className="flex-1" size="sm">
+              Save All
             </Button>
-          </CardAction>
-        </CardHeader>
-
-        <CardContent className="max-h-80 overflow-y-auto">
-          <Accordion type="single" collapsible className="w-full">
-            {Object.entries(groupedFields).map(([category, fields]) => (
-              <AccordionItem key={category} value={category}>
-                <AccordionTrigger className="text-sm">
-                  {category.charAt(0).toUpperCase() + category.slice(1)} (
-                  {fields.length})
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-1.5">
-                    {fields.map((field, idx) => (
-                      <div
-                        key={`${field.formOpid}-${field.fieldOpid}-${idx}`}
-                        className="p-1.5 bg-muted/50 rounded text-xs"
-                      >
-                        <div className="font-medium mb-0.5 text-foreground">
-                          {field.question}
-                        </div>
-                        <div className="text-muted-foreground truncate">
-                          {field.answer}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-
-          <Alert variant="default" className="items-center">
-            <SparklesIcon className="size-3" />
-            <span className="sr-only">Info</span>
-            <span className="text-xs">
-              Superfill's AI will intelligently handle duplicate fields by
-              either merging them or skipping them!
-            </span>
-          </Alert>
-        </CardContent>
-
-        <CardFooter className="px-3 py-2 flex-row items-center gap-2">
-          <Button onClick={onSave} className="flex-1" size="sm">
-            Save All
-          </Button>
-          <Button onClick={onNeverAsk} variant="destructive" size="sm">
-            Never ask for {siteDomain}
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+            <Button onClick={onNeverAsk} variant="destructive" size="sm">
+              Never ask for {siteDomain}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+      {resultState && (
+        <CaptureResultLoader
+          state={resultState}
+          totalFields={capturedFields.length}
+          savedCount={savedCount}
+          skippedCount={skippedCount}
+          onClose={onResultClose}
+        />
+      )}
+    </>
   );
 };
 
@@ -149,6 +174,9 @@ export class CaptureMemoryManager {
   private root: Root | null = null;
   private currentFields: CapturedFieldData[] = [];
   private isVisible = false;
+  private resultState: CaptureResultState | null = null;
+  private savedCount = 0;
+  private skippedCount = 0;
 
   async show(
     ctx: ContentScriptContext,
@@ -251,12 +279,31 @@ export class CaptureMemoryManager {
         onSave={() => this.handleSave()}
         onDismiss={() => this.handleDismiss()}
         onNeverAsk={() => this.handleNeverAsk(siteDomain)}
+        resultState={this.resultState}
+        savedCount={this.savedCount}
+        skippedCount={this.skippedCount}
+        onResultClose={() => this.handleResultClose()}
       />,
     );
   }
 
+  private handleResultClose(): void {
+    this.resultState = null;
+    this.savedCount = 0;
+    this.skippedCount = 0;
+    const siteTitle = document.title;
+    const siteDomain = window.location.hostname;
+    this.render(siteTitle, siteDomain);
+  }
+
   private async handleSave(): Promise<void> {
     logger.debug("Saving captured memories");
+
+    const siteTitle = document.title;
+    const siteDomain = window.location.hostname;
+
+    this.resultState = "saving";
+    this.render(siteTitle, siteDomain);
 
     try {
       const result = await contentAutofillMessaging.sendMessage(
@@ -270,35 +317,34 @@ export class CaptureMemoryManager {
         logger.debug(`Saved ${result.savedCount} memories`);
 
         const totalFields = this.currentFields.length;
-        const savedCount = result.savedCount;
-        const skippedCount = totalFields - savedCount;
+        this.savedCount = result.savedCount;
+        this.skippedCount = totalFields - this.savedCount;
 
         logger.debug(
-          `Saved ${savedCount} memories, skipped ${skippedCount} duplicates`,
+          `Saved ${this.savedCount} memories, skipped ${this.skippedCount} duplicates`,
         );
 
-        // TODO: Find a better way to show success toast from content script
-        // if (savedCount > 0) {
-        //   toast.success(
-        //     `Saved ${savedCount} ${savedCount === 1 ? "memory" : "memories"}${
-        //       skippedCount > 0
-        //         ? `, skipped ${skippedCount} duplicate${skippedCount === 1 ? "" : "s"}`
-        //         : ""
-        //     }`,
-        //   );
-        // } else {
-        //   toast.info("All fields were duplicates, no new memories saved");
-        // }
+        this.resultState = this.savedCount > 0 ? "success" : "info";
+        this.render(siteTitle, siteDomain);
+
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await this.hide();
       } else {
         logger.error("Failed to save memories");
-        // toast.error("Failed to save memories. Please try again.");
+        this.resultState = "error";
+        this.render(siteTitle, siteDomain);
+
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await this.hide();
       }
     } catch (error) {
       logger.error("Error saving memories:", error);
-      // toast.error("An error occurred while saving memories");
-    }
+      this.resultState = "error";
+      this.render(siteTitle, siteDomain);
 
-    await this.hide();
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await this.hide();
+    }
   }
 
   private async handleDismiss(): Promise<void> {

@@ -261,7 +261,7 @@ For each new field (index 0 to ${newFields.length - 1}), determine if it's a cre
     return { operations: filtered };
   }
 
-  private fallbackDeduplication(
+  fallbackDeduplication(
     newFields: FieldToProcess[],
     existingMemories: MemoryEntry[],
   ): DeduplicationResult {
