@@ -198,10 +198,10 @@ export class CaptureMemoryService {
 
           memoryMap.set(op.existingMemoryId, {
             ...existingMemory,
-            answer: op.newAnswer,
+            answer: op.newAnswer ?? existingMemory.answer,
             category: validCategory,
             tags: op.tags || existingMemory.tags,
-            confidence: op.confidence,
+            confidence: op.confidence ?? existingMemory.confidence,
             metadata: {
               ...existingMemory.metadata,
               updatedAt: new Date().toISOString(),

@@ -15,7 +15,16 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     action: z.literal("create"),
     fieldIndex: z.number().int().min(0),
     category: CategoryEnum,
-    tags: z.array(z.string().min(2).max(50).lowercase()).min(1).max(5),
+    tags: z
+      .array(
+        z
+          .string()
+          .min(2)
+          .max(50)
+          .transform((val) => val.toLowerCase()),
+      )
+      .min(1)
+      .max(5),
     confidence: z.number().min(0).max(1),
     reasoning: z.string().optional(),
   }),
@@ -25,7 +34,16 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     existingMemoryId: z.uuid(),
     newAnswer: z.string(),
     category: CategoryEnum,
-    tags: z.array(z.string().min(2).max(50).lowercase()).min(1).max(5),
+    tags: z
+      .array(
+        z
+          .string()
+          .min(2)
+          .max(50)
+          .transform((val) => val.toLowerCase()),
+      )
+      .min(1)
+      .max(5),
     confidence: z.number().min(0).max(1),
     reasoning: z.string().optional(),
   }),
@@ -101,20 +119,30 @@ export class DeduplicationCategorizer {
         },
       });
 
-      if (DEBUG) {
-        logger.debug("Deduplication + Categorization result:", {
-          operationsCount: result.operations.length,
-          breakdown: {
-            create: result.operations.filter((op) => op.action === "create")
-              .length,
-            update: result.operations.filter((op) => op.action === "update")
-              .length,
-            skip: result.operations.filter((op) => op.action === "skip").length,
-          },
-        });
-      }
+      logger.debug("Deduplication + Categorization result:", {
+        operationsCount: result.operations.length,
+        breakdown: {
+          create: result.operations.filter((op) => op.action === "create")
+            .length,
+          update: result.operations.filter((op) => op.action === "update")
+            .length,
+          skip: result.operations.filter((op) => op.action === "skip").length,
+        },
+      });
 
-      return this.filterLowConfidenceOperations(result);
+      const validatedResult = {
+        operations: result.operations.filter((op) => {
+          if (op.fieldIndex < 0 || op.fieldIndex >= newFields.length) {
+            logger.warn(
+              `Invalid fieldIndex ${op.fieldIndex}, max is ${newFields.length - 1}`,
+            );
+            return false;
+          }
+          return true;
+        }),
+      };
+
+      return this.filterLowConfidenceOperations(validatedResult);
     } catch (error) {
       logger.error("Deduplication + Categorization failed:", error);
 
@@ -169,7 +197,7 @@ For EACH new field (by index), return ONE operation:
 - **education**: Schools, degrees, certifications, GPA
 - **general**: Anything that doesn't fit above
 
-**Tags** (1-5 lowercase words):
+**Tags** (1-5 lowercase words of more than 2 characters):
 - Descriptive keywords like: "email", "phone", "address", "name", "birthday"
 - Be specific: For "Software Engineer", tags might be ["job", "title", "engineering"]
 

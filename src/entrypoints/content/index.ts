@@ -103,7 +103,7 @@ export default defineContentScript({
         fieldCache,
       );
     } else {
-      logger.info("Memory capture disabled for site:", {
+      logger.debug("Memory capture disabled for site:", {
         hostname,
         enabled: captureSettings.enabled,
         isAutoCaptureBlocked,
