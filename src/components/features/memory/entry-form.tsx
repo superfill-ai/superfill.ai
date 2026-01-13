@@ -49,6 +49,12 @@ const entryFormSchema = z.object({
   category: z.enum(allowedCategories),
 });
 
+const getSelectClassName = (isInvalid: boolean) =>
+  cn(
+    "w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+    isInvalid && "border-destructive ring-2 ring-destructive/20 dark:ring-destructive/40"
+  );
+
 export function EntryForm({
   mode,
   initialData,
@@ -372,10 +378,7 @@ export function EntryForm({
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={isInvalid}
                     aria-describedby={isInvalid ? `${field.name}-error` : undefined}
-                    className={cn(
-                      "w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                      isInvalid && "border-destructive ring-2 ring-destructive/20 dark:ring-destructive/40"
-                    )}
+                    className={getSelectClassName(isInvalid)}
                   >
                     <option value="" disabled={!!field.state.value}>
                       -- Choose an option --
@@ -488,11 +491,7 @@ export function EntryForm({
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     onBlur={field.handleBlur}
-                    className={cn(
-                      "w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-                      isInvalid &&
-                        "border-destructive ring-2 ring-destructive/20 dark:ring-destructive/40",
-                    )}
+                    className={getSelectClassName(isInvalid)}
                     aria-invalid={isInvalid}
                     aria-describedby={isInvalid ? `${field.name}-error` : undefined}
                   >
