@@ -292,7 +292,7 @@ export default defineContentScript({
       });
     }
 
-    ctx.onInvalidated(async () => {
+    ctx.onInvalidated(() => {
       if (fieldTracker) {
         fieldTracker.dispose();
       }
@@ -303,7 +303,7 @@ export default defineContentScript({
         captureService.dispose();
       }
       if (captureMemoryManager) {
-        await captureMemoryManager.hide();
+        captureMemoryManager.hide();
       }
     });
   },

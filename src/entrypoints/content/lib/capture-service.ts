@@ -23,6 +23,7 @@ export class CaptureService {
   private fieldCache: Map<FieldOpId, DetectedField> | null = null;
   private sessionId: string | null = null;
   private lastFormCount = 0;
+  private recheckFormsTimeout: number | null = null;
 
   initializeAutoTracking = async (
     formDetector: FormDetector,
@@ -142,31 +143,32 @@ export class CaptureService {
     }
   }
 
-  private recheckForms = (() => {
-    let timeout: number | null = null;
+  private recheckForms = () => {
+    if (this.recheckFormsTimeout) {
+      clearTimeout(this.recheckFormsTimeout);
+    }
 
-    return () => {
-      if (timeout) {
-        clearTimeout(timeout);
+    this.recheckFormsTimeout = window.setTimeout(() => {
+      if (!this.formDetector) return;
+
+      const allForms = this.formDetector.detectAll();
+
+      if (allForms.length > this.lastFormCount) {
+        logger.debug(
+          `New forms detected! ${allForms.length} total (was ${this.lastFormCount})`,
+        );
+        this.lastFormCount = allForms.length;
+        this.attachFieldListeners(allForms);
       }
-
-      timeout = window.setTimeout(() => {
-        if (!this.formDetector) return;
-
-        const allForms = this.formDetector.detectAll();
-
-        if (allForms.length > this.lastFormCount) {
-          logger.debug(
-            `New forms detected! ${allForms.length} total (was ${this.lastFormCount})`,
-          );
-          this.lastFormCount = allForms.length;
-          this.attachFieldListeners(allForms);
-        }
-      }, 500);
-    };
-  })();
+    }, 500);
+  };
 
   dispose(): void {
+    if (this.recheckFormsTimeout) {
+      clearTimeout(this.recheckFormsTimeout);
+      this.recheckFormsTimeout = null;
+    }
+
     if (this.mutationObserver) {
       this.mutationObserver.disconnect();
       this.mutationObserver = null;
