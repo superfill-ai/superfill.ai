@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "msedge",
+      "request": "attach",
+      "name": "Attach to Edge (WXT Dev)",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}",
+      "urlFilter": "*",
+      "trace": true
+    }
+  ]
+}
