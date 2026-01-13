@@ -91,13 +91,11 @@ export class DeduplicationCategorizer {
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(newFields, existingMemories);
 
-      if (DEBUG) {
-        logger.debug("Deduplication + Categorization LLM request:", {
-          newFieldsCount: newFields.length,
-          existingMemoriesCount: existingMemories.length,
-          provider,
-        });
-      }
+      logger.debug("Deduplication + Categorization LLM request:", {
+        newFieldsCount: newFields.length,
+        existingMemoriesCount: existingMemories.length,
+        provider,
+      });
 
       const { object: result } = await generateObject({
         model,
@@ -146,19 +144,15 @@ export class DeduplicationCategorizer {
     } catch (error) {
       logger.error("Deduplication + Categorization failed:", error);
 
-      if (DEBUG) {
-        logger.error("Error details:", {
-          message: error instanceof Error ? error.message : String(error),
-          newFieldsCount: newFields.length,
-          existingMemoriesCount: existingMemories.length,
-        });
-      }
+      logger.error("Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        newFieldsCount: newFields.length,
+        existingMemoriesCount: existingMemories.length,
+      });
 
       return this.fallbackDeduplication(newFields, existingMemories);
     } finally {
-      if (DEBUG) {
-        logger.debug("Deduplication + Categorization completed");
-      }
+      logger.debug("Deduplication + Categorization completed");
     }
   }
 
