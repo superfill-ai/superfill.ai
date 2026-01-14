@@ -9,6 +9,200 @@ import type {
 
 const logger = createLogger("fill-handler");
 
+const fillCustomRadioButton = async (
+  element: HTMLElement,
+  value: string,
+): Promise<boolean> => {
+  try {
+    logger.debug(`Custom radio button: attempting to fill with value "${value}"`);
+
+    let radioGroup: Element | null = element.closest('[role="radiogroup"]');
+    
+    if (!radioGroup) {
+      const opid = element.getAttribute('data-superfill-opid');
+      if (opid) {
+        const allWithOpid = document.querySelectorAll(`[data-superfill-opid="${opid}"]`);
+        for (const el of allWithOpid) {
+          radioGroup = el.closest('[role="radiogroup"]');
+          if (radioGroup) break;
+        }
+      }
+    }
+    
+    if (!radioGroup) {
+      logger.warn('No radiogroup found for custom radio button');
+      return false;
+    }
+
+    const radioOptions = radioGroup.querySelectorAll('[role="radio"]');
+    const normalizedValue = value.toLowerCase().trim();
+
+    for (const radio of Array.from(radioOptions)) {
+      const label = (radio.getAttribute('aria-label') || radio.textContent)?.toLowerCase().trim();
+      const dataValue = radio.getAttribute('data-value')?.toLowerCase().trim();
+      
+      if (label === normalizedValue || dataValue === normalizedValue) {
+        (radio as HTMLElement).click();
+        await delay(100);
+        
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+        radio.dispatchEvent(new Event('input', { bubbles: true }));
+        
+        logger.debug(`Selected custom radio option: ${label}`);
+        return true;
+      }
+    }
+
+    logger.warn(`No custom radio option matched value "${value}"`);
+    return false;
+  } catch (error) {
+    logger.error('Error filling custom radio button:', error);
+    return false;
+  }
+};
+
+const fillCustomDropdown = async (
+  element: HTMLElement,
+  value: string,
+): Promise<boolean> => {
+  try {
+    logger.debug(`Custom dropdown: attempting to fill with value "${value}"`);
+    
+    const role = element.getAttribute('role');
+    
+    const parent = element.parentElement;
+    if (parent) {
+      const selectElem = parent.querySelector('select');
+      if (selectElem) {
+        const normalizedValue = value.toLowerCase().trim();
+        for (const option of Array.from(selectElem.options)) {
+          const optionText = (option.textContent || option.value).toLowerCase().trim();
+          if (optionText === normalizedValue || option.value.toLowerCase().trim() === normalizedValue) {
+            selectElem.value = option.value;
+            selectElem.dispatchEvent(new Event('change', { bubbles: true }));
+            selectElem.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          }
+        }
+      }
+    }
+    
+    if (role === 'listbox' || role === 'combobox') {
+      let isExpanded = element.getAttribute('aria-expanded') === 'true';
+      
+      if (!isExpanded) {
+        const clickableArea = element.querySelector('[jsname="LgbsSe"]') || element;
+        
+        const mousedownEvent = new MouseEvent('mousedown', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          detail: 1
+        });
+        const mouseupEvent = new MouseEvent('mouseup', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          detail: 1
+        });
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          detail: 1
+        });
+        
+        (clickableArea as HTMLElement).dispatchEvent(mousedownEvent);
+        await delay(10);
+        (clickableArea as HTMLElement).dispatchEvent(mouseupEvent);
+        await delay(10);
+        (clickableArea as HTMLElement).dispatchEvent(clickEvent);
+        await delay(100);
+        
+        let waitAttempts = 0;
+        while (waitAttempts < 30) {
+          isExpanded = element.getAttribute('aria-expanded') === 'true';
+          if (isExpanded) {
+            break;
+          }
+          await delay(50);
+          waitAttempts++;
+        }
+        
+        await delay(300);
+      }
+      
+      let options = element.querySelectorAll('[role="option"]');
+      
+      if (options.length === 0) {
+        const container = element.closest('[role="group"], [jscontroller], .freebirdFormviewerComponentsQuestionBaseRoot');
+        if (container) {
+          options = container.querySelectorAll('[role="option"]');
+        }
+      }
+      
+      const normalizedValue = value.toLowerCase().trim();
+      
+      for (const option of Array.from(options)) {
+        const optionEl = option as HTMLElement;
+        
+        const optionText = optionEl.textContent?.toLowerCase().trim() || '';
+        const dataValue = optionEl.getAttribute('data-value')?.toLowerCase().trim() || '';
+        const ariaLabel = optionEl.getAttribute('aria-label')?.toLowerCase().trim() || '';
+        
+        let isVisible = true;
+        if (isExpanded) {
+          const rect = optionEl.getBoundingClientRect();
+          isVisible = rect.width > 0 && rect.height > 0;
+        }
+        
+        if (!isVisible && isExpanded) {
+          continue;
+        }
+        
+        if (optionText === normalizedValue || dataValue === normalizedValue || ariaLabel === normalizedValue) {
+          optionEl.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+          await delay(50);
+          
+          const optionMouseDown = new MouseEvent('mousedown', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            detail: 1
+          });
+          const optionMouseUp = new MouseEvent('mouseup', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            detail: 1
+          });
+          const optionClick = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            detail: 1
+          });
+          
+          optionEl.dispatchEvent(optionMouseDown);
+          await delay(10);
+          optionEl.dispatchEvent(optionMouseUp);
+          await delay(10);
+          optionEl.dispatchEvent(optionClick);
+          await delay(200);
+          
+          logger.debug(`Filled ARIA dropdown with value "${value}"`);
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    logger.error("Error filling custom dropdown:", error);
+    return false;
+  }
+};
+
 const fillReactSelect = async (
   element: HTMLInputElement,
   value: string,
@@ -209,6 +403,22 @@ export const handleFill = async (
 
     if (field) {
       const element = field.element;
+
+      if (element instanceof HTMLElement) {
+        const role = element.getAttribute("role");
+        
+        if (role === "radio" || element.closest('[role="radiogroup"]')) {
+          await fillCustomRadioButton(element, value);
+          logger.debug(`Filled custom radio button ${fieldOpid} with value`);
+          continue;
+        }
+        
+        if (role === "combobox" || role === "listbox") {
+          await fillCustomDropdown(element, value);
+          logger.debug(`Filled custom dropdown ${fieldOpid} with value`);
+          continue;
+        }
+      }
 
       if (element instanceof HTMLInputElement) {
         element.focus({ preventScroll: true });
