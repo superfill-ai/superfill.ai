@@ -15,6 +15,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
@@ -370,25 +377,27 @@ export function EntryForm({
               >
                 <FieldLabel htmlFor={field.name}>Answer *</FieldLabel>
                 {isRadioWithOptions ? (
-                  <select
-                    id={field.name}
-                    name={field.name}
+                  <Select
                     value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    aria-invalid={isInvalid}
-                    aria-describedby={isInvalid ? `${field.name}-error` : undefined}
-                    className={getSelectClassName(isInvalid)}
+                    onValueChange={field.handleChange}
                   >
-                    <option value="" disabled={!!field.state.value}>
-                      -- Choose an option --
-                    </option>
-                    {fieldMetadata.options?.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label || option.value}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id={field.name}
+                      onBlur={field.handleBlur}
+                      aria-invalid={isInvalid}
+                      aria-describedby={isInvalid ? `${field.name}-error` : undefined}
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="-- Choose an option --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fieldMetadata.options?.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label || option.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <Textarea
                     id={field.name}
@@ -485,25 +494,27 @@ export function EntryForm({
                     aria-invalid={isInvalid}
                   />
                 ) : (
-                  <select
-                    id={field.name}
-                    name={field.name}
+                  <Select
                     value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    className={getSelectClassName(isInvalid)}
-                    aria-invalid={isInvalid}
-                    aria-describedby={isInvalid ? `${field.name}-error` : undefined}
+                    onValueChange={field.handleChange}
                   >
-                    <option value="" disabled>
-                      Select a category
-                    </option>
-                    {categoryOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id={field.name}
+                      onBlur={field.handleBlur}
+                      aria-invalid={isInvalid}
+                      aria-describedby={isInvalid ? `${field.name}-error` : undefined}
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoryOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
                 {isInvalid && (
                   <FieldError
