@@ -25,7 +25,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
-import { cn } from "@/lib/cn";
 import { allowedCategories } from "@/lib/copies";
 import {
   ERROR_MESSAGE_API_KEY_NOT_CONFIGURED,
@@ -55,12 +54,6 @@ const entryFormSchema = z.object({
   tags: z.array(z.string()),
   category: z.enum(allowedCategories),
 });
-
-const getSelectClassName = (isInvalid: boolean) =>
-  cn(
-    "w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-    isInvalid && "border-destructive ring-2 ring-destructive/20 dark:ring-destructive/40"
-  );
 
 export function EntryForm({
   mode,
