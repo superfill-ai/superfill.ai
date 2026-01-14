@@ -56,12 +56,6 @@ const entryFormSchema = z.object({
 });
 
 export function EntryForm({
-  mode,
-  initialData,
-  layout = "normal",
-  fieldMetadata,
-  onSuccess,
-  onCancel,
 }: EntryFormProps) {
   const isPreviewMode = layout === "preview";
   const [selectedProvider, setSelectedProvider] = useState<
