@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependency directories
 node_modules
 .output
 stats.html
@@ -16,6 +17,7 @@ web-ext.config.ts
 
 # Editor directories and files
 .vscode/*
+!.vscode/launch.json
 !.vscode/settings.json
 !.vscode/extensions.json
 .idea

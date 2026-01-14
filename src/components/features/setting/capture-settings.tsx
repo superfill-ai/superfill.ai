@@ -79,16 +79,16 @@ export const CaptureSettings = () => {
       <CardContent>
         <FieldGroup>
           <Field orientation="horizontal" data-invalid={false}>
-            <FieldLabel htmlFor={captureEnabledId}>
-              Enable Memory Capture
-            </FieldLabel>
             <FieldContent>
-              <Switch
-                id={captureEnabledId}
-                checked={captureEnabled}
-                onCheckedChange={handleSetCaptureEnabled}
-              />
+              <FieldLabel htmlFor={captureEnabledId}>
+                Enable Memory Capture
+              </FieldLabel>
             </FieldContent>
+            <Switch
+              id={captureEnabledId}
+              checked={captureEnabled}
+              onCheckedChange={handleSetCaptureEnabled}
+            />
           </Field>
         </FieldGroup>
         <Separator className="my-4" />
