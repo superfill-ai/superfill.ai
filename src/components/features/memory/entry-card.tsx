@@ -1,13 +1,8 @@
 import { formatDistanceToNow } from "date-fns";
-import {
-  CheckIcon,
-  CopyIcon,
-  Edit2Icon,
-  MoreVerticalIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { EntryActionsMenu } from "@/components/features/memory/entry-actions-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   HoverCard,
   HoverCardContent,
@@ -127,6 +116,12 @@ export function EntryCard({
                 <CopyIcon className="size-4" />
               )}
             </Button>
+            <EntryActionsMenu
+              id={entry.id}
+              onEdit={onEdit}
+              onDuplicate={onDuplicate}
+              onDelete={onDelete}
+            />
           </CardAction>
         </CardHeader>
 
@@ -161,40 +156,6 @@ export function EntryCard({
             )}
           </div>
         </CardContent>
-
-        <CardFooter className="justify-between py-0 my-0">
-          <div className="flex items-center gap-2 ml-auto">
-            {isHovered && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Kbd>e</Kbd> to edit
-              </span>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm">
-                  <MoreVerticalIcon />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(entry.id)}>
-                  <Edit2Icon className="mr-2 size-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicate(entry.id)}>
-                  <CopyIcon className="mr-2 size-4" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete(entry.id)}
-                  className="text-destructive"
-                >
-                  <Trash2Icon className="mr-2 size-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardFooter>
       </Card>
     );
   }
@@ -295,30 +256,14 @@ export function EntryCard({
                   <Kbd>e</Kbd> to edit
                 </span>
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                    <MoreVerticalIcon className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit(entry.id)}>
-                    <Edit2Icon className="mr-2 size-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDuplicate(entry.id)}>
-                    <CopyIcon className="mr-2 size-4" />
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onDelete(entry.id)}
-                    className="text-destructive"
-                  >
-                    <Trash2Icon className="mr-2 size-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <EntryActionsMenu
+                id={entry.id}
+                onEdit={onEdit}
+                onDuplicate={onDuplicate}
+                onDelete={onDelete}
+                triggerSize="icon"
+                triggerClassName="h-6 w-6"
+              />
             </div>
           </div>
         </div>
