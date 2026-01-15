@@ -56,6 +56,12 @@ const entryFormSchema = z.object({
 });
 
 export function EntryForm({
+  mode,
+  layout = "normal",
+  initialData,
+  fieldMetadata,
+  onSuccess,
+  onCancel,
 }: EntryFormProps) {
   const isPreviewMode = layout === "preview";
   const [selectedProvider, setSelectedProvider] = useState<
@@ -372,7 +378,9 @@ export function EntryForm({
                       id={field.name}
                       onBlur={field.handleBlur}
                       aria-invalid={isInvalid}
-                      aria-describedby={isInvalid ? `${field.name}-error` : undefined}
+                      aria-describedby={
+                        isInvalid ? `${field.name}-error` : undefined
+                      }
                       className="w-full"
                     >
                       <SelectValue placeholder="-- Choose an option --" />
@@ -393,6 +401,9 @@ export function EntryForm({
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={isInvalid}
+                    aria-describedby={
+                      isInvalid ? `${field.name}-error` : undefined
+                    }
                     placeholder="Your information (e.g., email, phone, address)"
                   />
                 )}
@@ -489,7 +500,9 @@ export function EntryForm({
                       id={field.name}
                       onBlur={field.handleBlur}
                       aria-invalid={isInvalid}
-                      aria-describedby={isInvalid ? `${field.name}-error` : undefined}
+                      aria-describedby={
+                        isInvalid ? `${field.name}-error` : undefined
+                      }
                       className="w-full"
                     >
                       <SelectValue placeholder="Select a category" />
