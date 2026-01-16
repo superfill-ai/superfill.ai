@@ -39,6 +39,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useSync } from "@/hooks/use-sync";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
+import { getAllMemories } from "@/lib/storage/memories";
 import { getCurrentAppTour } from "@/lib/tours/tour-definitions";
 import { tourManager } from "@/lib/tours/tour-manager";
 import { getUpdateForVersion } from "@/lib/tours/version-updates";
@@ -83,7 +84,7 @@ export const App = () => {
       }
 
       const uiSettings = await storage.uiSettings.getValue();
-      const storedMemories = await storage.memories.getValue();
+      const storedMemories = await getAllMemories();
       const manifest = browser.runtime.getManifest();
       const currentVersion = manifest.version;
 

@@ -7,7 +7,8 @@ import {
 import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
-import { storage } from "@/lib/storage";
+import { getDatabase } from "@/lib/rxdb";
+import { getAllMemories } from "@/lib/storage/memories";
 import type { CapturedFieldData } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
 
@@ -64,7 +65,7 @@ export class CaptureMemoryService {
         `${fieldsToSave.length} fields passed question+answer filter`,
       );
 
-      const currentMemories = await storage.memories.getValue();
+      const currentMemories = await getAllMemories();
 
       if (!provider || !apiKey) {
         logger.debug("No AI provider configured, using fallback deduplication");
@@ -84,8 +85,40 @@ export class CaptureMemoryService {
           currentMemories,
         );
 
-        const finalMemories = [...existingMemories, ...newMemories];
-        await storage.memories.setValue(finalMemories);
+        const db = await getDatabase();
+        // Insert new memories
+        if (newMemories.length > 0) {
+          await db.memories.bulkInsert(
+            newMemories.map((m) => ({
+              id: m.id,
+              question: m.question,
+              answer: m.answer,
+              category: m.category,
+              tags: m.tags,
+              confidence: m.confidence,
+              createdAt: m.metadata.createdAt,
+              updatedAt: m.metadata.updatedAt,
+              source: m.metadata.source,
+              fieldPurpose: m.metadata.fieldPurpose,
+              _deleted: false,
+            })),
+          );
+        }
+        // Update existing memories
+        for (const updated of existingMemories) {
+          const doc = await db.memories.findOne(updated.id).exec();
+          if (doc) {
+            await doc.update({
+              $set: {
+                answer: updated.answer,
+                category: updated.category,
+                tags: updated.tags,
+                confidence: updated.confidence,
+                updatedAt: updated.metadata.updatedAt,
+              },
+            });
+          }
+        }
 
         const totalChanges =
           newMemories.length +
@@ -125,8 +158,40 @@ export class CaptureMemoryService {
         currentMemories,
       );
 
-      const finalMemories = [...existingMemories, ...newMemories];
-      await storage.memories.setValue(finalMemories);
+      const db = await getDatabase();
+      // Insert new memories
+      if (newMemories.length > 0) {
+        await db.memories.bulkInsert(
+          newMemories.map((m) => ({
+            id: m.id,
+            question: m.question,
+            answer: m.answer,
+            category: m.category,
+            tags: m.tags,
+            confidence: m.confidence,
+            createdAt: m.metadata.createdAt,
+            updatedAt: m.metadata.updatedAt,
+            source: m.metadata.source,
+            fieldPurpose: m.metadata.fieldPurpose,
+            _deleted: false,
+          })),
+        );
+      }
+      // Update existing memories by upserting
+      for (const updated of existingMemories) {
+        const doc = await db.memories.findOne(updated.id).exec();
+        if (doc) {
+          await doc.update({
+            $set: {
+              answer: updated.answer,
+              category: updated.category,
+              tags: updated.tags,
+              confidence: updated.confidence,
+              updatedAt: updated.metadata.updatedAt,
+            },
+          });
+        }
+      }
 
       const createCount = deduplicationResult.operations.filter(
         (op) => op.action === "create",

@@ -55,6 +55,7 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import { getAllMemories } from "@/lib/storage/memories";
 
 const logger = createLogger("popup");
 
@@ -93,7 +94,7 @@ export const App = () => {
       }
 
       const uiSettings = await storage.uiSettings.getValue();
-      const storedMemories = await storage.memories.getValue();
+      const storedMemories = await getAllMemories();
 
       if (!uiSettings.onboardingCompleted && storedMemories.length === 0) {
         setOnboardingCompleted(false);

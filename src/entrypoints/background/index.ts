@@ -16,12 +16,18 @@ import {
 import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
+import {
+  getDatabase,
+  migrateFromWxtStorage,
+  startReplication,
+} from "@/lib/rxdb";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
 import {
   getKeyVaultService,
   registerKeyVaultService,
 } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import { getAllMemories } from "@/lib/storage/memories";
 import { getSyncService, registerSyncService } from "@/lib/sync/sync-service";
 import { migrateAISettings } from "./lib/migrate-settings-handler";
 
@@ -66,7 +72,8 @@ export default defineBackground({
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();
     const sessionService = getSessionService();
-    const syncService = getSyncService();
+    // Note: syncService is kept registered for backwards compatibility but not used
+    // RxDB replication handles sync via startReplication() in the init block above
 
     const updateContextMenu = async (enabled: boolean) => {
       try {
@@ -136,9 +143,24 @@ export default defineBackground({
       }
     });
 
-    setTimeout(() => {
-      syncService.performStartupSync();
-    }, 5000);
+    // Initialize RxDB and migrate data
+    (async () => {
+      try {
+        logger.info("Initializing RxDB database");
+        const db = await getDatabase();
+        await migrateFromWxtStorage(db);
+
+        // Start replication if authenticated
+        const authService = getAuthService();
+        const session = await authService.getSession();
+        if (session?.user?.id) {
+          await startReplication(db, session.user.id);
+          logger.info("RxDB replication started");
+        }
+      } catch (error) {
+        logger.error("Failed to initialize RxDB", { error });
+      }
+    })();
 
     browser.runtime.onInstalled.addListener(async (details) => {
       const manifest = browser.runtime.getManifest();
@@ -150,7 +172,7 @@ export default defineBackground({
           "Extension installed for the first time, opening settings",
         );
 
-        const storedMemories = await storage.memories.getValue();
+        const storedMemories = await getAllMemories();
 
         await storage.uiSettings.setValue({
           ...uiSettings,

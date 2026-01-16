@@ -1,4 +1,4 @@
-import type { FillSession, MemoryEntry } from "@/types/memory";
+import type { FillSession } from "@/types/memory";
 
 export interface CaptureSettings {
   enabled: boolean;
@@ -6,12 +6,7 @@ export interface CaptureSettings {
   neverAskSites: string[];
 }
 
-export const memoriesFallback: MemoryEntry[] = [];
-
-const memories = storage.defineItem<MemoryEntry[]>("local:data:memories", {
-  fallback: memoriesFallback,
-  version: 1,
-});
+// Note: memories have been migrated to RxDB (see src/lib/rxdb)
 
 export const fillSessionsFallback: FillSession[] = [];
 
@@ -38,7 +33,6 @@ const captureSettings = storage.defineItem<CaptureSettings>(
 );
 
 export const dataStorage = {
-  memories,
   fillSessions,
   captureSettings,
 };

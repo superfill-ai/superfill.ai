@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { storage } from "@/lib/storage";
+import { useEffect, useMemo } from "react";
+import { getDatabase } from "@/lib/rxdb";
 import {
   addEntries as addEntriesHelper,
   addEntry as addEntryHelper,
   deleteEntry as deleteEntryHelper,
   downloadCSVTemplate as downloadCSVTemplateHelper,
   exportToCSV as exportToCSVHelper,
+  getAllMemories,
   importFromCSV as importFromCSVHelper,
   updateEntry as updateEntryHelper,
 } from "@/lib/storage/memories";
@@ -23,19 +24,34 @@ export const useMemories = () => {
   const query = useQuery({
     queryKey: MEMORIES_QUERY_KEY,
     queryFn: async () => {
-      return await storage.memories.getValue();
+      return await getAllMemories();
     },
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  useMemo(() => {
-    const unwatch = storage.memories.watch((newMemories) => {
-      if (newMemories !== null) {
-        queryClient.setQueryData(MEMORIES_QUERY_KEY, newMemories);
-      }
-    });
+  // Subscribe to RxDB changes for reactivity
+  useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
 
-    return () => unwatch();
+    const setupSubscription = async () => {
+      try {
+        const db = await getDatabase();
+        subscription = db.memories.$.subscribe(() => {
+          // Invalidate query when RxDB collection changes
+          queryClient.invalidateQueries({ queryKey: MEMORIES_QUERY_KEY });
+        });
+      } catch (error) {
+        console.error("Failed to setup RxDB subscription:", error);
+      }
+    };
+
+    setupSubscription();
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, [queryClient]);
 
   return {

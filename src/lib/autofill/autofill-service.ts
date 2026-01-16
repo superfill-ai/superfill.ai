@@ -3,7 +3,7 @@ import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messag
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
-import { storage } from "@/lib/storage";
+import { getAllMemories } from "@/lib/storage/memories";
 import type {
   AutofillResult,
   CompressedFieldData,
@@ -316,7 +316,7 @@ class AutofillService {
         );
       }
 
-      const allMemories = await storage.memories.getValue();
+      const allMemories = await getAllMemories();
 
       if (allMemories.length === 0) {
         return {
