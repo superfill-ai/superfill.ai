@@ -12,6 +12,7 @@ import {
   getSessionService,
   registerSessionService,
 } from "@/lib/autofill/session-service";
+import { registerLinkedInService } from "@/lib/linkedin/linkedin-service";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
@@ -40,6 +41,7 @@ export default defineBackground({
     registerModelService();
     registerAutofillService();
     registerSessionService();
+    registerLinkedInService();
     const sessionService = getSessionService();
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();
