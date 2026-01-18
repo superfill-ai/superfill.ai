@@ -4,7 +4,7 @@ import { CategoryEnum } from "@/lib/ai/categorization";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import type { MemoryEntry } from "@/types/memory";
-import { getAIModel } from "./model-factory";
+import { getAIModel } from "../providers/model-factory";
 
 const logger = createLogger("ai:deduplication-categorizer");
 

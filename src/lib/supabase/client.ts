@@ -54,7 +54,7 @@ export async function setSupabaseAuth(
       throw error;
     }
 
-    logger.info("Supabase session set successfully (persisted)", {
+    logger.debug("Supabase session set successfully (persisted)", {
       hasUser: !!data.user,
       userId: data.user?.id,
     });
@@ -70,7 +70,7 @@ export async function clearSupabaseAuth() {
     logger.error("Error clearing Supabase auth:", error);
     throw error;
   }
-  logger.info("Supabase auth cleared successfully");
+  logger.debug("Supabase auth cleared successfully");
 }
 
 export async function isSupabaseAuthenticated(): Promise<boolean> {

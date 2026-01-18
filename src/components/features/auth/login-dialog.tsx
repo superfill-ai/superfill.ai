@@ -9,11 +9,14 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/use-auth";
+import { createLogger } from "@/lib/logger";
 
 interface LoginDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const logger = createLogger("login-dialog");
 
 export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const { signIn, signingIn } = useAuth();
@@ -23,7 +26,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       await signIn();
       onOpenChange(false);
     } catch (error) {
-      console.error("Login failed:", error);
+      logger.error("Login failed:", error);
     }
   };
 

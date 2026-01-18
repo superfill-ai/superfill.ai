@@ -1,4 +1,3 @@
-import "./content.css";
 import {
   cacheDetectedForms as cacheFormsInMaps,
   collectFrameForms,
@@ -23,6 +22,7 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
+import "./content.css";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
@@ -71,7 +71,7 @@ export default defineContentScript({
               user,
               timestamp: Date.now(),
             });
-            logger.info("Auth tokens forwarded to extension", {
+            logger.debug("Auth tokens forwarded to extension", {
               hasAccessToken: !!access_token,
               hasRefreshToken: !!refresh_token,
               userId: user?.id,
@@ -81,7 +81,8 @@ export default defineContentScript({
           }
         }
       });
-      logger.info("Auth message listener registered for webapp");
+
+      logger.debug("Auth message listener registered for webapp");
     }
 
     const fieldAnalyzer = new FieldAnalyzer();

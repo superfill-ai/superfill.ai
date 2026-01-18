@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
@@ -15,21 +16,21 @@ class SyncService {
 
   async performStartupSync(): Promise<void> {
     try {
-      logger.info("Checking auth status for startup sync");
+      logger.debug("Checking auth status for startup sync");
 
       const authService = getAuthService();
       const session = await authService.getSession();
 
       if (!session) {
-        logger.info("User not authenticated, skipping startup sync");
+        logger.debug("User not authenticated, skipping startup sync");
         return;
       }
 
-      logger.info("User authenticated, initializing sync");
+      logger.debug("User authenticated, initializing sync");
 
       await autoSyncManager.triggerSync("full", { silent: true });
 
-      logger.info("Startup sync initiated successfully");
+      logger.debug("Startup sync initiated successfully");
     } catch (error) {
       logger.error("Failed to handle startup sync", { error });
     }
@@ -79,19 +80,26 @@ class SyncService {
     let conflictsResolved = 0;
 
     try {
-      logger.info("Starting full sync");
+      logger.debug("Starting full sync");
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("No authenticated user found");
+      }
 
       const syncState = await storage.syncStateAndSettings.getValue();
       const lastSyncTimestamp = syncState?.lastSync
         ? syncState.lastSync
         : undefined;
 
-      const pullResult = await this.pullFromRemote(lastSyncTimestamp);
+      const pullResult = await this.pullFromRemote(lastSyncTimestamp, user);
       itemsSynced += pullResult.itemsSynced;
       conflictsResolved += pullResult.conflictsResolved;
       errors.push(...pullResult.errors);
 
-      const pushResult = await this.pushToRemote();
+      const pushResult = await this.pushToRemote(user);
       itemsSynced += pushResult.itemsSynced;
       conflictsResolved += pushResult.conflictsResolved;
       errors.push(...pushResult.errors);
@@ -103,7 +111,7 @@ class SyncService {
       });
 
       await supabase.from("sync_logs").insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id || "",
+        user_id: user.id,
         operation: "full_sync",
         status: errors.length > 0 ? "error" : "success",
         item_count: itemsSynced,
@@ -112,7 +120,7 @@ class SyncService {
         conflict_resolution_strategy: syncState?.conflictResolution || "newest",
       });
 
-      logger.info("Full sync completed", {
+      logger.debug("Full sync completed", {
         itemsSynced,
         conflictsResolved,
         errors: errors.length,
@@ -151,13 +159,24 @@ class SyncService {
 
   async pullFromRemote(
     lastSyncTimestamp?: string,
+    cachedUser?: User,
   ): Promise<SyncOperationResult> {
     const errors: string[] = [];
     let itemsSynced = 0;
     let conflictsResolved = 0;
+    let user = cachedUser;
+
+    if (!user) {
+      const { data } = await supabase.auth.getUser();
+      user = data.user ?? undefined;
+    }
 
     try {
-      logger.info("Pulling data from remote", { lastSyncTimestamp });
+      logger.debug("Pulling data from remote", { lastSyncTimestamp });
+
+      if (!user) {
+        throw new Error("No authenticated user found");
+      }
 
       const { data: remoteMemories, error: fetchError } = await supabase.rpc(
         "get_memories_since",
@@ -168,12 +187,6 @@ class SyncService {
 
       if (fetchError) {
         throw new Error(`Failed to fetch memories: ${fetchError.message}`);
-      }
-
-      const user = (await supabase.auth.getUser()).data.user;
-
-      if (!user) {
-        throw new Error("No authenticated user found");
       }
 
       const localMemories = (await storage.memories.getValue()) || [];
@@ -274,7 +287,7 @@ class SyncService {
         conflict_resolution_strategy: conflictResolution,
       });
 
-      logger.info("Pull completed", { itemsSynced, conflictsResolved });
+      logger.debug("Pull completed", { itemsSynced, conflictsResolved });
 
       return {
         success: true,
@@ -288,14 +301,16 @@ class SyncService {
       logger.error("Pull failed", { error });
       errors.push(error instanceof Error ? error.message : "Pull failed");
 
-      await supabase.from("sync_logs").insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id || "",
-        operation: "pull",
-        status: "error",
-        item_count: itemsSynced,
-        conflicts_resolved: conflictsResolved,
-        error_message: error instanceof Error ? error.message : "Pull failed",
-      });
+      if (user) {
+        await supabase.from("sync_logs").insert({
+          user_id: user.id,
+          operation: "pull",
+          status: "error",
+          item_count: itemsSynced,
+          conflicts_resolved: conflictsResolved,
+          error_message: error instanceof Error ? error.message : "Pull failed",
+        });
+      }
 
       return {
         success: false,
@@ -308,20 +323,25 @@ class SyncService {
     }
   }
 
-  async pushToRemote(): Promise<SyncOperationResult> {
+  async pushToRemote(cachedUser?: User): Promise<SyncOperationResult> {
     const errors: string[] = [];
     let itemsSynced = 0;
     const conflictsResolved = 0;
+    let user = cachedUser;
+
+    if (!user) {
+      const { data } = await supabase.auth.getUser();
+      user = data.user ?? undefined;
+    }
 
     try {
-      logger.info("Pushing data to remote");
-
-      const localMemories = (await storage.memories.getValue()) || [];
-      const user = (await supabase.auth.getUser()).data.user;
+      logger.debug("Pushing data to remote");
 
       if (!user) {
         throw new Error("No authenticated user found");
       }
+
+      const localMemories = (await storage.memories.getValue()) || [];
 
       for (const memory of localMemories) {
         try {
@@ -366,7 +386,7 @@ class SyncService {
         error_message: errors.length > 0 ? errors.join("; ") : null,
       });
 
-      logger.info("Push completed", {
+      logger.debug("Push completed", {
         itemsSynced,
         conflictsResolved,
         errors: errors.length,
@@ -384,14 +404,16 @@ class SyncService {
       logger.error("Push failed", { error });
       errors.push(error instanceof Error ? error.message : "Push failed");
 
-      await supabase.from("sync_logs").insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id || "",
-        operation: "push",
-        status: "error",
-        item_count: itemsSynced,
-        conflicts_resolved: conflictsResolved,
-        error_message: error instanceof Error ? error.message : "Push failed",
-      });
+      if (user) {
+        await supabase.from("sync_logs").insert({
+          user_id: user.id,
+          operation: "push",
+          status: "error",
+          item_count: itemsSynced,
+          conflicts_resolved: conflictsResolved,
+          error_message: error instanceof Error ? error.message : "Push failed",
+        });
+      }
 
       return {
         success: false,
@@ -406,13 +428,20 @@ class SyncService {
 
   async syncAISettings(): Promise<void> {
     try {
-      logger.info("Syncing AI settings");
+      logger.debug("Syncing AI settings");
 
       const aiSettings = await storage.aiSettings.getValue();
 
       if (!aiSettings) {
         logger.warn("No AI settings to sync");
         return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("No authenticated user found");
       }
 
       const { error } = await supabase
@@ -425,13 +454,13 @@ class SyncService {
           },
           last_synced_at: new Date().toISOString(),
         })
-        .eq("id", (await supabase.auth.getUser()).data.user?.id || "");
+        .eq("id", user.id);
 
       if (error) {
         throw new Error(`Failed to sync AI settings: ${error.message}`);
       }
 
-      logger.info("AI settings synced successfully");
+      logger.debug("AI settings synced successfully");
     } catch (error) {
       logger.error("Failed to sync AI settings", { error });
       throw error;

@@ -68,7 +68,7 @@ export const App = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      logger.info("Signed out successfully");
+      logger.debug("Signed out successfully");
     } catch (error) {
       logger.error("Sign-out failed", error);
     }
@@ -178,7 +178,7 @@ export const App = () => {
 
     const result = await performSync();
     if (result) {
-      logger.info("Manual sync completed", result);
+      logger.debug("Manual sync completed", result);
     }
   };
 

@@ -17,7 +17,7 @@ class AuthService {
   async initiateOAuth(): Promise<void> {
     try {
       const loginUrl = `${this.WEBSITE_URL}/login?source=extension`;
-      logger.info(`Redirecting to webapp login: ${loginUrl}`);
+      logger.debug(`Redirecting to webapp login: ${loginUrl}`);
 
       await browser.tabs.create({ url: loginUrl });
     } catch (error) {
@@ -32,7 +32,7 @@ class AuthService {
   ): Promise<void> {
     try {
       await setSupabaseAuth(accessToken, refreshToken);
-      logger.info("Sync service authenticated with Supabase");
+      logger.debug("Sync service authenticated with Supabase");
     } catch (error) {
       logger.error("Failed to set auth token:", error);
       throw error;
@@ -41,7 +41,7 @@ class AuthService {
 
   async clearAuth(): Promise<void> {
     await clearSupabaseAuth();
-    logger.info("Sync service auth cleared");
+    logger.debug("Sync service auth cleared");
   }
 
   async isAuthenticated(): Promise<boolean> {
@@ -50,7 +50,7 @@ class AuthService {
 
   async getSession(): Promise<Session | null> {
     try {
-      logger.info("[getSession] Retrieving session from Supabase");
+      logger.debug("[getSession] Retrieving session from Supabase");
 
       const {
         data: { session },
@@ -63,11 +63,11 @@ class AuthService {
       }
 
       if (!session) {
-        logger.info("[getSession] No session found");
+        logger.debug("[getSession] No session found");
         return null;
       }
 
-      logger.info("[getSession] Session retrieved successfully", {
+      logger.debug("[getSession] Session retrieved successfully", {
         userId: session.user?.id,
         hasAccessToken: !!session.access_token,
         hasRefreshToken: !!session.refresh_token,
@@ -83,7 +83,7 @@ class AuthService {
   async clearSession(): Promise<void> {
     try {
       await this.clearAuth();
-      logger.info("Session cleared successfully");
+      logger.debug("Session cleared successfully");
     } catch (error) {
       logger.error("Failed to clear session:", error);
       throw error;
@@ -96,7 +96,7 @@ class AuthService {
         const session = await this.getSession();
         if (session?.access_token) {
           cleanup();
-          logger.info("Authentication detected!");
+          logger.debug("Authentication detected!");
           resolve(true);
         }
       }, 500);
@@ -112,7 +112,7 @@ class AuthService {
         clearTimeout(timeout);
       };
 
-      logger.info("Waiting for authentication tokens to be stored");
+      logger.debug("Waiting for authentication tokens to be stored");
     });
   }
 

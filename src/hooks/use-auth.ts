@@ -34,7 +34,7 @@ export function useAuth(): AuthState & AuthActions {
     const fetchAndWatch = async () => {
       const authService = getAuthService();
       const currentSession = await authService.getSession();
-      logger.info("[useAuth] Initial session loaded:", {
+      logger.debug("[useAuth] Initial session loaded:", {
         hasSession: !!currentSession,
         userId: currentSession?.user?.id,
       });
@@ -46,7 +46,7 @@ export function useAuth(): AuthState & AuthActions {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      logger.info("[useAuth] Auth state changed:", {
+      logger.debug("[useAuth] Auth state changed:", {
         event: _event,
         hasSession: !!newSession,
         userId: newSession?.user?.id,
@@ -63,12 +63,12 @@ export function useAuth(): AuthState & AuthActions {
 
   const checkAuthStatus = useCallback(async () => {
     try {
-      logger.info("[checkAuthStatus] Starting auth status check");
+      logger.debug("[checkAuthStatus] Starting auth status check");
       const authService = getAuthService();
       const session = await authService.getSession();
       const isAuthenticated = session !== null;
 
-      logger.info("[checkAuthStatus] Session retrieved:", {
+      logger.debug("[checkAuthStatus] Session retrieved:", {
         hasSession: !!session,
         isAuthenticated,
         hasAccessToken: !!session?.access_token,
@@ -97,16 +97,16 @@ export function useAuth(): AuthState & AuthActions {
       const authService = getAuthService();
       await authService.initiateOAuth();
 
-      logger.info("Redirected to webapp login");
+      logger.debug("Redirected to webapp login");
 
       const authenticated = await authService.waitForAuth(120000);
 
-      logger.info("[signIn] waitForAuth resolved:", { authenticated });
+      logger.debug("[signIn] waitForAuth resolved:", { authenticated });
 
       if (authenticated) {
-        logger.info("[signIn] Calling checkAuthStatus after successful auth");
+        logger.debug("[signIn] Calling checkAuthStatus after successful auth");
         await checkAuthStatus();
-        logger.info("[signIn] checkAuthStatus completed");
+        logger.debug("[signIn] checkAuthStatus completed");
       } else {
         setError("Authentication timeout");
       }
@@ -129,7 +129,7 @@ export function useAuth(): AuthState & AuthActions {
       const authService = getAuthService();
       await authService.clearSession();
 
-      logger.info("Signed out successfully");
+      logger.debug("Signed out successfully");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to sign out";
@@ -148,7 +148,7 @@ export function useAuth(): AuthState & AuthActions {
   useEffect(() => {
     if (!hasInitialized.current && isAuthenticated && session) {
       hasInitialized.current = true;
-      logger.info("[useAuth] Initializing sync with stored session");
+      logger.debug("[useAuth] Initializing sync with stored session");
       checkAuthStatus();
     }
   }, [isAuthenticated, session, checkAuthStatus]);

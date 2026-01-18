@@ -23,7 +23,7 @@ import {
   useProviderKeyStatuses,
   useSaveApiKeyWithModel,
 } from "@/hooks/use-provider-keys";
-import { getDefaultModel } from "@/lib/ai/model-factory";
+import { getDefaultModel } from "@/lib/providers/model-factory";
 import {
   type AIProvider,
   getAllProviderConfigs,
@@ -84,9 +84,11 @@ export const AiProviderSettings = () => {
   const handleSaveApiKey = async (provider: AIProvider) => {
     const key = providerKeys[provider];
     const apiKey = provider === "ollama" ? "ollama-local" : key;
+
     if (provider !== "ollama" && !key?.trim()) return;
 
     const defaultModel = getDefaultModel(provider);
+
     await saveKeyWithModelMutation.mutateAsync({
       provider,
       key: apiKey,

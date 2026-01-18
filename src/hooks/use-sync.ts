@@ -90,20 +90,30 @@ export function useSync(): SyncState & SyncActions {
         error: result.success ? null : result.errors.join("; "),
       }));
 
-      logger.info("Sync completed", result);
+      logger.debug("Sync completed", result);
       return result;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown sync error";
+      const isProxyError = errorMessage.includes("No response");
+      const displayError = isProxyError
+        ? "Sync service temporarily unavailable. Please try again."
+        : errorMessage;
 
       setState((prev) => ({
         ...prev,
         syncing: false,
         syncStatus: "error",
-        error: errorMessage,
+        error: displayError,
       }));
 
-      logger.error("Sync failed", error);
+      if (!isProxyError) {
+        logger.error("Sync failed", error);
+      } else {
+        logger.warn("Sync service unavailable (proxy error)", {
+          error: errorMessage,
+        });
+      }
       return null;
     }
   }, [state.syncing, state.canSync]);

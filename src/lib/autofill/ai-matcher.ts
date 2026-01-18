@@ -2,9 +2,9 @@ import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getAIModel } from "@/lib/ai/model-factory";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger, DEBUG } from "@/lib/logger";
+import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CompressedFieldData,
@@ -84,7 +84,7 @@ export class AIMatcher {
       const startTime = performance.now();
 
       if (useCloudMode) {
-        logger.info("Using cloud AI models for matching");
+        logger.debug("Using cloud AI models for matching");
         const cloudResults = await this.performCloudMatching(
           fields,
           memories,
@@ -92,7 +92,7 @@ export class AIMatcher {
         );
         const mappings = this.convertAIResultsToMappings(cloudResults, fields);
         const elapsed = performance.now() - startTime;
-        logger.info(
+        logger.debug(
           `Cloud AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
         );
         return mappings;
@@ -140,7 +140,7 @@ export class AIMatcher {
 
       const url = `${this.API_URL}/routes/api/autofill/match`;
 
-      logger.info(`Calling cloud API: ${url}`, {
+      logger.debug(`Calling cloud API: ${url}`, {
         fieldsCount: fields.length,
         memoriesCount: memories.length,
       });

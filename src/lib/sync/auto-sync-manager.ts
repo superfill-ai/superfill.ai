@@ -36,7 +36,7 @@ class AutoSyncManager {
       }
 
       const executeSync = async () => {
-        logger.info(`Triggering ${type} sync`, { silent, delay });
+        logger.debug(`Triggering ${type} sync`, { silent, delay });
 
         let result: SyncOperationResult;
         switch (type) {
@@ -52,7 +52,7 @@ class AutoSyncManager {
         }
 
         if (result.success) {
-          logger.info(`${type} sync completed successfully`, {
+          logger.debug(`${type} sync completed successfully`, {
             itemsSynced: result.itemsSynced,
             conflictsResolved: result.conflictsResolved,
           });

@@ -52,8 +52,9 @@ export function useSaveApiKeyWithModel() {
       }
 
       const keyVaultService = getKeyVaultService();
+      const isKeyValid = await keyVaultService.validateKey(provider, key);
 
-      if (await keyVaultService.validateKey(provider, key)) {
+      if (isKeyValid) {
         await keyVaultService.storeKey(provider, key);
 
         const currentSettings = await storage.aiSettings.getValue();
