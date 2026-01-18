@@ -113,6 +113,8 @@ export default defineBackground({
         } catch (error) {
           logger.error("Error processing runtime message:", error);
         }
+
+        return true;
       });
 
       setTimeout(() => {
