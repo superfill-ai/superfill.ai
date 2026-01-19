@@ -393,7 +393,6 @@ export function ResumeImportDialog({
                           >
                             <Checkbox
                               checked={item.selected}
-                              onCheckedChange={() => handleToggleItem(item.id)}
                               className="mt-0.5"
                             />
                             <div className="flex-1 min-w-0">

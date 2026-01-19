@@ -401,15 +401,29 @@ function extractContactInfo(): {
 
   // Check for website links in contact section
   // We already have profile URL, look for external websites
-  const externalLinks = document.querySelectorAll(
-    'section a[href^="http"]:not([href*="linkedin.com"])',
-  );
+  const externalLinks = document.querySelectorAll('section a[href^="http"]');
   for (const link of externalLinks) {
     const href = link.getAttribute("href");
-    if (href && !href.includes("linkedin.com")) {
+    if (!href) {
+      continue;
+    }
+
+    try {
+      const url = new URL(href);
+      const protocol = url.protocol;
+      const hostname = url.hostname.toLowerCase();
+
+      if (protocol !== "http:" && protocol !== "https:") {
+        continue;
+      }
+
+      if (hostname === "linkedin.com" || hostname.endsWith(".linkedin.com")) {
+        continue;
+      }
+
       contact.website = href;
       break;
-    }
+    } catch {}
   }
 
   return contact;

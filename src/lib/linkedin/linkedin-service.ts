@@ -21,13 +21,16 @@ export function getLinkedInService(): LinkedInService {
 }
 
 export function registerLinkedInService(): void {
-  linkedInService = new LinkedInService();
+  if (!linkedInService) {
+    linkedInService = new LinkedInService();
+  }
 }
 
 export class LinkedInService {
   private scrapeTabId: number | null = null;
   private scrapeResolve: ((result: LinkedInScraperResult) => void) | null =
     null;
+  private scrapeTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.setupMessageListener();
@@ -37,6 +40,8 @@ export class LinkedInService {
     browser.runtime.onMessage.addListener((message, sender) => {
       if (message.type === "LINKEDIN_SCRAPE_RESULT") {
         logger.debug("Received scrape result:", message);
+
+        this.clearScrapeTimeout();
 
         if (this.scrapeResolve) {
           this.scrapeResolve({
@@ -57,6 +62,13 @@ export class LinkedInService {
     });
   }
 
+  private clearScrapeTimeout(): void {
+    if (this.scrapeTimeout !== null) {
+      clearTimeout(this.scrapeTimeout);
+      this.scrapeTimeout = null;
+    }
+  }
+
   async scrapeLinkedInProfile(): Promise<LinkedInScraperResult> {
     logger.debug("Starting LinkedIn profile scrape");
 
@@ -64,7 +76,7 @@ export class LinkedInService {
       this.scrapeResolve = resolve;
 
       // Set timeout
-      const timeout = setTimeout(() => {
+      this.scrapeTimeout = setTimeout(() => {
         if (this.scrapeResolve) {
           this.scrapeResolve({
             success: false,
@@ -77,6 +89,7 @@ export class LinkedInService {
           browser.tabs.remove(this.scrapeTabId).catch(() => {});
           this.scrapeTabId = null;
         }
+        this.clearScrapeTimeout();
       }, SCRAPE_TIMEOUT);
 
       // Open LinkedIn profile in a new tab
@@ -94,7 +107,7 @@ export class LinkedInService {
           // We wait for the message listener to receive the result
         })
         .catch((error) => {
-          clearTimeout(timeout);
+          this.clearScrapeTimeout();
           logger.error("Failed to open LinkedIn tab:", error);
           resolve({
             success: false,

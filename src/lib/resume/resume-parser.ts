@@ -1,13 +1,13 @@
 import { createLogger } from "@/lib/logger";
 import type { AllowedCategory } from "@/types/memory";
 import type {
-    ResumeCertification,
-    ResumeData,
-    ResumeEducation,
-    ResumeExperience,
-    ResumeImportItem,
-    ResumeParserResult,
-    ResumeProject,
+  ResumeCertification,
+  ResumeData,
+  ResumeEducation,
+  ResumeExperience,
+  ResumeImportItem,
+  ResumeParserResult,
+  ResumeProject,
 } from "@/types/resume";
 
 const logger = createLogger("resume-parser");
@@ -155,7 +155,7 @@ function extractGitHub(text: string): string | undefined {
       /https?:\/\/(?:www\.)?github\.com\/[a-zA-Z0-9-]+/i,
     );
     if (urlMatch) return urlMatch[0];
-    return `https://github.com/in/${match[1]}`;
+    return `https://github.com/${match[1]}`;
   }
   return undefined;
 }
@@ -808,9 +808,23 @@ export function parseResumeText(text: string): ResumeData {
   const phones = extractPhones(text);
   const linkedin = extractLinkedIn(text);
   const github = extractGitHub(text);
-  const urls = extractUrls(text).filter(
-    (u) => !u.includes("linkedin.com") && !u.includes("github.com"),
-  );
+  const urls = extractUrls(text).filter((candidate) => {
+    try {
+      const urlObj = new URL(candidate);
+      const hostname = urlObj.hostname.toLowerCase();
+      if (
+        hostname === "linkedin.com" ||
+        hostname.endsWith(".linkedin.com") ||
+        hostname === "github.com" ||
+        hostname.endsWith(".github.com")
+      ) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  });
 
   // Extract sections using both methods for robustness
   const experienceText =

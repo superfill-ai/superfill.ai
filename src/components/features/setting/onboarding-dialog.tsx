@@ -135,12 +135,20 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
   });
 
   const handleLinkedInSuccess = async () => {
-    // Mark onboarding as completed after LinkedIn import
-    await storage.uiSettings.setValue({
-      ...(await storage.uiSettings.getValue()),
-      onboardingCompleted: true,
-    });
-    setShowLinkedInImport(false);
+    try {
+      // Mark onboarding as completed after LinkedIn import
+      const currentUiSettings = await storage.uiSettings.getValue();
+      await storage.uiSettings.setValue({
+        ...currentUiSettings,
+        onboardingCompleted: true,
+      });
+      setShowLinkedInImport(false);
+    } catch (error) {
+      logger.error("Failed to mark onboarding complete after LinkedIn import", error);
+      toast.error(
+        "Could not finish onboarding after importing from LinkedIn. Please try again.",
+      );
+    }
   };
 
   return (
