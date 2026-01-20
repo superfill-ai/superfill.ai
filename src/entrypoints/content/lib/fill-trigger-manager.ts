@@ -39,8 +39,14 @@ export class FillTriggerManager {
   }
 
   async initialize(isPartOfFormCheck?: (element: HTMLElement) => boolean) {
-    const settings = await storage.aiSettings.getValue();
-    this.isEnabled = settings.inlineTriggerEnabled;
+    try {
+      const settings = await storage.aiSettings.getValue();
+      this.isEnabled = settings.inlineTriggerEnabled;
+    } catch (error) {
+      logger.error("Failed to load inline trigger settings", error);
+      this.isEnabled = false;
+    }
+
     this.isMessagingSiteBlocked = isMessagingSite(
       window.location.hostname,
       window.location.pathname,

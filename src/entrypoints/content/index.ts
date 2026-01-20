@@ -112,27 +112,34 @@ export default defineContentScript({
     }
 
     const isElementPartOfForm = (element: HTMLElement): boolean => {
+      const countInputs = (root: ParentNode) =>
+        root.querySelectorAll(
+          'input:not([type="hidden"]), textarea, select, [contenteditable="true"]',
+        ).length;
+
+      // Page-level requirement: ignore inline trigger when fewer than 2 fields exist.
+      if (countInputs(document) < 2) return false;
+
       const formParent = element.closest(
         'form, [role="form"], [data-form], .form',
       );
       if (formParent) {
-        return true;
+        return countInputs(formParent) >= 2;
       }
 
       const container = element.closest("div, section, main, aside");
       if (container) {
-        const inputs = container.querySelectorAll(
-          'input:not([type="hidden"]), textarea, select',
-        );
-        if (inputs.length >= 2) {
-          return true;
-        }
+        return countInputs(container) >= 2;
       }
 
       return false;
     };
 
-    await fillTriggerManager.initialize(isElementPartOfForm);
+    try {
+      await fillTriggerManager.initialize(isElementPartOfForm);
+    } catch (error) {
+      logger.error("Failed to initialize FillTriggerManager", error);
+    }
 
     contentAutofillMessaging.onMessage(
       "collectAllFrameForms",
