@@ -1,3 +1,5 @@
+import "./content.css";
+
 import {
   cacheDetectedForms as cacheFormsInMaps,
   collectFrameForms,
@@ -23,7 +25,6 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
-import "./content.css";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";

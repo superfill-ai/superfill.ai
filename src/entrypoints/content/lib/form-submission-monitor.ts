@@ -216,19 +216,24 @@ export class FormSubmissionMonitor {
       this.scheduleSubmissionTimeout();
 
       const form = button.closest("form");
+      const handleCompletion = () => {
+        this.clearPendingSubmissionTimeout();
+      };
 
       if (form) {
         this.handleFormSubmission(form)
-          .then(() => {
-            this.clearPendingSubmissionTimeout();
-          })
-          .catch(logger.error);
+          .then(handleCompletion)
+          .catch((error) => {
+            logger.error(error);
+            handleCompletion();
+          });
       } else {
         this.handleStandaloneSubmission()
-          .then(() => {
-            this.clearPendingSubmissionTimeout();
-          })
-          .catch(logger.error);
+          .then(handleCompletion)
+          .catch((error) => {
+            logger.error(error);
+            handleCompletion();
+          });
       }
     };
 
