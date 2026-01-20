@@ -1,4 +1,3 @@
-import "./content.css";
 import {
   cacheDetectedForms as cacheFormsInMaps,
   collectFrameForms,
@@ -9,6 +8,7 @@ import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messag
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
 import {
   getCaptureSettings,
   isSiteBlocked,
@@ -23,6 +23,7 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
+import "./content.css";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
@@ -60,6 +61,15 @@ export default defineContentScript({
     const pathname = window.location.pathname;
     let captureSettings: Awaited<ReturnType<typeof getCaptureSettings>>;
 
+    const shouldAutoCaptureForCurrentPage = (
+      settings: Awaited<ReturnType<typeof getCaptureSettings>>,
+    ): boolean => {
+      if (!frameInfo.isMainFrame) return false;
+      if (!settings.enabled) return false;
+      if (isMessagingSite(hostname, pathname)) return false;
+      return !isSiteBlocked(hostname, settings);
+    };
+
     try {
       captureSettings = await getCaptureSettings();
     } catch (error) {
@@ -74,22 +84,72 @@ export default defineContentScript({
       };
     }
 
-    const isAutoCaptureBlocked =
-      isSiteBlocked(hostname, captureSettings) ||
-      isMessagingSite(hostname, pathname);
     let fieldTracker: Awaited<ReturnType<typeof getFieldDataTracker>> | null =
       null;
     let submissionMonitor: ReturnType<typeof getFormSubmissionMonitor> | null =
       null;
     let captureService: CaptureService | null = null;
     let captureMemoryManager: CaptureMemoryManager | null = null;
+    let unwatchCaptureSettings: (() => void) | null = null;
+    let unlistenSubmission: (() => void) | null = null;
 
-    if (
-      captureSettings.enabled &&
-      !isAutoCaptureBlocked &&
-      frameInfo.isMainFrame
-    ) {
-      logger.debug("Initializing memory capture for site:", hostname);
+    const stopAutoCapture = async (reason: string): Promise<void> => {
+      if (!frameInfo.isMainFrame) return;
+
+      if (!submissionMonitor && !fieldTracker && !captureService) return;
+
+      logger.debug("Stopping memory capture:", reason);
+
+      try {
+        await captureMemoryManager?.hide();
+      } catch {}
+
+      try {
+        unlistenSubmission?.();
+      } catch {}
+      unlistenSubmission = null;
+
+      try {
+        submissionMonitor?.dispose();
+      } catch {}
+      submissionMonitor = null;
+
+      if (fieldTracker) {
+        try {
+          await fieldTracker.clearSession();
+        } catch {}
+      }
+      fieldTracker = null;
+
+      try {
+        captureService?.dispose();
+      } catch {}
+      captureService = null;
+
+      captureMemoryManager = null;
+    };
+
+    const startAutoCapture = async (reason: string): Promise<void> => {
+      if (!frameInfo.isMainFrame) return;
+
+      if (!shouldAutoCaptureForCurrentPage(captureSettings)) {
+        return;
+      }
+
+      if (
+        submissionMonitor &&
+        fieldTracker &&
+        captureService &&
+        captureMemoryManager
+      ) {
+        return;
+      }
+
+      logger.debug("Initializing memory capture for site:", {
+        hostname,
+        reason,
+      });
+
       fieldTracker = await getFieldDataTracker();
       submissionMonitor = getFormSubmissionMonitor();
       captureService = new CaptureService();
@@ -102,14 +162,109 @@ export default defineContentScript({
         formCache,
         fieldCache,
       );
-    } else {
-      logger.debug("Memory capture disabled for site:", {
-        hostname,
-        enabled: captureSettings.enabled,
-        isAutoCaptureBlocked,
-        isMainFrame: frameInfo.isMainFrame,
-      });
-    }
+
+      unlistenSubmission = submissionMonitor.onSubmission(
+        async (submittedFieldOpids) => {
+          logger.debug(
+            `Form submitted with ${submittedFieldOpids.size} fields`,
+            Array.from(submittedFieldOpids),
+          );
+
+          try {
+            captureSettings = await getCaptureSettings();
+            if (!shouldAutoCaptureForCurrentPage(captureSettings)) {
+              logger.debug(
+                "Skipping capture due to updated settings (disabled/blocked)",
+              );
+              return;
+            }
+
+            const currentFieldTracker = fieldTracker;
+            const currentCaptureService = captureService;
+            const currentCaptureMemoryManager = captureMemoryManager;
+
+            if (
+              !currentFieldTracker ||
+              !currentCaptureService ||
+              !currentCaptureMemoryManager
+            ) {
+              logger.debug(
+                "Skipping capture because services were stopped mid-flight",
+              );
+              return;
+            }
+
+            const trackedFields = await currentFieldTracker.getCapturedFields();
+
+            if (trackedFields.length === 0) {
+              logger.debug("No tracked fields to capture");
+              return;
+            }
+
+            logger.debug(
+              `Processing ${trackedFields.length} tracked fields for capture`,
+            );
+
+            const capturedFields =
+              currentCaptureService.identifyCaptureOpportunities(trackedFields);
+
+            if (capturedFields.length === 0) {
+              logger.debug("No user-entered fields to capture");
+              return;
+            }
+
+            logger.debug(
+              `Showing capture prompt for ${capturedFields.length} fields`,
+            );
+
+            await currentCaptureMemoryManager.show(ctx, capturedFields);
+          } catch (error) {
+            logger.error("Error processing form submission:", error);
+          }
+        },
+      );
+    };
+
+    const syncAutoCaptureFromSettings = async (
+      reason: string,
+    ): Promise<void> => {
+      if (!frameInfo.isMainFrame) return;
+
+      if (shouldAutoCaptureForCurrentPage(captureSettings)) {
+        await startAutoCapture(reason);
+      } else {
+        await stopAutoCapture(reason);
+      }
+    };
+
+    await syncAutoCaptureFromSettings("initial settings");
+
+    unwatchCaptureSettings = storage.captureSettings.watch((_newValue) => {
+      void (async () => {
+        try {
+          captureSettings = await getCaptureSettings();
+        } catch (error) {
+          logger.error(
+            "Failed to reload capture settings after change, disabling capture:",
+            error,
+          );
+          captureSettings = {
+            enabled: false,
+            blockedDomains: [],
+            neverAskSites: [],
+          };
+        }
+
+        logger.debug("Capture settings updated:", {
+          hostname,
+          enabled: captureSettings.enabled,
+          isBlocked: isSiteBlocked(hostname, captureSettings),
+          neverAskSitesCount: captureSettings.neverAskSites.length,
+        });
+
+        await syncAutoCaptureFromSettings("settings changed");
+      })();
+    });
 
     await fillTriggerManager.initialize();
 
@@ -249,50 +404,17 @@ export default defineContentScript({
       return true;
     });
 
-    if (
-      submissionMonitor &&
-      fieldTracker &&
-      captureService &&
-      captureMemoryManager
-    ) {
-      submissionMonitor.onSubmission(async (submittedFieldOpids) => {
-        logger.debug(
-          `Form submitted with ${submittedFieldOpids.size} fields`,
-          Array.from(submittedFieldOpids),
-        );
-
-        try {
-          const trackedFields = await fieldTracker.getCapturedFields();
-
-          if (trackedFields.length === 0) {
-            logger.debug("No tracked fields to capture");
-            return;
-          }
-
-          logger.debug(
-            `Processing ${trackedFields.length} tracked fields for capture`,
-          );
-
-          const capturedFields =
-            captureService.identifyCaptureOpportunities(trackedFields);
-
-          if (capturedFields.length === 0) {
-            logger.debug("No user-entered fields to capture");
-            return;
-          }
-
-          logger.debug(
-            `Showing capture prompt for ${capturedFields.length} fields`,
-          );
-
-          await captureMemoryManager.show(ctx, capturedFields);
-        } catch (error) {
-          logger.error("Error processing form submission:", error);
-        }
-      });
-    }
-
     ctx.onInvalidated(() => {
+      try {
+        unwatchCaptureSettings?.();
+      } catch {}
+      unwatchCaptureSettings = null;
+
+      try {
+        unlistenSubmission?.();
+      } catch {}
+      unlistenSubmission = null;
+
       if (fieldTracker) {
         fieldTracker.dispose();
       }

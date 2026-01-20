@@ -44,7 +44,6 @@ const FORM_SUBMISSION_TIMEOUT_MS = 1500;
 
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
-  private formListeners: Map<HTMLFormElement, () => void> = new Map();
   private buttonListeners: Map<
     HTMLButtonElement | HTMLInputElement,
     () => void
@@ -97,7 +96,6 @@ export class FormSubmissionMonitor {
     //
     // browser.runtime.onMessage.addListener(this.webRequestListener);
 
-    this.attachExistingFormListeners();
     this.attachSubmitButtonListeners();
     this.startMutationObserver();
     this.startUrlChangeDetection();
@@ -152,38 +150,6 @@ export class FormSubmissionMonitor {
     return () => {
       this.submissionCallbacks.delete(callback);
     };
-  }
-
-  private attachExistingFormListeners(): void {
-    const forms = document.querySelectorAll<HTMLFormElement>("form");
-
-    for (const form of forms) {
-      this.attachFormListener(form);
-    }
-
-    logger.debug(`Attached listeners to ${forms.length} forms`);
-  }
-
-  private attachFormListener(form: HTMLFormElement): void {
-    if (this.formListeners.has(form)) return;
-
-    const listener = async (event: Event) => {
-      try {
-        event.preventDefault();
-        logger.debug("Form submit event detected", form);
-
-        await this.handleFormSubmission(form);
-      } catch (error) {
-        logger.error("Error handling form submission:", error);
-      } finally {
-        form.requestSubmit();
-      }
-    };
-
-    form.addEventListener("submit", listener);
-    this.formListeners.set(form, () => {
-      form.removeEventListener("submit", listener);
-    });
   }
 
   private attachSubmitButtonListeners(): void {
@@ -244,16 +210,16 @@ export class FormSubmissionMonitor {
   ): void {
     if (this.buttonListeners.has(button)) return;
 
-    const listener = async () => {
+    const listener = () => {
       logger.debug("Submit button clicked", button);
 
       this.scheduleSubmissionTimeout();
 
       const form = button.closest("form");
       if (form) {
-        await this.handleFormSubmission(form);
+        this.handleFormSubmission(form);
       } else {
-        await this.handleStandaloneSubmission();
+        this.handleStandaloneSubmission();
       }
     };
 
@@ -271,12 +237,6 @@ export class FormSubmissionMonitor {
     const fields = this.extractFieldOpids(form);
     logger.debug(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
-
-    if (this.pendingSubmissionTimeout) {
-      window.clearTimeout(this.pendingSubmissionTimeout);
-      this.pendingSubmissionTimeout = null;
-      logger.debug("Cleared pending submission timeout after form submission");
-    }
   }
 
   private async handleStandaloneSubmission(): Promise<void> {
@@ -289,14 +249,6 @@ export class FormSubmissionMonitor {
     const fields = this.extractAllVisibleFieldOpids();
     logger.debug(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
-
-    if (this.pendingSubmissionTimeout) {
-      window.clearTimeout(this.pendingSubmissionTimeout);
-      this.pendingSubmissionTimeout = null;
-      logger.debug(
-        "Cleared pending submission timeout after standalone submission",
-      );
-    }
   }
 
   private isDuplicateSubmission(key: HTMLFormElement | "standalone"): boolean {
@@ -372,28 +324,22 @@ export class FormSubmissionMonitor {
     this.observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
-          if (node instanceof HTMLFormElement) {
-            this.attachFormListener(node);
-          } else if (node instanceof HTMLElement) {
-            const forms = node.querySelectorAll<HTMLFormElement>("form");
-            for (const form of forms) {
-              this.attachFormListener(form);
-            }
-
+          if (node instanceof HTMLElement) {
             if (
               (node instanceof HTMLButtonElement ||
                 node instanceof HTMLInputElement) &&
               this.isSubmitButton(node)
             ) {
               this.attachButtonListener(node);
-              const buttons = node.querySelectorAll<
-                HTMLButtonElement | HTMLInputElement
-              >("button, input[type='button'], input[type='submit']");
+            }
 
-              for (const button of buttons) {
-                if (this.isSubmitButton(button)) {
-                  this.attachButtonListener(button);
-                }
+            const buttons = node.querySelectorAll<
+              HTMLButtonElement | HTMLInputElement
+            >("button, input[type='button'], input[type='submit']");
+
+            for (const button of buttons) {
+              if (this.isSubmitButton(button)) {
+                this.attachButtonListener(button);
               }
             }
           }
@@ -408,11 +354,6 @@ export class FormSubmissionMonitor {
   }
 
   private removeAllListeners(): void {
-    for (const cleanup of this.formListeners.values()) {
-      cleanup();
-    }
-    this.formListeners.clear();
-
     for (const [button, listener] of this.buttonListeners.entries()) {
       button.removeEventListener("click", listener);
     }
