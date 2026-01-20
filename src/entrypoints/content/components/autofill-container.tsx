@@ -328,22 +328,21 @@ export const AutofillContainer = ({
             ) : currentMode === "preview" && data ? (
               <ScrollArea className="flex-1 min-h-0">
                 <div className="space-y-3 py-2">
-                  {data.forms.flatMap((form: PreviewRenderData["forms"][number]) =>
-                    form.fields.map((field: PreviewFieldData) => (
-                      <FieldRow
-                        key={field.fieldOpid}
-                        field={field}
-                        selected={selection.has(field.fieldOpid)}
-                        onToggle={(next) =>
-                          handleToggle(field.fieldOpid, next)
-                        }
-                        onHighlight={() =>
-                          onHighlight?.(field.fieldOpid)
-                        }
-                        onUnhighlight={() => onUnhighlight?.()}
-                        onMemoryAddition={onMemoryAddition}
-                      />
-                    ))
+                  {data.forms.flatMap(
+                    (form: PreviewRenderData["forms"][number]) =>
+                      form.fields.map((field: PreviewFieldData) => (
+                        <FieldRow
+                          key={field.fieldOpid}
+                          field={field}
+                          selected={selection.has(field.fieldOpid)}
+                          onToggle={(next) =>
+                            handleToggle(field.fieldOpid, next)
+                          }
+                          onHighlight={() => onHighlight?.(field.fieldOpid)}
+                          onUnhighlight={() => onUnhighlight?.()}
+                          onMemoryAddition={onMemoryAddition}
+                        />
+                      )),
                   )}
                 </div>
               </ScrollArea>
