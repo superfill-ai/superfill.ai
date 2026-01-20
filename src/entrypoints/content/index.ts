@@ -111,7 +111,28 @@ export default defineContentScript({
       });
     }
 
-    await fillTriggerManager.initialize();
+    const isElementPartOfForm = (element: HTMLElement): boolean => {
+      const formParent = element.closest(
+        'form, [role="form"], [data-form], .form',
+      );
+      if (formParent) {
+        return true;
+      }
+
+      const container = element.closest("div, section, main, aside");
+      if (container) {
+        const inputs = container.querySelectorAll(
+          'input:not([type="hidden"]), textarea, select',
+        );
+        if (inputs.length >= 2) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    await fillTriggerManager.initialize(isElementPartOfForm);
 
     contentAutofillMessaging.onMessage(
       "collectAllFrameForms",

@@ -1,4 +1,5 @@
 import { getAutofillService } from "@/lib/autofill/autofill-service";
+import { isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
@@ -13,6 +14,8 @@ export class FillTriggerManager {
   private hideTimeout: ReturnType<typeof setTimeout> | null = null;
   private isProcessing = false;
   private isEnabled = false;
+  private isMessagingSiteBlocked = false;
+  private isPartOfForm: ((element: HTMLElement) => boolean) | null = null;
   private unwatchAiSettings = storage.aiSettings.watch((newSettings) => {
     if (newSettings) {
       const wasEnabled = this.isEnabled;
@@ -35,18 +38,42 @@ export class FillTriggerManager {
     this.boundHandleFocusOut = this.handleFocusOut.bind(this);
   }
 
-  async initialize() {
+  async initialize(isPartOfFormCheck?: (element: HTMLElement) => boolean) {
     const settings = await storage.aiSettings.getValue();
     this.isEnabled = settings.inlineTriggerEnabled;
+    this.isMessagingSiteBlocked = isMessagingSite(
+      window.location.hostname,
+      window.location.pathname,
+    );
+    this.isPartOfForm = isPartOfFormCheck || null;
 
     document.addEventListener("focusin", this.boundHandleFocusIn, true);
     document.addEventListener("focusout", this.boundHandleFocusOut, true);
-    logger.debug("FillTriggerManager initialized", { enabled: this.isEnabled });
+    logger.debug("FillTriggerManager initialized", {
+      enabled: this.isEnabled,
+      isMessagingSiteBlocked: this.isMessagingSiteBlocked,
+      hasFormCheck: !!this.isPartOfForm,
+    });
   }
 
   private handleFocusIn(event: FocusEvent) {
     const target = event.target as HTMLElement | null;
-    if (!target || !this.isValidInputField(target) || !this.isEnabled) return;
+    if (
+      !target ||
+      !this.isValidInputField(target) ||
+      !this.isEnabled ||
+      this.isMessagingSiteBlocked
+    )
+      return;
+
+    if (this.isPartOfForm && !this.isPartOfForm(target)) {
+      logger.debug("Skipping inline trigger - field not part of a form", {
+        tag: target.tagName,
+        id: target.id,
+        name: target.getAttribute("name"),
+      });
+      return;
+    }
 
     if (this.hideTimeout) {
       clearTimeout(this.hideTimeout);
@@ -126,6 +153,7 @@ export class FillTriggerManager {
         "checkbox",
         "radio",
         "select",
+        "password",
       ]);
       if (invalid.has(inputType)) return false;
     }

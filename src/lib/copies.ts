@@ -43,6 +43,13 @@ export const MESSAGING_SITE_BLOCKLIST_DOMAINS = [
   // Social Media Messaging
   "reddit.com",
 
+  // Project Management & Collaboration (often have chat/comments)
+  "linear.app",
+  "notion.so",
+  "clickup.com",
+  "asana.com",
+  "monday.com",
+
   // Other Chat Platforms
   "chat.google.com",
   "hangouts.google.com",
