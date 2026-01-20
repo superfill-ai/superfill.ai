@@ -58,19 +58,18 @@ export default defineContentScript({
     const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
     const fillTriggerManager = new FillTriggerManager();
-    const hostname = window.location.hostname;
     let captureSettings: Awaited<ReturnType<typeof getCaptureSettings>>;
 
     const shouldAutoCaptureForCurrentPage = (
       settings: Awaited<ReturnType<typeof getCaptureSettings>>,
     ): boolean => {
-      const { hostname: currentHost, pathname: currentPath } = window.location;
+      const { hostname, pathname } = window.location;
 
       if (!frameInfo.isMainFrame) return false;
       if (!settings.enabled) return false;
-      if (isMessagingSite(currentHost, currentPath)) return false;
+      if (isMessagingSite(hostname, pathname)) return false;
 
-      return !isSiteBlocked(currentHost, settings);
+      return !isSiteBlocked(hostname, settings);
     };
 
     try {
@@ -133,6 +132,7 @@ export default defineContentScript({
     };
 
     const startAutoCapture = async (reason: string): Promise<void> => {
+      const { hostname, pathname } = window.location;
       if (!frameInfo.isMainFrame) return;
 
       if (!shouldAutoCaptureForCurrentPage(captureSettings)) {
@@ -150,6 +150,7 @@ export default defineContentScript({
 
       logger.debug("Initializing memory capture for site:", {
         hostname,
+        pathname,
         reason,
       });
 
@@ -252,6 +253,8 @@ export default defineContentScript({
 
     unwatchCaptureSettings = storage.captureSettings.watch(() => {
       if (!frameInfo.isMainFrame) return;
+
+      const { hostname } = window.location;
 
       void (async () => {
         try {
