@@ -224,14 +224,14 @@ export class FormSubmissionMonitor {
         this.handleFormSubmission(form)
           .then(handleCompletion)
           .catch((error) => {
-            logger.error(error);
+            logger.error("handleFormSubmission error:", error);
             handleCompletion();
           });
       } else {
         this.handleStandaloneSubmission()
           .then(handleCompletion)
           .catch((error) => {
-            logger.error(error);
+            logger.error("handleStandaloneSubmission error:", error);
             handleCompletion();
           });
       }
