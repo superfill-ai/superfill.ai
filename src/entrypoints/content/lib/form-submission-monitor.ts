@@ -216,10 +216,19 @@ export class FormSubmissionMonitor {
       this.scheduleSubmissionTimeout();
 
       const form = button.closest("form");
+
       if (form) {
-        this.handleFormSubmission(form);
+        this.handleFormSubmission(form)
+          .then(() => {
+            this.clearPendingSubmissionTimeout();
+          })
+          .catch(logger.error);
       } else {
-        this.handleStandaloneSubmission();
+        this.handleStandaloneSubmission()
+          .then(() => {
+            this.clearPendingSubmissionTimeout();
+          })
+          .catch(logger.error);
       }
     };
 
@@ -412,6 +421,13 @@ export class FormSubmissionMonitor {
       logger.debug("Submission timeout triggered");
       this.triggerPendingSubmission();
     }, FORM_SUBMISSION_TIMEOUT_MS);
+  }
+
+  private clearPendingSubmissionTimeout(): void {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
   }
 
   private async triggerPendingSubmission(): Promise<void> {

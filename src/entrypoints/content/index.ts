@@ -58,16 +58,18 @@ export default defineContentScript({
     const contextExtractor = new WebsiteContextExtractor();
     const fillTriggerManager = new FillTriggerManager();
     const hostname = window.location.hostname;
-    const pathname = window.location.pathname;
     let captureSettings: Awaited<ReturnType<typeof getCaptureSettings>>;
 
     const shouldAutoCaptureForCurrentPage = (
       settings: Awaited<ReturnType<typeof getCaptureSettings>>,
     ): boolean => {
+      const { hostname: currentHost, pathname: currentPath } = window.location;
+
       if (!frameInfo.isMainFrame) return false;
       if (!settings.enabled) return false;
-      if (isMessagingSite(hostname, pathname)) return false;
-      return !isSiteBlocked(hostname, settings);
+      if (isMessagingSite(currentHost, currentPath)) return false;
+
+      return !isSiteBlocked(currentHost, settings);
     };
 
     try {
@@ -150,79 +152,87 @@ export default defineContentScript({
         reason,
       });
 
-      fieldTracker = await getFieldDataTracker();
-      submissionMonitor = getFormSubmissionMonitor();
-      captureService = new CaptureService();
-      captureMemoryManager = new CaptureMemoryManager();
+      try {
+        fieldTracker = await getFieldDataTracker();
+        submissionMonitor = getFormSubmissionMonitor();
+        captureService = new CaptureService();
+        captureMemoryManager = new CaptureMemoryManager();
 
-      submissionMonitor.start();
-      await captureService.initializeAutoTracking(
-        formDetector,
-        fieldTracker,
-        formCache,
-        fieldCache,
-      );
+        submissionMonitor.start();
+        await captureService.initializeAutoTracking(
+          formDetector,
+          fieldTracker,
+          formCache,
+          fieldCache,
+        );
 
-      unlistenSubmission = submissionMonitor.onSubmission(
-        async (submittedFieldOpids) => {
-          logger.debug(
-            `Form submitted with ${submittedFieldOpids.size} fields`,
-            Array.from(submittedFieldOpids),
-          );
-
-          try {
-            captureSettings = await getCaptureSettings();
-            if (!shouldAutoCaptureForCurrentPage(captureSettings)) {
-              logger.debug(
-                "Skipping capture due to updated settings (disabled/blocked)",
-              );
-              return;
-            }
-
-            const currentFieldTracker = fieldTracker;
-            const currentCaptureService = captureService;
-            const currentCaptureMemoryManager = captureMemoryManager;
-
-            if (
-              !currentFieldTracker ||
-              !currentCaptureService ||
-              !currentCaptureMemoryManager
-            ) {
-              logger.debug(
-                "Skipping capture because services were stopped mid-flight",
-              );
-              return;
-            }
-
-            const trackedFields = await currentFieldTracker.getCapturedFields();
-
-            if (trackedFields.length === 0) {
-              logger.debug("No tracked fields to capture");
-              return;
-            }
-
+        unlistenSubmission = submissionMonitor.onSubmission(
+          async (submittedFieldOpids) => {
             logger.debug(
-              `Processing ${trackedFields.length} tracked fields for capture`,
+              `Form submitted with ${submittedFieldOpids.size} fields`,
+              Array.from(submittedFieldOpids),
             );
 
-            const capturedFields =
-              currentCaptureService.identifyCaptureOpportunities(trackedFields);
+            try {
+              captureSettings = await getCaptureSettings();
+              if (!shouldAutoCaptureForCurrentPage(captureSettings)) {
+                logger.debug(
+                  "Skipping capture due to updated settings (disabled/blocked)",
+                );
+                return;
+              }
 
-            if (capturedFields.length === 0) {
-              logger.debug("No user-entered fields to capture");
-              return;
+              const currentFieldTracker = fieldTracker;
+              const currentCaptureService = captureService;
+              const currentCaptureMemoryManager = captureMemoryManager;
+
+              if (
+                !currentFieldTracker ||
+                !currentCaptureService ||
+                !currentCaptureMemoryManager
+              ) {
+                logger.debug(
+                  "Skipping capture because services were stopped mid-flight",
+                );
+                return;
+              }
+
+              const trackedFields =
+                await currentFieldTracker.getCapturedFields();
+
+              if (trackedFields.length === 0) {
+                logger.debug("No tracked fields to capture");
+                return;
+              }
+
+              logger.debug(
+                `Processing ${trackedFields.length} tracked fields for capture`,
+              );
+
+              const capturedFields =
+                currentCaptureService.identifyCaptureOpportunities(
+                  trackedFields,
+                );
+
+              if (capturedFields.length === 0) {
+                logger.debug("No user-entered fields to capture");
+                return;
+              }
+
+              logger.debug(
+                `Showing capture prompt for ${capturedFields.length} fields`,
+              );
+
+              await currentCaptureMemoryManager.show(ctx, capturedFields);
+            } catch (error) {
+              logger.error("Error processing form submission:", error);
             }
-
-            logger.debug(
-              `Showing capture prompt for ${capturedFields.length} fields`,
-            );
-
-            await currentCaptureMemoryManager.show(ctx, capturedFields);
-          } catch (error) {
-            logger.error("Error processing form submission:", error);
-          }
-        },
-      );
+          },
+        );
+      } catch (error) {
+        logger.error("Failed to start auto capture:", error);
+        await stopAutoCapture("initialization failure");
+      }
     };
 
     const syncAutoCaptureFromSettings = async (
@@ -239,7 +249,9 @@ export default defineContentScript({
 
     await syncAutoCaptureFromSettings("initial settings");
 
-    unwatchCaptureSettings = storage.captureSettings.watch((_newValue) => {
+    unwatchCaptureSettings = storage.captureSettings.watch(() => {
+      if (!frameInfo.isMainFrame) return;
+
       void (async () => {
         try {
           captureSettings = await getCaptureSettings();
