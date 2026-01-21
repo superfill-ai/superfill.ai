@@ -8,7 +8,7 @@ import {
 } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
-import { isMessagingSite } from "@/lib/copies";
+import { isElementPartOfForm, isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import {
@@ -281,30 +281,6 @@ export default defineContentScript({
         await syncAutoCaptureFromSettings("settings changed");
       })();
     });
-
-    const isElementPartOfForm = (element: HTMLElement): boolean => {
-      const countInputs = (root: ParentNode) =>
-        root.querySelectorAll(
-          'input:not([type="hidden"]), textarea, select, [contenteditable="true"]',
-        ).length;
-
-      // Page-level requirement: ignore inline trigger when fewer than 2 fields exist.
-      if (countInputs(document) < 2) return false;
-
-      const formParent = element.closest(
-        'form, [role="form"], [data-form], .form',
-      );
-      if (formParent) {
-        return countInputs(formParent) >= 2;
-      }
-
-      const container = element.closest("div, section, main, aside");
-      if (container) {
-        return countInputs(container) >= 2;
-      }
-
-      return false;
-    };
 
     try {
       await fillTriggerManager.initialize(isElementPartOfForm);
