@@ -90,7 +90,7 @@ export function isMessagingSite(hostname: string, pathname: string): boolean {
 export function isElementPartOfForm(element: HTMLElement): boolean {
   const countInputs = (root: ParentNode): number => {
     const inputs = root.querySelectorAll(
-      'input:not([type="hidden"]):not([type="password"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]):not([type="image"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable]:not([contenteditable="false"])',
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]):not([type="image"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable]:not([contenteditable="false"])',
     );
     return inputs.length;
   };
