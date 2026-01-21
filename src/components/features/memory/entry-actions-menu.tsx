@@ -1,4 +1,9 @@
-import { CopyIcon, Edit2Icon, MoreVerticalIcon, Trash2Icon } from "lucide-react";
+import {
+  CopyIcon,
+  Edit2Icon,
+  MoreVerticalIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
