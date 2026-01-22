@@ -8,7 +8,7 @@ import {
 } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
-import { isMessagingSite } from "@/lib/copies";
+import { isElementPartOfForm, isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import {
@@ -282,7 +282,11 @@ export default defineContentScript({
       })();
     });
 
-    await fillTriggerManager.initialize();
+    try {
+      await fillTriggerManager.initialize(isElementPartOfForm);
+    } catch (error) {
+      logger.error("Failed to initialize FillTriggerManager", error);
+    }
 
     contentAutofillMessaging.onMessage(
       "collectAllFrameForms",
