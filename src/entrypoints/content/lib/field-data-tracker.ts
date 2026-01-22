@@ -5,6 +5,7 @@ import type {
   DetectedFieldSnapshot,
   FieldMapping,
   FieldOpId,
+  FormFieldElement,
   TrackedFieldData,
 } from "@/types/autofill";
 
@@ -18,6 +19,10 @@ export class FieldDataTracker {
   private activeListeners = new Map<FieldOpId, () => void>();
   private cleanupTimer: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
+  private aiFilledFields = new Map<
+    FieldOpId,
+    { value: string; confidence?: number }
+  >();
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -56,6 +61,7 @@ export class FieldDataTracker {
   attachFieldListeners(
     fields: DetectedFieldSnapshot[],
     mappings: Map<FieldOpId, FieldMapping>,
+    fieldCache: Map<FieldOpId, { element: FormFieldElement }>,
   ): void {
     if (!this.session) {
       logger.warn("No active session, skipping field listener attachment");
@@ -67,11 +73,12 @@ export class FieldDataTracker {
       if (!this.isTrackableField(field)) continue;
       if (this.activeListeners.has(field.opid)) continue;
 
-      const element = this.findFieldElement(field.opid);
-      if (!element) {
-        logger.debug(`Could not find element for field ${field.opid}`);
+      const cachedField = fieldCache.get(field.opid);
+      if (!cachedField) {
+        logger.debug(`Field ${field.opid} not in cache`);
         continue;
       }
+      const element = cachedField.element;
 
       const mapping = mappings.get(field.opid);
       const listener = () => this.handleFieldBlur(field, mapping, element);
@@ -96,18 +103,10 @@ export class FieldDataTracker {
     return isTrackableFieldType(type);
   }
 
-  private findFieldElement(
-    opid: FieldOpId,
-  ): HTMLInputElement | HTMLTextAreaElement | null {
-    const selector = `input[data-superfill-opid="${opid}"], textarea[data-superfill-opid="${opid}"]`;
-
-    return document.querySelector(selector);
-  }
-
   private async handleFieldBlur(
     field: DetectedFieldSnapshot,
     mapping: FieldMapping | undefined,
-    element: HTMLInputElement | HTMLTextAreaElement,
+    element: FormFieldElement,
   ): Promise<void> {
     if (!this.session) return;
 
@@ -115,9 +114,9 @@ export class FieldDataTracker {
 
     if (!value) return;
 
-    const wasAIFilled =
-      element.getAttribute("data-superfill-filled") === "true";
-    const originalAIValue = element.getAttribute("data-superfill-original");
+    const aiFilledData = this.aiFilledFields.get(field.opid);
+    const wasAIFilled = !!aiFilledData;
+    const originalAIValue = aiFilledData?.value;
 
     const trackedData: TrackedFieldData = {
       fieldOpid: field.opid,
@@ -155,9 +154,18 @@ export class FieldDataTracker {
     return this.session;
   }
 
+  markFieldAsAIFilled(
+    opid: FieldOpId,
+    value: string,
+    confidence?: number,
+  ): void {
+    this.aiFilledFields.set(opid, { value, confidence });
+  }
+
   async clearSession(): Promise<void> {
     this.removeAllListeners();
     this.session = null;
+    this.aiFilledFields.clear();
 
     await browser.storage.local.remove(STORAGE_KEY);
     logger.debug("Cleared capture session");

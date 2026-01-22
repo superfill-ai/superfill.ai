@@ -4,10 +4,85 @@ import type {
   DetectedField,
   FieldOpId,
   FieldsToFillData,
-  FormFieldElement,
 } from "@/types/autofill";
 
 const logger = createLogger("fill-handler");
+
+const fillWithHumanTyping = async (
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): Promise<boolean> => {
+  try {
+    element.focus();
+    element.value = "";
+    element.dispatchEvent(new Event("focus", { bubbles: true }));
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await delay(50);
+
+    for (let i = 0; i < value.length; i++) {
+      const char = value[i];
+
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: char,
+          code: `Key${char.toUpperCase()}`,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+
+      element.value = value.substring(0, i + 1);
+
+      element.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          data: char,
+          inputType: "insertText",
+        }),
+      );
+
+      element.dispatchEvent(
+        new KeyboardEvent("keyup", {
+          key: char,
+          code: `Key${char.toUpperCase()}`,
+          bubbles: true,
+        }),
+      );
+
+      await delay(30 + Math.random() * 20);
+    }
+
+    await delay(50);
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    element.dispatchEvent(new Event("blur", { bubbles: true }));
+
+    return true;
+  } catch (error) {
+    logger.debug("Human typing failed:", error);
+    return false;
+  }
+};
+
+const fillWithNativeSetter = (
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void => {
+  const proto =
+    element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+
+  if (nativeSetter) {
+    nativeSetter.call(element, value);
+  } else {
+    element.value = value;
+  }
+
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+  element.dispatchEvent(new Event("change", { bubbles: true }));
+};
 
 const fillReactSelect = async (
   element: HTMLInputElement,
@@ -193,18 +268,11 @@ export const handleFill = async (
   );
 
   for (const { fieldOpid, value } of fieldsToFill) {
-    let field = fieldCache.get(fieldOpid as FieldOpId);
+    const field = fieldCache.get(fieldOpid as FieldOpId);
 
     if (!field) {
-      const element = document.querySelector(
-        `[data-superfill-opid="${fieldOpid}"]`,
-      ) as FormFieldElement;
-      if (element) {
-        logger.debug(
-          `Field ${fieldOpid} not in cache, found via data-superfill-opid attribute`,
-        );
-        field = { element } as DetectedField;
-      }
+      logger.warn(`Field ${fieldOpid} not in cache, skipping`);
+      continue;
     }
 
     if (field) {
@@ -217,7 +285,7 @@ export const handleFill = async (
           const radioName = element.name;
           if (radioName) {
             const radios = document.querySelectorAll<HTMLInputElement>(
-              `input[type="radio"][data-superfill-opid="${fieldOpid}"]`,
+              `input[type="radio"][name="${radioName}"]`,
             );
 
             let matched = false;
@@ -261,15 +329,17 @@ export const handleFill = async (
         } else if (element.getAttribute("role") === "combobox") {
           await fillReactSelect(element, value);
         } else {
-          element.value = value;
-          element.dispatchEvent(new Event("input", { bubbles: true }));
-          element.dispatchEvent(new Event("change", { bubbles: true }));
+          const success = await fillWithHumanTyping(element, value);
+          if (!success) {
+            fillWithNativeSetter(element, value);
+          }
         }
       } else if (element instanceof HTMLTextAreaElement) {
         element.focus({ preventScroll: true });
-        element.value = value;
-        element.dispatchEvent(new Event("input", { bubbles: true }));
-        element.dispatchEvent(new Event("change", { bubbles: true }));
+        const success = await fillWithHumanTyping(element, value);
+        if (!success) {
+          fillWithNativeSetter(element, value);
+        }
       } else if (element instanceof HTMLSelectElement) {
         const normalizedValue = value.toLowerCase();
         let matched = false;

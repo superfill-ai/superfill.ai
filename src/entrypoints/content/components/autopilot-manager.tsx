@@ -56,6 +56,7 @@ type AutopilotManagerOptions = {
   ctx: ContentScriptContext;
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null;
   getFormMetadata: (formOpid: FormOpId) => { name: string } | null;
+  fieldCache: Map<FieldOpId, DetectedField>;
 };
 
 export class AutopilotManager {
@@ -237,28 +238,18 @@ export class AutopilotManager {
 
       for (const field of this.fieldsToFill) {
         try {
-          let element = document.querySelector(
-            `[data-superfill-opid="${field.fieldOpid}"]`,
-          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-
-          if (!element && field.fieldOpid.startsWith("__")) {
-            logger.warn(
-              `Falling back to index-based lookup for ${field.fieldOpid}`,
-            );
-            const index = field.fieldOpid.substring(2);
-            const allInputs = document.querySelectorAll(
-              "input, textarea, select",
-            );
-            element = allInputs[parseInt(index, 10)] as
-              | HTMLInputElement
-              | HTMLTextAreaElement
-              | HTMLSelectElement;
+          const cachedField = this.options.fieldCache.get(
+            field.fieldOpid as FieldOpId,
+          );
+          if (!cachedField) {
+            logger.warn(`Field ${field.fieldOpid} not in cache, skipping`);
+            continue;
           }
+
+          const element = cachedField.element;
 
           if (element && element.type !== "password") {
             element.value = field.value;
-            element.setAttribute("data-superfill-filled", "true");
-            element.setAttribute("data-superfill-original", field.value);
 
             element.dispatchEvent(new Event("input", { bubbles: true }));
             element.dispatchEvent(new Event("change", { bubbles: true }));
@@ -284,6 +275,7 @@ export class AutopilotManager {
           fieldsToFill: this.fieldsToFill.map((f) => ({
             fieldOpid: f.fieldOpid,
             value: f.value,
+            confidence: f.confidence,
           })),
         });
       } catch (error) {
@@ -398,7 +390,7 @@ export class AutopilotManager {
           if (!mapping) continue;
 
           const filledField: FilledField = {
-            selector: `[data-superfill-opid="${field.opid}"]`,
+            selector: "", // Selector removed - use opid for lookup instead
             label: getPrimaryLabel(field.metadata),
             filledValue: mapping.value || "",
             fieldType: field.metadata.fieldType,

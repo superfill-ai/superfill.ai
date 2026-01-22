@@ -37,12 +37,14 @@ const ensureAutopilotManager = (
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
+  fieldCache: Map<FieldOpId, DetectedField>,
 ) => {
   if (!autopilotManager) {
     autopilotManager = new AutopilotManager({
       ctx,
       getFieldMetadata,
       getFormMetadata,
+      fieldCache,
     });
   }
 
@@ -54,6 +56,7 @@ export const handleUpdateProgress = async (
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
+  fieldCache: Map<FieldOpId, DetectedField>,
 ): Promise<boolean> => {
   try {
     const settingStore = await storage.aiSettings.getValue();
@@ -69,6 +72,7 @@ export const handleUpdateProgress = async (
         ctx,
         getFieldMetadata,
         getFormMetadata,
+        fieldCache,
       );
       await manager.showProgress(progress);
       return true;
@@ -92,6 +96,7 @@ export const handleShowPreview = async (
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
+  fieldCache: Map<FieldOpId, DetectedField>,
 ): Promise<boolean> => {
   logger.debug("Received preview payload from background", {
     mappings: data.mappings.length,
@@ -106,7 +111,12 @@ export const handleShowPreview = async (
   let manager: PreviewSidebarManager | AutopilotManager;
 
   if (settingStore.autopilotMode) {
-    manager = ensureAutopilotManager(ctx, getFieldMetadata, getFormMetadata);
+    manager = ensureAutopilotManager(
+      ctx,
+      getFieldMetadata,
+      getFormMetadata,
+      fieldCache,
+    );
   } else {
     manager = ensurePreviewManager(ctx, getFieldMetadata, getFormMetadata);
   }

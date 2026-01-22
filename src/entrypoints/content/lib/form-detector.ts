@@ -11,6 +11,7 @@ import type { FieldAnalyzer } from "./field-analyzer";
 export class FormDetector {
   private formOpidCounter = 0;
   private fieldOpidCounter = 0;
+  private globalHighlightIndex = 0;
   private shadowRootFields: DetectedField[] = [];
   private detectedElements = new Set<FormFieldElement>();
   private detectedRadioGroups = new Set<string>();
@@ -31,6 +32,7 @@ export class FormDetector {
     this.shadowRootFields = [];
     this.detectedElements.clear();
     this.detectedRadioGroups.clear();
+    this.globalHighlightIndex = 0;
 
     const formElements = this.findFormElements();
 
@@ -72,7 +74,22 @@ export class FormDetector {
       });
     }
 
+    this.assignHighlightIndices(forms);
+
     return forms;
+  }
+
+  private assignHighlightIndices(forms: DetectedForm[]): void {
+    for (const form of forms) {
+      for (const field of form.fields) {
+        const { isVisible, isTopElement, isInteractive } = field.metadata;
+        if (isVisible && isTopElement && isInteractive) {
+          field.highlightIndex = this.globalHighlightIndex++;
+        } else {
+          field.highlightIndex = null;
+        }
+      }
+    }
   }
 
   private findFormElements(): HTMLFormElement[] {
@@ -294,17 +311,9 @@ export class FormDetector {
     if (radios.length === 0) return null;
 
     const primaryRadio = radios[0];
-    const existingOpid = primaryRadio.getAttribute("data-superfill-opid");
-    const opid = existingOpid
-      ? (existingOpid as FieldOpId)
-      : (`__${this.fieldOpidCounter++}` as FieldOpId);
-
-    if (!existingOpid) {
-      primaryRadio.setAttribute("data-superfill-opid", opid);
-    }
+    const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
 
     for (const radio of radios) {
-      radio.setAttribute("data-superfill-opid", opid);
       this.detectedElements.add(radio);
     }
 
@@ -313,6 +322,7 @@ export class FormDetector {
       element: primaryRadio,
       metadata: {} as FieldMetadata,
       formOpid: "" as FormOpId,
+      highlightIndex: null,
     };
 
     field.metadata = this.analyzer.analyzeField(field);
@@ -351,20 +361,14 @@ export class FormDetector {
   }
 
   private createDetectedField(element: FormFieldElement): DetectedField {
-    const existingOpid = element.getAttribute("data-superfill-opid");
-    const opid = existingOpid
-      ? (existingOpid as FieldOpId)
-      : (`__${this.fieldOpidCounter++}` as FieldOpId);
-
-    if (!existingOpid) {
-      element.setAttribute("data-superfill-opid", opid);
-    }
+    const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
 
     const field: DetectedField = {
       opid,
       element,
       metadata: {} as FieldMetadata,
       formOpid: "" as FormOpId,
+      highlightIndex: null,
     };
 
     field.metadata = this.analyzer.analyzeField(field);

@@ -18,7 +18,9 @@ import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 const logger = createLogger("ai-matcher");
 
 const AIMatchSchema = z.object({
-  fieldOpid: z.string().describe("The unique field operation ID being matched"),
+  highlightIndex: z
+    .number()
+    .describe("The highlight index [N] of the field being matched"),
   value: z
     .string()
     .nullable()
@@ -320,10 +322,10 @@ export class AIMatcher {
     domContext?: string,
   ): string {
     const fieldsMarkdown = fields
-      .map((f, idx) => {
+      .filter((f) => f.highlightIndex !== null)
+      .map((f) => {
         const parts = [
-          `**Field ${idx + 1}**`,
-          `- fieldOpid: ${f.opid}`,
+          `**[${f.highlightIndex}]**`,
           `- type: ${f.type}`,
           `- purpose: ${f.purpose}`,
           `- labels: ${f.labels.length > 0 ? f.labels.join(", ") : "none"}`,
@@ -394,16 +396,20 @@ export class AIMatcher {
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
   ): FieldMapping[] {
-    const fieldMap = new Map(fields.map((f) => [f.opid, f]));
+    const fieldByIndex = new Map(
+      fields
+        .filter((f) => f.highlightIndex !== null)
+        .map((f) => [f.highlightIndex as number, f]),
+    );
 
     return aiResults.matches.map((aiMatch) => {
-      const field = fieldMap.get(aiMatch.fieldOpid);
+      const field = fieldByIndex.get(aiMatch.highlightIndex);
       if (!field) {
         logger.warn(
-          `AI returned match for unknown field: ${aiMatch.fieldOpid}`,
+          `AI returned match for unknown highlight index: [${aiMatch.highlightIndex}]`,
         );
         return createEmptyMapping<{ opid: string }, FieldMapping>(
-          { opid: aiMatch.fieldOpid },
+          { opid: `unknown_${aiMatch.highlightIndex}` },
           "Field not found",
         );
       }
@@ -412,7 +418,7 @@ export class AIMatcher {
       const value = aiMatch.value;
 
       return {
-        fieldOpid: aiMatch.fieldOpid,
+        fieldOpid: field.opid,
         value,
         confidence,
         reasoning:

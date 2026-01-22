@@ -26,12 +26,18 @@ export interface FrameInfo {
   frameDepth: number;
 }
 
+export interface IframeOffset {
+  x: number;
+  y: number;
+}
+
 export interface FormCollectionResult {
   success: boolean;
   forms: DetectedFormSnapshot[];
   totalFields: number;
   websiteContext?: ReturnType<WebsiteContextExtractor["extract"]>;
   frameInfo: FrameInfo;
+  iframeOffset: IframeOffset;
   error?: string;
 }
 
@@ -65,9 +71,39 @@ export const getFrameInfo = (): FrameInfo => {
   };
 };
 
+export const getIframeOffset = (frameInfo: FrameInfo): IframeOffset => {
+  if (frameInfo.isMainFrame) {
+    return { x: 0, y: 0 };
+  }
+
+  try {
+    const frameElement = window.frameElement;
+    if (frameElement) {
+      const rect = frameElement.getBoundingClientRect();
+      return { x: rect.left, y: rect.top };
+    }
+  } catch {
+    logger.debug("Cannot calculate iframe offset (cross-origin)");
+  }
+
+  return { x: 0, y: 0 };
+};
+
+export const transformCoordinates = (
+  rect: DOMRectInit,
+  iframeOffset: IframeOffset,
+): DOMRectInit => {
+  return {
+    ...rect,
+    x: (rect.x ?? 0) + iframeOffset.x,
+    y: (rect.y ?? 0) + iframeOffset.y,
+  };
+};
+
 export const serializeForms = (
   forms: DetectedForm[],
   frameId?: number,
+  iframeOffset: IframeOffset = { x: 0, y: 0 },
 ): DetectedFormSnapshot[] =>
   forms.map((form) => ({
     opid: form.opid,
@@ -77,22 +113,24 @@ export const serializeForms = (
     fields: form.fields.map((field) => {
       const { rect, ...metadata } = field.metadata;
 
+      const transformedRect = transformCoordinates(
+        {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        },
+        iframeOffset,
+      );
+
       return {
         opid: field.opid,
         formOpid: field.formOpid,
         frameId,
+        highlightIndex: field.highlightIndex,
         metadata: {
           ...metadata,
-          rect: {
-            x: rect.x,
-            y: rect.y,
-            width: rect.width,
-            height: rect.height,
-            top: rect.top,
-            right: rect.right,
-            bottom: rect.bottom,
-            left: rect.left,
-          } as DOMRectInit,
+          rect: transformedRect,
         },
       } satisfies DetectedFormSnapshot["fields"][number];
     }),
@@ -175,7 +213,8 @@ export const collectFrameForms = async (
   try {
     const allForms = formDetector.detectAll();
     const forms = filterAndProcessForms(allForms);
-    const serializedForms = serializeForms(forms, undefined);
+    const iframeOffset = getIframeOffset(frameInfo);
+    const serializedForms = serializeForms(forms, undefined, iframeOffset);
 
     const totalFields = forms.reduce(
       (sum, form) => sum + form.fields.length,
@@ -194,6 +233,7 @@ export const collectFrameForms = async (
       totalFields,
       websiteContext,
       frameInfo,
+      iframeOffset,
     };
   } catch (error) {
     logger.error("Error detecting forms in frame:", error);
@@ -203,6 +243,7 @@ export const collectFrameForms = async (
       totalFields: 0,
       error: error instanceof Error ? error.message : "Unknown error",
       frameInfo,
+      iframeOffset: { x: 0, y: 0 },
     };
   }
 };

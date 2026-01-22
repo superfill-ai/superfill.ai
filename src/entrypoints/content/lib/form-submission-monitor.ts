@@ -55,6 +55,8 @@ export class FormSubmissionMonitor {
   private observer: MutationObserver | null = null;
   private lastUrl: string = window.location.href;
   private pendingSubmissionTimeout: number | null = null;
+  private trackedFields = new Set<FieldOpId>();
+  private formFieldsMap = new WeakMap<HTMLFormElement, Set<FieldOpId>>();
   // TODO: Re-enable when webRequest is properly implemented
   // private hasWebRequestAPI = false;
   // private webRequestListener:
@@ -150,6 +152,26 @@ export class FormSubmissionMonitor {
     return () => {
       this.submissionCallbacks.delete(callback);
     };
+  }
+
+  registerFields(
+    fields: Array<{
+      opid: FieldOpId;
+      element: HTMLElement;
+      formElement: HTMLFormElement | null;
+    }>,
+  ): void {
+    for (const field of fields) {
+      this.trackedFields.add(field.opid);
+
+      if (field.formElement) {
+        if (!this.formFieldsMap.has(field.formElement)) {
+          this.formFieldsMap.set(field.formElement, new Set());
+        }
+        this.formFieldsMap.get(field.formElement)?.add(field.opid);
+      }
+    }
+    logger.debug(`Registered ${fields.length} tracked fields`);
   }
 
   private attachSubmitButtonListeners(): void {
@@ -294,23 +316,7 @@ export class FormSubmissionMonitor {
   }
 
   private extractAllVisibleFieldOpids(): Set<FieldOpId> {
-    const opids = new Set<FieldOpId>();
-
-    const fields = document.querySelectorAll<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >("input, textarea, select");
-
-    for (const field of fields) {
-      if (!field.checkVisibility()) continue;
-
-      const opid = field.getAttribute("data-superfill-opid");
-
-      if (opid) {
-        opids.add(opid as FieldOpId);
-      }
-    }
-
-    return opids;
+    return this.trackedFields;
   }
 
   private async notifyCallbacks(fields: Set<FieldOpId>): Promise<void> {

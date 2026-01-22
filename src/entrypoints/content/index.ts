@@ -164,6 +164,7 @@ export default defineContentScript({
         await captureService.initializeAutoTracking(
           formDetector,
           fieldTracker,
+          submissionMonitor,
           formCache,
           fieldCache,
         );
@@ -379,6 +380,7 @@ export default defineContentScript({
           ctx,
           (fieldOpid) => fieldCache.get(fieldOpid) ?? null,
           (formOpid) => formCache.get(formOpid) ?? null,
+          fieldCache,
         );
       },
     );
@@ -396,6 +398,7 @@ export default defineContentScript({
           ctx,
           (fieldOpid) => fieldCache.get(fieldOpid) ?? null,
           (formOpid) => formCache.get(formOpid) ?? null,
+          fieldCache,
         );
       },
     );

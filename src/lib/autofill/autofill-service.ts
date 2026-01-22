@@ -446,6 +446,7 @@ class AutofillService {
 
     return {
       opid: field.opid,
+      highlightIndex: field.highlightIndex,
       type: field.metadata.fieldType,
       purpose: field.metadata.fieldPurpose,
       labels,

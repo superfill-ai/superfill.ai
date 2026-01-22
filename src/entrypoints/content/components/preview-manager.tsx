@@ -265,7 +265,11 @@ export class PreviewSidebarManager {
   }
 
   private async handleFill(
-    fieldsToFill: { fieldOpid: FieldOpId; value: string }[],
+    fieldsToFill: {
+      fieldOpid: FieldOpId;
+      value: string;
+      confidence?: number;
+    }[],
   ) {
     try {
       await browser.runtime.sendMessage({
@@ -273,6 +277,7 @@ export class PreviewSidebarManager {
         fieldsToFill: fieldsToFill.map((f) => ({
           fieldOpid: f.fieldOpid,
           value: f.value,
+          confidence: f.confidence,
         })),
       });
     } catch (error) {
@@ -356,7 +361,7 @@ export class PreviewSidebarManager {
           if (!mapping) continue;
 
           const filledField: FilledField = {
-            selector: `[data-superfill-opid="${field.opid}"]`,
+            selector: "", // Selector removed - use opid for lookup instead
             label: getPrimaryLabel(field.metadata),
             filledValue: mapping.value || "",
             fieldType: field.metadata.fieldType,

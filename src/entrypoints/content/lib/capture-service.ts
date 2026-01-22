@@ -11,6 +11,7 @@ import type {
 } from "@/types/autofill";
 import type { FieldDataTracker } from "./field-data-tracker";
 import type { FormDetector } from "./form-detector";
+import type { FormSubmissionMonitor } from "./form-submission-monitor";
 import { cacheDetectedForms, serializeForms } from "./iframe-handler";
 
 const logger = createLogger("capture-service");
@@ -19,6 +20,7 @@ export class CaptureService {
   private mutationObserver: MutationObserver | null = null;
   private formDetector: FormDetector | null = null;
   private fieldTracker: FieldDataTracker | null = null;
+  private submissionMonitor: FormSubmissionMonitor | null = null;
   private formCache: Map<FormOpId, DetectedForm> | null = null;
   private fieldCache: Map<FieldOpId, DetectedField> | null = null;
   private sessionId: string | null = null;
@@ -28,11 +30,13 @@ export class CaptureService {
   initializeAutoTracking = async (
     formDetector: FormDetector,
     fieldTracker: FieldDataTracker,
+    submissionMonitor: FormSubmissionMonitor,
     formCache: Map<FormOpId, DetectedForm>,
     fieldCache: Map<FieldOpId, DetectedField>,
   ) => {
     this.formDetector = formDetector;
     this.fieldTracker = fieldTracker;
+    this.submissionMonitor = submissionMonitor;
     this.formCache = formCache;
     this.fieldCache = fieldCache;
 
@@ -77,7 +81,22 @@ export class CaptureService {
 
     logger.debug(`Attaching listeners to ${allSerializedFields.length} fields`);
 
-    this.fieldTracker.attachFieldListeners(allSerializedFields, emptyMappings);
+    this.fieldTracker.attachFieldListeners(
+      allSerializedFields,
+      emptyMappings,
+      this.fieldCache,
+    );
+
+    if (this.submissionMonitor) {
+      const fieldsToRegister = Array.from(this.fieldCache.entries()).map(
+        ([opid, field]) => ({
+          opid,
+          element: field.element,
+          formElement: field.element.form || null,
+        }),
+      );
+      this.submissionMonitor.registerFields(fieldsToRegister);
+    }
 
     logger.debug(
       "Auto-tracking listeners attached for form submission capture",
@@ -176,6 +195,7 @@ export class CaptureService {
 
     this.formDetector = null;
     this.fieldTracker = null;
+    this.submissionMonitor = null;
 
     if (this.formCache) {
       this.formCache.clear();
