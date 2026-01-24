@@ -1,0 +1,61 @@
+{
+  "name": "@superfill/extension",
+  "description": "AI-powered form filling browser extension",
+  "private": true,
+  "version": "0.2.2",
+  "type": "module",
+  "author": {
+    "email": "mihirpandey.13@gmail.com",
+    "name": "Mihir Kumar"
+  },
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "dev:safari": "wxt -b safari",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "build:safari": "wxt build -b safari",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "zip:safari": "wxt zip -b safari",
+    "type-check": "tsgo --noEmit",
+    "postinstall": "wxt prepare",
+    "format": "biome check --write",
+    "lint": "bun run format",
+    "clean": "rm -rf .wxt .output"
+  },
+  "dependencies": {
+    "@superfill/shared": "workspace:*",
+    "@superfill/storage": "workspace:*",
+    "@superfill/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-form": "^1.27.7",
+    "@webext-core/messaging": "^1.4.0",
+    "@webext-core/proxy-service": "^1.2.2",
+    "date-fns": "^4.1.0",
+    "driver.js": "^1.4.0",
+    "react": "^19.2.3",
+    "react-day-picker": "^9.13.0",
+    "react-dom": "^19.2.3",
+    "react-hotkeys-hook": "^5.2.3",
+    "react-resizable-panels": "^3.0.6",
+    "use-debounce": "^10.1.0",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@superfill/tsconfig": "workspace:*",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^11.0.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260119.1",
+    "@wxt-dev/module-react": "^1.1.5",
+    "autoprefixer": "^10.4.23",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "wxt": "^0.20.13"
+  },
+  "overrides": {
+    "@wxt-dev/storage": "1.2.0"
+  }
+}

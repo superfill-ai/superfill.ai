@@ -1,0 +1,35 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".wxt/**", "dist/**", ".next/**", ".output/**", "build/**"],
+      "env": ["NODE_ENV"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "format": {
+      "dependsOn": ["^format"]
+    },
+    "type-check": {
+      "dependsOn": ["^type-check"],
+      "outputs": []
+    },
+    "clean": {
+      "cache": false
+    }
+  },
+  "globalDependencies": [
+    "tsconfig.json",
+    "turbo.json"
+  ],
+  "globalEnv": [
+    "NODE_ENV"
+  ]
+}

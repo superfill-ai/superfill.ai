@@ -1,0 +1,57 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependency directories
+node_modules
+.output
+stats.html
+stats-*.json
+.wxt
+web-ext.config.ts
+
+# Editor directories and files
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Internal
+internal/
+
+# Environment variables
+.env
+.env.local
+.env*.local
+.env.submit
+
+# Development
+development/
+test-forms/
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Build outputs
+*.zip
+
+# Safari xcode project
+Superfill.ai
+
+# Documentation
+docs/
+
+# GitHub
+.github/copilot-instructions.md

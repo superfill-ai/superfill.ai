@@ -1,0 +1,12 @@
+{
+  "extends": ["@superfill/tsconfig/react.json", "./.wxt/tsconfig.json"],
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "exclude": ["node_modules"]
+}
