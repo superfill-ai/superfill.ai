@@ -10,19 +10,19 @@ export type FieldOpId = `__${number}` & { readonly __brand: unique symbol };
 
 export type DetectFormsResult =
   | {
-    success: true;
-    forms: DetectedFormSnapshot[];
-    totalFields: number;
-    websiteContext: WebsiteContext;
-    frameInfo: FrameInfo;
-  }
+      success: true;
+      forms: DetectedFormSnapshot[];
+      totalFields: number;
+      websiteContext: WebsiteContext;
+      frameInfo: FrameInfo;
+    }
   | {
-    success: false;
-    forms: never[];
-    totalFields: 0;
-    error: string;
-    frameInfo: FrameInfo;
-  };
+      success: false;
+      forms: never[];
+      totalFields: 0;
+      error: string;
+      frameInfo: FrameInfo;
+    };
 
 export interface FrameInfo {
   isMainFrame: boolean;

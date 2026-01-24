@@ -9,12 +9,8 @@ import {
   CommandItem,
   CommandList,
 } from "./command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "./popover";
 import { cn } from "./lib/cn";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 
 export interface ComboboxOption {
   value: string;

@@ -1,13 +1,9 @@
 import { InfoIcon } from "lucide-react";
 import { useState } from "react";
 import { Label } from "./label";
-import { Slider } from "./slider";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "./tooltip";
 import { cn } from "./lib/cn";
+import { Slider } from "./slider";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 type Props = {
   id: string;

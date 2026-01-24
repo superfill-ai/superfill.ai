@@ -1,18 +1,9 @@
 import { CheckIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react";
 import * as React from "react";
 import { Button } from "./button";
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "./command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "./popover";
+import { Command, CommandGroup, CommandInput, CommandItem } from "./command";
 import { cn } from "./lib/cn";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 
 interface Option {
   value: string;

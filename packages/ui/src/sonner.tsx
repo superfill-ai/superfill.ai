@@ -12,7 +12,6 @@ interface ToasterComponentProps extends ToasterProps {
 }
 
 const Toaster = ({ theme = "system", ...props }: ToasterComponentProps) => {
-
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}

@@ -2,8 +2,8 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 
 // Debug mode can be enabled via globalThis.DEBUG = true
 export const DEBUG =
-  (typeof globalThis !== "undefined" &&
-    (globalThis as { DEBUG?: boolean }).DEBUG === true);
+  typeof globalThis !== "undefined" &&
+  (globalThis as { DEBUG?: boolean }).DEBUG === true;
 
 class Logger {
   private context: string;

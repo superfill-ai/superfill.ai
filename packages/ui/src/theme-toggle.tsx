@@ -11,7 +11,11 @@ interface ThemeToggleProps {
   onToggle?: () => void | Promise<void>;
 }
 
-export function ThemeToggle({ className, theme = "system", onToggle }: ThemeToggleProps) {
+export function ThemeToggle({
+  className,
+  theme = "system",
+  onToggle,
+}: ThemeToggleProps) {
   useHotkeys("t", async () => {
     await onToggle?.();
   });

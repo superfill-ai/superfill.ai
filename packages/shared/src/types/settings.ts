@@ -3,7 +3,13 @@ import type { Theme } from "./theme";
 /**
  * AI Provider identifiers
  */
-export type AIProvider = "openai" | "anthropic" | "groq" | "deepseek" | "gemini" | "ollama";
+export type AIProvider =
+  | "openai"
+  | "anthropic"
+  | "groq"
+  | "deepseek"
+  | "gemini"
+  | "ollama";
 
 export interface EncryptedKey {
   encrypted: string;
