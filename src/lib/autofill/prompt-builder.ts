@@ -3,6 +3,13 @@ import type {
   DetectedFormSnapshot,
 } from "@/types/autofill";
 
+function escapeForPrompt(value: string): string {
+  return value
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+}
+
 export function serializeFieldForAI(field: DetectedFieldSnapshot): string {
   const idx =
     field.highlightIndex !== null ? `[${field.highlightIndex}]` : "[hidden]";
@@ -12,15 +19,24 @@ export function serializeFieldForAI(field: DetectedFieldSnapshot): string {
       : field.metadata.fieldType === "select"
         ? "select"
         : "input";
-  const type = field.metadata.type || "";
-  const placeholder = field.metadata.placeholder || "";
-  const name = field.metadata.name || "";
-  const label =
-    field.metadata.labelTag ||
-    field.metadata.labelAria ||
-    field.metadata.labelTop ||
-    field.metadata.labelLeft ||
-    "";
+  const type = field.metadata.type ? escapeForPrompt(field.metadata.type) : "";
+  const placeholder = field.metadata.placeholder
+    ? escapeForPrompt(field.metadata.placeholder)
+    : "";
+  const name = field.metadata.name ? escapeForPrompt(field.metadata.name) : "";
+  const labelTag = field.metadata.labelTag
+    ? escapeForPrompt(field.metadata.labelTag)
+    : "";
+  const labelAria = field.metadata.labelAria
+    ? escapeForPrompt(field.metadata.labelAria)
+    : "";
+  const labelTop = field.metadata.labelTop
+    ? escapeForPrompt(field.metadata.labelTop)
+    : "";
+  const labelLeft = field.metadata.labelLeft
+    ? escapeForPrompt(field.metadata.labelLeft)
+    : "";
+  const label = labelTag || labelAria || labelTop || labelLeft || "";
 
   const attrs: string[] = [];
   if (type && tag === "input") attrs.push(`type="${type}"`);
@@ -30,7 +46,7 @@ export function serializeFieldForAI(field: DetectedFieldSnapshot): string {
 
   if (field.metadata.options && field.metadata.options.length > 0) {
     const optionValues = field.metadata.options
-      .map((o) => `"${o.value}"`)
+      .map((o) => `"${escapeForPrompt(o.value)}"`)
       .join(",");
     attrs.push(`options=[${optionValues}]`);
   }

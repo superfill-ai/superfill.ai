@@ -316,7 +316,7 @@ export class FormSubmissionMonitor {
   }
 
   private extractAllVisibleFieldOpids(): Set<FieldOpId> {
-    return this.trackedFields;
+    return new Set(this.trackedFields);
   }
 
   private async notifyCallbacks(fields: Set<FieldOpId>): Promise<void> {

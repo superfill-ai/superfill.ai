@@ -396,6 +396,19 @@ export class AIMatcher {
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
   ): FieldMapping[] {
+    const seenIndices = new Set<number>();
+
+    for (const field of fields) {
+      if (field.highlightIndex !== null) {
+        if (seenIndices.has(field.highlightIndex)) {
+          logger.warn(
+            `Duplicate highlightIndex detected: ${field.highlightIndex} (opid: ${field.opid})`,
+          );
+        }
+        seenIndices.add(field.highlightIndex);
+      }
+    }
+
     const fieldByIndex = new Map(
       fields
         .filter((f) => f.highlightIndex !== null)
@@ -409,7 +422,7 @@ export class AIMatcher {
           `AI returned match for unknown highlight index: [${aiMatch.highlightIndex}]`,
         );
         return createEmptyMapping<{ opid: string }, FieldMapping>(
-          { opid: `unknown_${aiMatch.highlightIndex}` },
+          { opid: `__${aiMatch.highlightIndex}` },
           "Field not found",
         );
       }

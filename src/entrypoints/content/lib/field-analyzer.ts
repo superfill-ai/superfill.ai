@@ -6,7 +6,7 @@ import type {
   FormFieldElement,
 } from "@/types/autofill";
 
-const DOM_CACHE = {
+export const DOM_CACHE = {
   computedStyles: new WeakMap<Element, CSSStyleDeclaration>(),
   clear: () => {
     DOM_CACHE.computedStyles = new WeakMap();

@@ -159,6 +159,21 @@ export class FieldDataTracker {
     value: string,
     confidence?: number,
   ): void {
+    if (confidence !== undefined) {
+      if (typeof confidence !== "number" || Number.isNaN(confidence)) {
+        logger.warn(
+          `Invalid confidence value for field ${opid}: ${confidence}. Using undefined.`,
+        );
+        confidence = undefined;
+      } else if (confidence < 0 || confidence > 1) {
+        const clamped = Math.max(0, Math.min(1, confidence));
+        logger.warn(
+          `Confidence value ${confidence} for field ${opid} is out of range [0,1]. Clamping to ${clamped}.`,
+        );
+        confidence = clamped;
+      }
+    }
+
     this.aiFilledFields.set(opid, { value, confidence });
   }
 

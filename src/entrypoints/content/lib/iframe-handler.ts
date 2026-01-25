@@ -76,17 +76,28 @@ export const getIframeOffset = (frameInfo: FrameInfo): IframeOffset => {
     return { x: 0, y: 0 };
   }
 
+  let x = 0;
+  let y = 0;
+  let currentWindow: Window = window;
+
   try {
-    const frameElement = window.frameElement;
-    if (frameElement) {
+    while (currentWindow !== currentWindow.top) {
+      const frameElement = currentWindow.frameElement;
+      if (!frameElement) {
+        break;
+      }
+
       const rect = frameElement.getBoundingClientRect();
-      return { x: rect.left, y: rect.top };
+      x += rect.left;
+      y += rect.top;
+
+      currentWindow = currentWindow.parent;
     }
   } catch {
     logger.debug("Cannot calculate iframe offset (cross-origin)");
   }
 
-  return { x: 0, y: 0 };
+  return { x, y };
 };
 
 export const transformCoordinates = (

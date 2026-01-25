@@ -62,7 +62,6 @@ export interface FieldMetadataSnapshot
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
   frameId?: number;
-  highlightIndex: number | null;
   metadata: FieldMetadataSnapshot;
 }
 

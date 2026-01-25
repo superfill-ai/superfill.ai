@@ -7,6 +7,7 @@ import type {
   FormOpId,
 } from "@/types/autofill";
 import type { FieldAnalyzer } from "./field-analyzer";
+import { DOM_CACHE } from "./field-analyzer";
 
 export class FormDetector {
   private formOpidCounter = 0;
@@ -28,6 +29,8 @@ export class FormDetector {
   ]);
 
   detectAll(): DetectedForm[] {
+    DOM_CACHE.clear();
+
     const forms: DetectedForm[] = [];
     this.shadowRootFields = [];
     this.detectedElements.clear();

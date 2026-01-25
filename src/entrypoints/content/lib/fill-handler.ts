@@ -275,97 +275,99 @@ export const handleFill = async (
       continue;
     }
 
-    if (field) {
-      const element = field.element;
+    const element = field.element;
 
-      if (element instanceof HTMLInputElement) {
-        element.focus({ preventScroll: true });
+    if (element instanceof HTMLInputElement) {
+      element.focus({ preventScroll: true });
 
-        if (element.type === "radio") {
-          const radioName = element.name;
-          if (radioName) {
-            const radios = document.querySelectorAll<HTMLInputElement>(
-              `input[type="radio"][name="${radioName}"]`,
-            );
+      if (element.type === "radio") {
+        const radioName = element.name;
+        if (radioName) {
+          const form = element.form;
+          if (!form) {
+            logger.debug(`Radio button ${radioName} has no form, skipping`);
+            continue;
+          }
 
-            let matched = false;
-            const normalizedValue = value.toLowerCase().trim();
+          const radios = form.querySelectorAll<HTMLInputElement>(
+            `input[type="radio"][name="${CSS.escape(radioName)}"]`,
+          );
 
-            for (const radio of radios) {
-              const radioValue = radio.value.toLowerCase().trim();
-              const radioLabel =
-                radio.labels?.[0]?.textContent?.toLowerCase().trim() || "";
+          let matched = false;
+          const normalizedValue = value.toLowerCase().trim();
 
-              if (
-                radioValue === normalizedValue ||
-                radioLabel === normalizedValue
-              ) {
-                radio.checked = true;
-                radio.dispatchEvent(new Event("input", { bubbles: true }));
-                radio.dispatchEvent(new Event("change", { bubbles: true }));
-                matched = true;
-                logger.debug(
-                  `Radio group ${radioName}: selected value "${radio.value}"`,
-                );
-                break;
-              }
-            }
+          for (const radio of radios) {
+            const radioValue = radio.value.toLowerCase().trim();
+            const radioLabel =
+              radio.labels?.[0]?.textContent?.toLowerCase().trim() || "";
 
-            if (!matched) {
-              logger.warn(
-                `Radio group ${radioName}: no option matched value "${value}"`,
+            if (
+              radioValue === normalizedValue ||
+              radioLabel === normalizedValue
+            ) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event("input", { bubbles: true }));
+              radio.dispatchEvent(new Event("change", { bubbles: true }));
+              matched = true;
+              logger.debug(
+                `Radio group ${radioName}: selected value "${radio.value}"`,
               );
+              break;
             }
           }
-        } else if (element.type === "checkbox") {
-          const normalizedCheckboxValue = value.trim().toLowerCase();
 
-          element.checked =
-            normalizedCheckboxValue === "true" ||
-            normalizedCheckboxValue === "on" ||
-            normalizedCheckboxValue === "1";
-          element.dispatchEvent(new Event("input", { bubbles: true }));
-          element.dispatchEvent(new Event("change", { bubbles: true }));
-        } else if (element.getAttribute("role") === "combobox") {
-          await fillReactSelect(element, value);
-        } else {
-          const success = await fillWithHumanTyping(element, value);
-          if (!success) {
-            fillWithNativeSetter(element, value);
+          if (!matched) {
+            logger.warn(
+              `Radio group ${radioName}: no option matched value "${value}"`,
+            );
           }
         }
-      } else if (element instanceof HTMLTextAreaElement) {
-        element.focus({ preventScroll: true });
+      } else if (element.type === "checkbox") {
+        const normalizedCheckboxValue = value.trim().toLowerCase();
+
+        element.checked =
+          normalizedCheckboxValue === "true" ||
+          normalizedCheckboxValue === "on" ||
+          normalizedCheckboxValue === "1";
+        element.dispatchEvent(new Event("input", { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+      } else if (element.getAttribute("role") === "combobox") {
+        await fillReactSelect(element, value);
+      } else {
         const success = await fillWithHumanTyping(element, value);
         if (!success) {
           fillWithNativeSetter(element, value);
         }
-      } else if (element instanceof HTMLSelectElement) {
-        const normalizedValue = value.toLowerCase();
-        let matched = false;
+      }
+    } else if (element instanceof HTMLTextAreaElement) {
+      element.focus({ preventScroll: true });
+      const success = await fillWithHumanTyping(element, value);
+      if (!success) {
+        fillWithNativeSetter(element, value);
+      }
+    } else if (element instanceof HTMLSelectElement) {
+      const normalizedValue = value.toLowerCase();
+      let matched = false;
 
-        for (const option of Array.from(element.options)) {
-          if (
-            option.value.toLowerCase() === normalizedValue ||
-            option.text.toLowerCase() === normalizedValue
-          ) {
-            option.selected = true;
-            matched = true;
-            break;
-          }
+      for (const option of Array.from(element.options)) {
+        if (
+          option.value.toLowerCase() === normalizedValue ||
+          option.text.toLowerCase() === normalizedValue
+        ) {
+          option.selected = true;
+          matched = true;
+          break;
         }
-
-        if (!matched) {
-          element.value = value;
-        }
-
-        element.dispatchEvent(new Event("input", { bubbles: true }));
-        element.dispatchEvent(new Event("change", { bubbles: true }));
       }
 
-      logger.debug(`Filled field ${fieldOpid} with value`);
-    } else {
-      logger.warn(`Field ${fieldOpid} not found in cache`);
+      if (!matched) {
+        element.value = value;
+      }
+
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
     }
+
+    logger.debug(`Filled field ${fieldOpid} with value`);
   }
 };
