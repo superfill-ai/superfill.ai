@@ -260,16 +260,16 @@ export function ProfileImportDialog({
     }
   };
 
-  const groupedItems = importItems.reduce(
-    (acc, item) => {
-      if (!acc[item.category]) {
-        acc[item.category] = [];
-      }
-      acc[item.category].push(item);
-      return acc;
-    },
-    {} as Record<AllowedCategory, ProfileImportItem[]>,
-  );
+  const groupedItems = importItems.reduce<
+    Partial<Record<AllowedCategory, ProfileImportItem[]>>
+  >((acc, item) => {
+    const category = item.category;
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(item);
+    return acc;
+  }, {});
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>

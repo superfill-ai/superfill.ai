@@ -84,16 +84,15 @@ export function DocumentImportDialog({
   const [fileName, setFileName] = useState<string | null>(null);
 
   const selectedCount = importItems.filter((item) => item.selected).length;
-  const progress =
-    status === "idle"
-      ? 0
-      : status === "reading"
-        ? 30
-        : status === "parsing"
-          ? 60
-          : status === "success"
-            ? 100
-            : 0;
+
+  const PROGRESS_BY_STATUS: Record<DocumentParserStatus, number> = {
+    idle: 0,
+    reading: 30,
+    parsing: 60,
+    success: 100,
+    error: 0,
+  };
+  const progress = PROGRESS_BY_STATUS[status];
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,
