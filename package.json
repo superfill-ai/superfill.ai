@@ -101,7 +101,7 @@
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^11.0.0",
-    "@typescript/native-preview": "^7.0.0-dev.20260119.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260124.1",
     "@wxt-dev/module-react": "^1.1.5",
     "autoprefixer": "^10.4.23",
     "babel-plugin-react-compiler": "^1.0.0",
