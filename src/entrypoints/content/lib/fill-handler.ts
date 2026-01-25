@@ -26,7 +26,6 @@ const fillWithHumanTyping = async (
       element.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: char,
-          code: `Key${char.toUpperCase()}`,
           bubbles: true,
           cancelable: true,
         }),
@@ -45,7 +44,6 @@ const fillWithHumanTyping = async (
       element.dispatchEvent(
         new KeyboardEvent("keyup", {
           key: char,
-          code: `Key${char.toUpperCase()}`,
           bubbles: true,
         }),
       );
