@@ -407,13 +407,23 @@ class AutofillService {
   }
 
   private compressField(field: DetectedFieldSnapshot): CompressedFieldData {
+    // Get option values if this is a radio/select field
+    const optionValues = field.metadata.options?.map((opt) => opt.value) || [];
+
     const allLabels = [
       field.metadata.labelTag,
       field.metadata.labelAria,
       field.metadata.labelData,
       field.metadata.labelLeft,
       field.metadata.labelTop,
-    ].filter(Boolean) as string[];
+    ].filter((label): label is string => {
+      if (!label) return false;
+      // Don't include labels that match option values
+      if (optionValues.length > 0 && optionValues.includes(label)) {
+        return false;
+      }
+      return true;
+    });
 
     const labels = Array.from(new Set(allLabels));
     const contextParts = [

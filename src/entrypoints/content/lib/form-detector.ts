@@ -338,6 +338,41 @@ export class FormDetector {
       element: radio,
     }));
 
+    // Get all radio values for comparison
+    const radioValues = radios.map((radio) => radio.value);
+
+    // Check if any field label matches a radio value, if so, clear those labels
+    if (
+      field.metadata.labelTag &&
+      radioValues.includes(field.metadata.labelTag)
+    ) {
+      field.metadata.labelTag = null;
+    }
+    if (
+      field.metadata.labelData &&
+      radioValues.includes(field.metadata.labelData)
+    ) {
+      field.metadata.labelData = null;
+    }
+    if (
+      field.metadata.labelAria &&
+      radioValues.includes(field.metadata.labelAria)
+    ) {
+      field.metadata.labelAria = null;
+    }
+    if (
+      field.metadata.labelLeft &&
+      radioValues.includes(field.metadata.labelLeft)
+    ) {
+      field.metadata.labelLeft = null;
+    }
+    if (
+      field.metadata.labelTop &&
+      radioValues.includes(field.metadata.labelTop)
+    ) {
+      field.metadata.labelTop = null;
+    }
+
     return field;
   }
 
@@ -347,7 +382,11 @@ export class FormDetector {
         `label[for="${radio.id}"]`,
       );
       if (label) {
-        return label.textContent?.trim() || null;
+        const labelText = label.textContent?.trim() || null;
+        // Don't use the label if it's the same as the value
+        if (labelText && labelText !== radio.value) {
+          return labelText;
+        }
       }
     }
 
@@ -359,10 +398,13 @@ export class FormDetector {
         input.remove();
       }
       const text = clone.textContent?.trim();
-      if (text) return text;
+      // Don't use the label if it's the same as the value
+      if (text && text !== radio.value) {
+        return text;
+      }
     }
 
-    return radio.value || null;
+    return null;
   }
 
   private createDetectedField(element: FormFieldElement): DetectedField {
@@ -378,6 +420,49 @@ export class FormDetector {
 
     field.metadata = this.analyzer.analyzeField(field);
     this.detectedElements.add(element);
+
+    // Add options for select elements
+    if (element instanceof HTMLSelectElement) {
+      const optionValues = Array.from(element.options).map((opt) => opt.value);
+
+      field.metadata.options = Array.from(element.options).map((option) => ({
+        value: option.value,
+        label: option.textContent?.trim() || null,
+        element: option as unknown as HTMLInputElement,
+      }));
+
+      // Check if any field label matches a select option value, if so, clear those labels
+      if (
+        field.metadata.labelTag &&
+        optionValues.includes(field.metadata.labelTag)
+      ) {
+        field.metadata.labelTag = null;
+      }
+      if (
+        field.metadata.labelData &&
+        optionValues.includes(field.metadata.labelData)
+      ) {
+        field.metadata.labelData = null;
+      }
+      if (
+        field.metadata.labelAria &&
+        optionValues.includes(field.metadata.labelAria)
+      ) {
+        field.metadata.labelAria = null;
+      }
+      if (
+        field.metadata.labelLeft &&
+        optionValues.includes(field.metadata.labelLeft)
+      ) {
+        field.metadata.labelLeft = null;
+      }
+      if (
+        field.metadata.labelTop &&
+        optionValues.includes(field.metadata.labelTop)
+      ) {
+        field.metadata.labelTop = null;
+      }
+    }
 
     return field;
   }

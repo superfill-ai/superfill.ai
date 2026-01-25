@@ -24,18 +24,34 @@ export function serializeFieldForAI(field: DetectedFieldSnapshot): string {
     ? escapeForPrompt(field.metadata.placeholder)
     : "";
   const name = field.metadata.name ? escapeForPrompt(field.metadata.name) : "";
-  const labelTag = field.metadata.labelTag
-    ? escapeForPrompt(field.metadata.labelTag)
-    : "";
-  const labelAria = field.metadata.labelAria
-    ? escapeForPrompt(field.metadata.labelAria)
-    : "";
-  const labelTop = field.metadata.labelTop
-    ? escapeForPrompt(field.metadata.labelTop)
-    : "";
-  const labelLeft = field.metadata.labelLeft
-    ? escapeForPrompt(field.metadata.labelLeft)
-    : "";
+
+  // Get option values if this is a radio/select field
+  const optionValues = field.metadata.options?.map((opt) => opt.value) || [];
+
+  const labelTag =
+    field.metadata.labelTag &&
+    !(optionValues.length > 0 && optionValues.includes(field.metadata.labelTag))
+      ? escapeForPrompt(field.metadata.labelTag)
+      : "";
+  const labelAria =
+    field.metadata.labelAria &&
+    !(
+      optionValues.length > 0 && optionValues.includes(field.metadata.labelAria)
+    )
+      ? escapeForPrompt(field.metadata.labelAria)
+      : "";
+  const labelTop =
+    field.metadata.labelTop &&
+    !(optionValues.length > 0 && optionValues.includes(field.metadata.labelTop))
+      ? escapeForPrompt(field.metadata.labelTop)
+      : "";
+  const labelLeft =
+    field.metadata.labelLeft &&
+    !(
+      optionValues.length > 0 && optionValues.includes(field.metadata.labelLeft)
+    )
+      ? escapeForPrompt(field.metadata.labelLeft)
+      : "";
   const label = labelTag || labelAria || labelTop || labelLeft || "";
 
   const attrs: string[] = [];
@@ -85,12 +101,22 @@ export function buildFieldsMarkdownWithIndices(
         `  - purpose: ${f.metadata.fieldPurpose}`,
       ];
 
+      // Get option values if this is a radio/select field
+      const optionValues = f.metadata.options?.map((opt) => opt.value) || [];
+
       const labels = [
         f.metadata.labelTag,
         f.metadata.labelAria,
         f.metadata.labelTop,
         f.metadata.labelLeft,
-      ].filter(Boolean);
+      ].filter((label): label is string => {
+        if (!label) return false;
+        // Don't include labels that match option values
+        if (optionValues.length > 0 && optionValues.includes(label)) {
+          return false;
+        }
+        return true;
+      });
       if (labels.length > 0) {
         parts.push(`  - labels: ${labels.join(", ")}`);
       }

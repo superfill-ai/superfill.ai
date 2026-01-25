@@ -223,6 +223,7 @@ export interface CapturedFieldData {
     labels: string[];
     placeholder?: string;
     required: boolean;
+    options?: RadioOptionSnapshot[];
   };
 }
 

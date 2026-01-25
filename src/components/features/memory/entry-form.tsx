@@ -15,13 +15,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
@@ -363,36 +356,42 @@ export function EntryForm({
               fieldMetadata?.options &&
               fieldMetadata.options.length > 0;
 
+            const isSelectWithOptions =
+              isPreviewMode &&
+              fieldMetadata?.fieldType === "select" &&
+              fieldMetadata?.options &&
+              fieldMetadata.options.length > 0;
+
+            const hasOptions = isRadioWithOptions || isSelectWithOptions;
+
             return (
               <Field
                 data-invalid={isInvalid}
                 className={layout === "compact" ? "gap-1" : ""}
               >
                 <FieldLabel htmlFor={field.name}>Answer *</FieldLabel>
-                {isRadioWithOptions ? (
-                  <Select
+                {hasOptions ? (
+                  <select
+                    id={field.name}
+                    name={field.name}
                     value={field.state.value}
-                    onValueChange={field.handleChange}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    aria-invalid={isInvalid}
+                    aria-describedby={
+                      isInvalid ? `${field.name}-error` : undefined
+                    }
+                    className="border-input text-foreground focus-visible:border-primary focus-visible:ring-primary/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex h-9 w-full items-center justify-between rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 [&>option]:bg-popover [&>option]:text-popover-foreground [&>option]:py-1.5 [&>option]:px-2 [&>option:hover]:bg-primary/10 [&>option:checked]:bg-primary/20"
                   >
-                    <SelectTrigger
-                      id={field.name}
-                      onBlur={field.handleBlur}
-                      aria-invalid={isInvalid}
-                      aria-describedby={
-                        isInvalid ? `${field.name}-error` : undefined
-                      }
-                      className="w-full"
-                    >
-                      <SelectValue placeholder="-- Choose an option --" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fieldMetadata.options?.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label || option.value}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="" className="text-muted-foreground">
+                      -- Choose an option --
+                    </option>
+                    {fieldMetadata.options?.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label || option.value}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <Textarea
                     id={field.name}
@@ -492,29 +491,27 @@ export function EntryForm({
                     aria-invalid={isInvalid}
                   />
                 ) : (
-                  <Select
+                  <select
+                    id={field.name}
+                    name={field.name}
                     value={field.state.value}
-                    onValueChange={field.handleChange}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    aria-invalid={isInvalid}
+                    aria-describedby={
+                      isInvalid ? `${field.name}-error` : undefined
+                    }
+                    className="border-input text-foreground focus-visible:border-primary focus-visible:ring-primary/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex h-9 w-full items-center justify-between rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 [&>option]:bg-popover [&>option]:text-popover-foreground [&>option]:py-1.5 [&>option]:px-2 [&>option:hover]:bg-primary/10 [&>option:checked]:bg-primary/20"
                   >
-                    <SelectTrigger
-                      id={field.name}
-                      onBlur={field.handleBlur}
-                      aria-invalid={isInvalid}
-                      aria-describedby={
-                        isInvalid ? `${field.name}-error` : undefined
-                      }
-                      className="w-full"
-                    >
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="" className="text-muted-foreground">
+                      Select a category
+                    </option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 )}
                 {isInvalid && (
                   <FieldError

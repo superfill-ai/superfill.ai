@@ -269,6 +269,7 @@ export class CaptureService {
           labels: this.extractAllLabels(tracked.metadata),
           placeholder: tracked.metadata.placeholder || undefined,
           required: tracked.metadata.required,
+          options: tracked.metadata.options,
         },
       });
     }
@@ -283,6 +284,9 @@ export class CaptureService {
   private extractQuestion(
     metadata: TrackedFieldData["metadata"],
   ): string | null {
+    // Get option values if this is a radio/select field
+    const optionValues = metadata.options?.map((opt) => opt.value) || [];
+
     const candidates = [
       metadata.labelTag,
       metadata.labelAria,
@@ -296,6 +300,13 @@ export class CaptureService {
 
     for (const candidate of candidates) {
       if (candidate && candidate.trim().length > 0) {
+        // Don't use a label that matches any option value
+        if (
+          optionValues.length > 0 &&
+          optionValues.includes(candidate.trim())
+        ) {
+          continue;
+        }
         return candidate.trim();
       }
     }
@@ -304,13 +315,23 @@ export class CaptureService {
   }
 
   private extractAllLabels(metadata: TrackedFieldData["metadata"]): string[] {
+    // Get option values if this is a radio/select field
+    const optionValues = metadata.options?.map((opt) => opt.value) || [];
+
     const allLabels = [
       metadata.labelTag,
       metadata.labelAria,
       metadata.labelData,
       metadata.labelLeft,
       metadata.labelTop,
-    ].filter((label): label is string => Boolean(label?.trim()));
+    ].filter((label): label is string => {
+      if (!label?.trim()) return false;
+      // Don't include labels that match option values
+      if (optionValues.length > 0 && optionValues.includes(label.trim())) {
+        return false;
+      }
+      return true;
+    });
 
     return Array.from(new Set(allLabels));
   }

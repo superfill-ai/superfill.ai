@@ -544,6 +544,9 @@ export class FieldAnalyzer {
       if (purpose) return purpose;
     }
 
+    // Get option values if this is a radio/select field
+    const optionValues = metadata.options?.map((opt) => opt.value) || [];
+
     const allText = [
       metadata.labelTag,
       metadata.labelAria,
@@ -554,7 +557,14 @@ export class FieldAnalyzer {
       metadata.name,
       metadata.id,
     ]
-      .filter(Boolean)
+      .filter((text): text is string => {
+        if (!text) return false;
+        // Don't include labels that match option values
+        if (optionValues.length > 0 && optionValues.includes(text)) {
+          return false;
+        }
+        return true;
+      })
       .join(" ")
       .toLowerCase();
 

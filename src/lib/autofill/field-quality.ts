@@ -33,13 +33,27 @@ export function hasAnyLabel(metadata: FieldMetadata): boolean {
 }
 
 export function getPrimaryLabel(metadata: FieldMetadata): string | null {
-  return (
-    metadata.labelTag ||
-    metadata.labelAria ||
-    metadata.labelTop ||
-    metadata.labelLeft ||
-    null
-  );
+  // Get option values if this is a radio/select field
+  const optionValues = metadata.options?.map((opt) => opt.value) || [];
+
+  const candidates = [
+    metadata.labelTag,
+    metadata.labelAria,
+    metadata.labelTop,
+    metadata.labelLeft,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate) {
+      // Don't use a label that matches any option value
+      if (optionValues.length > 0 && optionValues.includes(candidate)) {
+        continue;
+      }
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 export function hasValidContext(metadata: FieldMetadata): boolean {

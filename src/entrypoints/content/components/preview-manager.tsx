@@ -54,6 +54,9 @@ const ensureHighlightStyle = () => {
 const getPrimaryLabel = (
   metadata: DetectedFieldSnapshot["metadata"],
 ): string => {
+  // Get option values if this is a radio/select field
+  const optionValues = metadata.options?.map((opt) => opt.value) || [];
+
   const candidates = [
     metadata.labelTag,
     metadata.labelAria,
@@ -67,6 +70,10 @@ const getPrimaryLabel = (
 
   for (const candidate of candidates) {
     if (candidate && candidate.trim().length > 0) {
+      // Don't use a label that matches any option value
+      if (optionValues.length > 0 && optionValues.includes(candidate.trim())) {
+        continue;
+      }
       return candidate.trim();
     }
   }
