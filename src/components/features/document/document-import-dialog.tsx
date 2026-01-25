@@ -1,99 +1,85 @@
+import {
+  AlertCircleIcon,
+  BriefcaseIcon,
+  CheckCircle2Icon,
+  FileTextIcon,
+  GraduationCapIcon,
+  Loader2Icon,
+  MailIcon,
+  MapPinIcon,
+  SparklesIcon,
+  UploadIcon,
+  UserIcon,
+} from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemoryMutations } from "@/hooks/use-memories";
+import {
+  convertToImportItems,
+  type DocumentImportItem,
+  type DocumentParserStatus,
+  parseDocument,
+} from "@/lib/document/document-parser";
 import { createLogger } from "@/lib/logger";
-import {
-    convertResumeToImportItems,
-    parseResumePDF,
-} from "@/lib/resume/resume-parser";
-import type { MemoryEntry } from "@/types/memory";
-import type {
-    ResumeData,
-    ResumeImportItem,
-    ResumeParserStatus,
-} from "@/types/resume";
-import {
-    AlertCircleIcon,
-    AwardIcon,
-    BriefcaseIcon,
-    CheckCircle2Icon,
-    FileTextIcon,
-    FolderKanbanIcon,
-    GraduationCapIcon,
-    Loader2Icon,
-    MailIcon,
-    MedalIcon,
-    SparklesIcon,
-    UploadIcon,
-    UserIcon,
-} from "lucide-react";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
+import type { AllowedCategory, MemoryEntry } from "@/types/memory";
 
-const logger = createLogger("component:resume-import-dialog");
+const logger = createLogger("component:document-import-dialog");
 
-interface ResumeImportDialogProps {
+interface DocumentImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
 
-const STATUS_MESSAGES: Record<ResumeParserStatus, string> = {
+const STATUS_MESSAGES: Record<DocumentParserStatus, string> = {
   idle: "Ready to import",
-  reading: "Reading PDF file...",
-  parsing: "Extracting information...",
-  success: "Resume data extracted!",
+  reading: "Reading document...",
+  parsing: "AI is extracting information...",
+  success: "Information extracted!",
   error: "Failed to extract data",
 };
 
-const SOURCE_ICONS: Record<ResumeImportItem["source"], React.ReactNode> = {
-  name: <UserIcon className="size-4" />,
+const CATEGORY_ICONS: Record<AllowedCategory, React.ReactNode> = {
+  personal: <UserIcon className="size-4" />,
   contact: <MailIcon className="size-4" />,
-  summary: <UserIcon className="size-4" />,
-  experience: <BriefcaseIcon className="size-4" />,
+  location: <MapPinIcon className="size-4" />,
+  work: <BriefcaseIcon className="size-4" />,
   education: <GraduationCapIcon className="size-4" />,
-  skills: <SparklesIcon className="size-4" />,
-  projects: <FolderKanbanIcon className="size-4" />,
-  achievements: <MedalIcon className="size-4" />,
-  certifications: <AwardIcon className="size-4" />,
-  other: <FileTextIcon className="size-4" />,
+  general: <FileTextIcon className="size-4" />,
 };
 
-const SOURCE_COLORS: Record<ResumeImportItem["source"], string> = {
-  name: "bg-blue-500/10 text-blue-600 border-blue-200",
+const CATEGORY_COLORS: Record<AllowedCategory, string> = {
+  personal: "bg-blue-500/10 text-blue-600 border-blue-200",
   contact: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
-  summary: "bg-amber-500/10 text-amber-600 border-amber-200",
-  experience: "bg-indigo-500/10 text-indigo-600 border-indigo-200",
+  location: "bg-amber-500/10 text-amber-600 border-amber-200",
+  work: "bg-indigo-500/10 text-indigo-600 border-indigo-200",
   education: "bg-rose-500/10 text-rose-600 border-rose-200",
-  skills: "bg-cyan-500/10 text-cyan-600 border-cyan-200",
-  projects: "bg-purple-500/10 text-purple-600 border-purple-200",
-  achievements: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
-  certifications: "bg-orange-500/10 text-orange-600 border-orange-200",
-  other: "bg-gray-500/10 text-gray-600 border-gray-200",
+  general: "bg-gray-500/10 text-gray-600 border-gray-200",
 };
 
-export function ResumeImportDialog({
+export function DocumentImportDialog({
   open,
   onOpenChange,
   onSuccess,
-}: ResumeImportDialogProps) {
+}: DocumentImportDialogProps) {
   const { addEntries } = useMemoryMutations();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<ResumeParserStatus>("idle");
+  const [status, setStatus] = useState<DocumentParserStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [_resumeData, setResumeData] = useState<ResumeData | null>(null);
-  const [importItems, setImportItems] = useState<ResumeImportItem[]>([]);
+  const [importItems, setImportItems] = useState<DocumentImportItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -115,8 +101,14 @@ export function ResumeImportDialog({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Please select a PDF file");
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+    const isTxt =
+      file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
+
+    if (!isPdf && !isTxt) {
+      setError("Please select a PDF or text file");
       setStatus("error");
       return;
     }
@@ -124,25 +116,23 @@ export function ResumeImportDialog({
     setFileName(file.name);
     setStatus("reading");
     setError(null);
-    setResumeData(null);
     setImportItems([]);
 
     try {
       setStatus("parsing");
-      const result = await parseResumePDF(file);
+      const result = await parseDocument(file);
 
-      if (!result.success || !result.data) {
+      if (!result.success || !result.items) {
         setStatus("error");
-        setError(result.error || "Failed to extract data from PDF");
+        setError(result.error || "Failed to extract data from document");
         return;
       }
 
-      setResumeData(result.data);
-      const items = convertResumeToImportItems(result.data);
+      const items = convertToImportItems(result.items);
       setImportItems(items);
       setStatus("success");
 
-      logger.debug("Successfully extracted resume data:", result.data);
+      logger.debug("Successfully extracted document data:", items.length);
     } catch (err) {
       logger.error("Import error:", err);
       setStatus("error");
@@ -187,23 +177,22 @@ export function ResumeImportDialog({
         (item) => ({
           question: item.question,
           answer: item.answer,
-          category: item.category,
-          tags: [...item.tags, "resume-import"],
+          category: item.category as AllowedCategory,
+          tags: [...item.tags, "document-import"],
           confidence: 1.0,
         }),
       );
 
       await addEntries.mutateAsync(entries);
 
-      toast.success(`Imported ${entries.length} memories from resume!`, {
-        description: "Your resume data has been saved as memories.",
+      toast.success(`Imported ${entries.length} memories!`, {
+        description: "Your document data has been saved as memories.",
       });
 
       logger.debug("Successfully imported memories:", entries.length);
 
       // Reset state
       setStatus("idle");
-      setResumeData(null);
       setImportItems([]);
       setFileName(null);
       onOpenChange(false);
@@ -218,11 +207,13 @@ export function ResumeImportDialog({
     }
   };
 
-  const handleClose = () => {
-    if (status !== "reading" && status !== "parsing" && !isSaving) {
+  const handleClose = (open: boolean) => {
+    if (!open) {
+      // Always allow closing unless actively saving
+      if (isSaving) return;
+
       setStatus("idle");
       setError(null);
-      setResumeData(null);
       setImportItems([]);
       setFileName(null);
       onOpenChange(false);
@@ -231,13 +222,14 @@ export function ResumeImportDialog({
 
   const groupedItems = importItems.reduce(
     (acc, item) => {
-      if (!acc[item.source]) {
-        acc[item.source] = [];
+      const category = item.category as AllowedCategory;
+      if (!acc[category]) {
+        acc[category] = [];
       }
-      acc[item.source].push(item);
+      acc[category].push(item);
       return acc;
     },
-    {} as Record<ResumeImportItem["source"], ResumeImportItem[]>,
+    {} as Record<AllowedCategory, DocumentImportItem[]>,
   );
 
   return (
@@ -246,13 +238,13 @@ export function ResumeImportDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileTextIcon className="size-5 text-primary" />
-            Import from Resume
+            Import from Document
           </DialogTitle>
           <DialogDescription>
             {status === "success" &&
-              "Select the information you want to import as memories."}
+              "Select the information you want to import."}
             {(status === "reading" || status === "parsing") &&
-              "Please wait while we extract your resume data..."}
+              "AI is extracting your information..."}
             {status === "error" && "Something went wrong. Please try again."}
           </DialogDescription>
         </DialogHeader>
@@ -264,17 +256,14 @@ export function ResumeImportDialog({
               <div className="size-20 rounded-full bg-primary/10 flex items-center justify-center">
                 <FileTextIcon className="size-10 text-primary" />
               </div>
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  Upload your resume PDF and we'll extract your information to
-                  create memories for auto-filling forms.
-                </p>
-              </div>
+              <p className="text-xs text-amber-600">
+                Requires an AI provider to be configured in settings.
+              </p>
 
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf"
+                accept=".pdf,.txt"
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -284,11 +273,11 @@ export function ResumeImportDialog({
                 className="gap-2"
               >
                 <UploadIcon className="size-4" />
-                Select PDF Resume
+                Select Document
               </Button>
 
               <p className="text-xs text-muted-foreground">
-                Supported format: PDF
+                Supported formats: PDF, TXT
               </p>
             </div>
           )}
@@ -321,8 +310,7 @@ export function ResumeImportDialog({
               </div>
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground max-w-sm">
-                  {error ||
-                    "Failed to extract data from PDF. Please try again."}
+                  {error || "Failed to extract data. Please try again."}
                 </p>
               </div>
               <Button
@@ -367,16 +355,16 @@ export function ResumeImportDialog({
 
               <ScrollArea className="h-[350px] pr-4">
                 <div className="space-y-4">
-                  {Object.entries(groupedItems).map(([source, items]) => (
-                    <div key={source} className="space-y-2">
+                  {Object.entries(groupedItems).map(([category, items]) => (
+                    <div key={category} className="space-y-2">
                       <div className="flex items-center gap-2 sticky top-0 bg-background py-1">
                         <span
-                          className={`p-1 rounded ${SOURCE_COLORS[source as ResumeImportItem["source"]]}`}
+                          className={`p-1 rounded ${CATEGORY_COLORS[category as AllowedCategory]}`}
                         >
-                          {SOURCE_ICONS[source as ResumeImportItem["source"]]}
+                          {CATEGORY_ICONS[category as AllowedCategory]}
                         </span>
                         <span className="text-sm font-medium capitalize">
-                          {source}
+                          {category}
                         </span>
                         <Badge variant="secondary" size="sm">
                           {items.length}
@@ -422,8 +410,8 @@ export function ResumeImportDialog({
               </div>
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground max-w-sm">
-                  No data could be extracted from the PDF. The file might be
-                  image-based or have an unsupported format.
+                  No useful information could be extracted from this document.
+                  Try a different file.
                 </p>
               </div>
               <Button
@@ -445,7 +433,7 @@ export function ResumeImportDialog({
             <>
               <Button
                 variant="outline"
-                onClick={handleClose}
+                onClick={() => handleClose(false)}
                 disabled={isSaving}
               >
                 Cancel

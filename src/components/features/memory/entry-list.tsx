@@ -2,17 +2,17 @@ import {
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
+  GlobeIcon,
   GridIcon,
-  LinkedinIcon,
   ListIcon,
   SearchIcon,
   UploadIcon,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { LinkedInImportDialog } from "@/components/features/linkedin/linkedin-import-dialog";
+import { DocumentImportDialog } from "@/components/features/document/document-import-dialog";
 import { EntryCard } from "@/components/features/memory/entry-card";
-import { ResumeImportDialog } from "@/components/features/resume/resume-import-dialog";
+import { ProfileImportDialog } from "@/components/features/profile/profile-import-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -66,8 +66,8 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [showLinkedInImport, setShowLinkedInImport] = useState(false);
-  const [showResumeImport, setShowResumeImport] = useState(false);
+  const [showProfileImport, setShowProfileImport] = useState(false);
+  const [showDocumentImport, setShowDocumentImport] = useState(false);
 
   const categories = useMemo(
     () => [...new Set(entries.map((e) => e.category))],
@@ -370,15 +370,14 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowLinkedInImport(true)}
+                  onClick={() => setShowProfileImport(true)}
                   disabled={importing}
-                  className="text-[#0A66C2] hover:text-[#0A66C2]"
                 >
-                  <LinkedinIcon className="size-4" />
+                  <GlobeIcon className="size-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Import from LinkedIn</p>
+                <p>Import from Profile URL</p>
               </TooltipContent>
             </Tooltip>
 
@@ -387,30 +386,30 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowResumeImport(true)}
+                  onClick={() => setShowDocumentImport(true)}
                   disabled={importing}
                 >
                   <FileTextIcon className="size-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Import from Resume (PDF)</p>
+                <p>Import from Document</p>
               </TooltipContent>
             </Tooltip>
           </div>
         </TooltipProvider>
       </div>
 
-      <LinkedInImportDialog
-        open={showLinkedInImport}
-        onOpenChange={setShowLinkedInImport}
-        onSuccess={() => setShowLinkedInImport(false)}
+      <ProfileImportDialog
+        open={showProfileImport}
+        onOpenChange={setShowProfileImport}
+        onSuccess={() => setShowProfileImport(false)}
       />
 
-      <ResumeImportDialog
-        open={showResumeImport}
-        onOpenChange={setShowResumeImport}
-        onSuccess={() => setShowResumeImport(false)}
+      <DocumentImportDialog
+        open={showDocumentImport}
+        onOpenChange={setShowDocumentImport}
+        onSuccess={() => setShowDocumentImport(false)}
       />
     </div>
   );

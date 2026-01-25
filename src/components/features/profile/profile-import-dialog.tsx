@@ -1,143 +1,187 @@
+import {
+  AlertCircleIcon,
+  BrainCircuitIcon,
+  BriefcaseIcon,
+  CheckCircle2Icon,
+  GithubIcon,
+  GlobeIcon,
+  GraduationCapIcon,
+  LinkedinIcon,
+  Loader2Icon,
+  MailIcon,
+  MapPinIcon,
+  SparklesIcon,
+  TwitterIcon,
+  UserIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemoryMutations } from "@/hooks/use-memories";
-import { getLinkedInService } from "@/lib/linkedin/linkedin-service";
 import { createLogger } from "@/lib/logger";
-import type {
-    LinkedInImportItem,
-    LinkedInProfileData,
-    LinkedInScraperStatus,
-} from "@/types/linkedin";
-import type { MemoryEntry } from "@/types/memory";
-import {
-    AlertCircleIcon,
-    BriefcaseIcon,
-    CheckCircle2Icon,
-    GraduationCapIcon,
-    LinkedinIcon,
-    Loader2Icon,
-    MailIcon,
-    MapPinIcon,
-    SparklesIcon,
-    UserIcon,
-} from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { getProfileService } from "@/lib/profile/profile-service";
+import type { AllowedCategory, MemoryEntry } from "@/types/memory";
+import type { ProfileImportItem, ProfileScraperStatus } from "@/types/profile";
 
-const logger = createLogger("component:linkedin-import-dialog");
+const logger = createLogger("component:profile-import-dialog");
 
-interface LinkedInImportDialogProps {
+interface ProfileImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
 
-const STATUS_MESSAGES: Record<LinkedInScraperStatus, string> = {
+const STATUS_MESSAGES: Record<ProfileScraperStatus, string> = {
   idle: "Ready to import",
-  "opening-tab": "Opening LinkedIn...",
-  "waiting-for-login": "Please log in to LinkedIn",
-  scraping: "Extracting your profile data...",
+  "opening-tab": "Opening page...",
+  scraping: "Extracting page content...",
+  parsing: "AI is analyzing your profile...",
   success: "Profile data extracted!",
   error: "Failed to extract profile",
 };
 
-const SOURCE_ICONS: Record<LinkedInImportItem["source"], React.ReactNode> = {
-  name: <UserIcon className="size-4" />,
-  headline: <BriefcaseIcon className="size-4" />,
-  location: <MapPinIcon className="size-4" />,
-  about: <UserIcon className="size-4" />,
-  experience: <BriefcaseIcon className="size-4" />,
-  education: <GraduationCapIcon className="size-4" />,
-  skills: <SparklesIcon className="size-4" />,
+const CATEGORY_ICONS: Record<AllowedCategory, React.ReactNode> = {
+  personal: <UserIcon className="size-4" />,
   contact: <MailIcon className="size-4" />,
+  location: <MapPinIcon className="size-4" />,
+  work: <BriefcaseIcon className="size-4" />,
+  education: <GraduationCapIcon className="size-4" />,
+  general: <SparklesIcon className="size-4" />,
 };
 
-const SOURCE_COLORS: Record<LinkedInImportItem["source"], string> = {
-  name: "bg-blue-500/10 text-blue-600 border-blue-200",
-  headline: "bg-purple-500/10 text-purple-600 border-purple-200",
-  location: "bg-green-500/10 text-green-600 border-green-200",
-  about: "bg-amber-500/10 text-amber-600 border-amber-200",
-  experience: "bg-indigo-500/10 text-indigo-600 border-indigo-200",
-  education: "bg-rose-500/10 text-rose-600 border-rose-200",
-  skills: "bg-cyan-500/10 text-cyan-600 border-cyan-200",
+const CATEGORY_COLORS: Record<AllowedCategory, string> = {
+  personal: "bg-blue-500/10 text-blue-600 border-blue-200",
   contact: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  location: "bg-green-500/10 text-green-600 border-green-200",
+  work: "bg-purple-500/10 text-purple-600 border-purple-200",
+  education: "bg-rose-500/10 text-rose-600 border-rose-200",
+  general: "bg-amber-500/10 text-amber-600 border-amber-200",
 };
 
-export function LinkedInImportDialog({
+const QUICK_SHORTCUTS = [
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    icon: LinkedinIcon,
+    url: "https://www.linkedin.com/in/me",
+    color: "text-[#0A66C2] hover:bg-[#0A66C2]/10",
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    icon: GithubIcon,
+    url: "",
+    color:
+      "text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800",
+    placeholder: "github.com/username",
+  },
+  {
+    id: "twitter",
+    name: "X",
+    icon: TwitterIcon,
+    url: "",
+    color:
+      "text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800",
+    placeholder: "x.com/username",
+  },
+];
+
+export function ProfileImportDialog({
   open,
   onOpenChange,
   onSuccess,
-}: LinkedInImportDialogProps) {
+}: ProfileImportDialogProps) {
   const { addEntries } = useMemoryMutations();
-  const [status, setStatus] = useState<LinkedInScraperStatus>("idle");
+  const [status, setStatus] = useState<ProfileScraperStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [_profileData, setProfileData] = useState<LinkedInProfileData | null>(
-    null,
-  );
-  const [importItems, setImportItems] = useState<LinkedInImportItem[]>([]);
+  const [importItems, setImportItems] = useState<ProfileImportItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
 
   const selectedCount = importItems.filter((item) => item.selected).length;
   const progress =
     status === "idle"
       ? 0
       : status === "opening-tab"
-        ? 25
+        ? 20
         : status === "scraping"
-          ? 50
-          : status === "success"
-            ? 100
-            : 0;
+          ? 40
+          : status === "parsing"
+            ? 70
+            : status === "success"
+              ? 100
+              : 0;
 
-  const handleStartImport = async () => {
+  const handleStartImport = async (url?: string) => {
+    const targetUrl = url || urlInput;
+
+    if (!targetUrl.trim()) {
+      toast.error("Please enter a profile URL");
+      return;
+    }
+
     setStatus("opening-tab");
     setError(null);
-    setProfileData(null);
     setImportItems([]);
 
     try {
-      const linkedInService = getLinkedInService();
+      const profileService = getProfileService();
       setStatus("scraping");
 
-      const result = await linkedInService.scrapeLinkedInProfile();
+      const result = await profileService.scrapeProfileUrl(
+        targetUrl,
+        (newStatus) => {
+          if (newStatus === "parsing") {
+            setStatus("parsing");
+          }
+        },
+      );
 
-      if (result.requiresLogin) {
-        setStatus("waiting-for-login");
-        setError(
-          "Please log in to LinkedIn in the opened tab, then try again.",
-        );
-        return;
-      }
-
-      if (!result.success || !result.data) {
+      if (!result.success || !result.items) {
         setStatus("error");
         setError(result.error || "Failed to extract profile data");
         return;
       }
 
-      setProfileData(result.data);
-      const items = linkedInService.convertToImportItems(result.data);
-      setImportItems(items);
+      if (result.items.length === 0) {
+        setStatus("error");
+        setError(
+          "No profile information found. Make sure you're logged in and the page contains profile data.",
+        );
+        return;
+      }
+
+      setImportItems(result.items);
       setStatus("success");
 
-      logger.debug("Successfully extracted profile data:", result.data);
+      logger.debug("Successfully extracted profile data:", result.items.length);
     } catch (err) {
       logger.error("Import error:", err);
       setStatus("error");
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred",
       );
+    }
+  };
+
+  const handleShortcutClick = (shortcut: (typeof QUICK_SHORTCUTS)[0]) => {
+    if (shortcut.url) {
+      handleStartImport(shortcut.url);
+    } else if (shortcut.placeholder) {
+      setUrlInput(shortcut.placeholder);
     }
   };
 
@@ -172,23 +216,22 @@ export function LinkedInImportDialog({
           question: item.question,
           answer: item.answer,
           category: item.category,
-          tags: [...item.tags, "linkedin-import"],
+          tags: [...item.tags, "profile-import"],
           confidence: 1.0,
         }),
       );
 
       await addEntries.mutateAsync(entries);
 
-      toast.success(`Imported ${entries.length} memories from LinkedIn!`, {
+      toast.success(`Imported ${entries.length} memories from profile!`, {
         description: "Your profile data has been saved as memories.",
       });
 
       logger.debug("Successfully imported memories:", entries.length);
 
-      // Reset state
       setStatus("idle");
-      setProfileData(null);
       setImportItems([]);
+      setUrlInput("");
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {
@@ -201,25 +244,33 @@ export function LinkedInImportDialog({
     }
   };
 
-  const handleClose = () => {
-    if (status !== "scraping" && !isSaving) {
+  const handleClose = (open: boolean) => {
+    if (!open) {
+      if (isSaving) return;
+
       setStatus("idle");
       setError(null);
-      setProfileData(null);
       setImportItems([]);
+      setUrlInput("");
       onOpenChange(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && urlInput.trim()) {
+      handleStartImport();
     }
   };
 
   const groupedItems = importItems.reduce(
     (acc, item) => {
-      if (!acc[item.source]) {
-        acc[item.source] = [];
+      if (!acc[item.category]) {
+        acc[item.category] = [];
       }
-      acc[item.source].push(item);
+      acc[item.category].push(item);
       return acc;
     },
-    {} as Record<LinkedInImportItem["source"], LinkedInImportItem[]>,
+    {} as Record<AllowedCategory, ProfileImportItem[]>,
   );
 
   return (
@@ -227,47 +278,80 @@ export function LinkedInImportDialog({
       <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <LinkedinIcon className="size-5 text-[#0A66C2]" />
-            Import from LinkedIn
+            <GlobeIcon className="size-5 text-primary" />
+            Import from Profile
           </DialogTitle>
           <DialogDescription>
             {status === "idle" &&
-              "Import your profile information from LinkedIn to auto-fill forms."}
+              "Import your information from any profile page."}
             {status === "success" &&
-              "Select the information you want to import as memories."}
+              "Select the information you want to import."}
             {(status === "opening-tab" || status === "scraping") &&
-              "Please wait while we extract your profile data..."}
-            {status === "waiting-for-login" &&
-              "Log in to LinkedIn in the opened tab, then click 'Try Again'."}
+              "Extracting profile content..."}
+            {status === "parsing" && "AI is analyzing your profile..."}
             {status === "error" && "Something went wrong. Please try again."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden">
-          {/* Initial State */}
           {status === "idle" && (
-            <div className="flex flex-col items-center justify-center py-8 gap-6">
-              <div className="size-20 rounded-full bg-[#0A66C2]/10 flex items-center justify-center">
-                <LinkedinIcon className="size-10 text-[#0A66C2]" />
+            <div className="flex flex-col gap-6 py-4">
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Quick import:</p>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_SHORTCUTS.map((shortcut) => (
+                    <Button
+                      key={shortcut.id}
+                      variant="outline"
+                      size="sm"
+                      className={`gap-2 ${shortcut.color}`}
+                      onClick={() => handleShortcutClick(shortcut)}
+                    >
+                      <shortcut.icon className="size-4" />
+                      {shortcut.name}
+                    </Button>
+                  ))}
+                </div>
               </div>
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  We'll open your LinkedIn profile in a new tab and extract your
-                  information. The tab will close automatically when done.
+
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Or enter any profile URL:
                 </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://linkedin.com/in/username"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => handleStartImport()}
+                    disabled={!urlInput.trim()}
+                  >
+                    Import
+                  </Button>
+                </div>
               </div>
-              <Button onClick={handleStartImport} className="gap-2">
-                <LinkedinIcon className="size-4" />
-                Connect LinkedIn
-              </Button>
+
+              <p className="text-xs text-amber-600">
+                Make sure you're logged in to the site for full profile access.
+                Only use URLs you trust.
+              </p>
             </div>
           )}
 
-          {/* Loading State */}
-          {(status === "opening-tab" || status === "scraping") && (
+          {(status === "opening-tab" ||
+            status === "scraping" ||
+            status === "parsing") && (
             <div className="flex flex-col items-center justify-center py-8 gap-6">
               <div className="size-20 rounded-full bg-primary/10 flex items-center justify-center">
-                <Loader2Icon className="size-10 text-primary animate-spin" />
+                {status === "parsing" ? (
+                  <BrainCircuitIcon className="size-10 text-primary animate-pulse" />
+                ) : (
+                  <Loader2Icon className="size-10 text-primary animate-spin" />
+                )}
               </div>
               <div className="w-full max-w-xs space-y-2">
                 <Progress value={progress} />
@@ -278,28 +362,6 @@ export function LinkedInImportDialog({
             </div>
           )}
 
-          {/* Login Required State */}
-          {status === "waiting-for-login" && (
-            <div className="flex flex-col items-center justify-center py-8 gap-6">
-              <div className="size-20 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <AlertCircleIcon className="size-10 text-amber-500" />
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  {error}
-                </p>
-              </div>
-              <Button
-                onClick={handleStartImport}
-                variant="outline"
-                className="gap-2"
-              >
-                Try Again
-              </Button>
-            </div>
-          )}
-
-          {/* Error State */}
           {status === "error" && (
             <div className="flex flex-col items-center justify-center py-8 gap-6">
               <div className="size-20 rounded-full bg-destructive/10 flex items-center justify-center">
@@ -311,7 +373,7 @@ export function LinkedInImportDialog({
                 </p>
               </div>
               <Button
-                onClick={handleStartImport}
+                onClick={() => setStatus("idle")}
                 variant="outline"
                 className="gap-2"
               >
@@ -320,7 +382,6 @@ export function LinkedInImportDialog({
             </div>
           )}
 
-          {/* Success State - Preview */}
           {status === "success" && importItems.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -344,16 +405,16 @@ export function LinkedInImportDialog({
 
               <ScrollArea className="h-[350px] pr-4">
                 <div className="space-y-4">
-                  {Object.entries(groupedItems).map(([source, items]) => (
-                    <div key={source} className="space-y-2">
+                  {Object.entries(groupedItems).map(([category, items]) => (
+                    <div key={category} className="space-y-2">
                       <div className="flex items-center gap-2 sticky top-0 bg-background py-1">
                         <span
-                          className={`p-1 rounded ${SOURCE_COLORS[source as LinkedInImportItem["source"]]}`}
+                          className={`p-1 rounded ${CATEGORY_COLORS[category as AllowedCategory]}`}
                         >
-                          {SOURCE_ICONS[source as LinkedInImportItem["source"]]}
+                          {CATEGORY_ICONS[category as AllowedCategory]}
                         </span>
                         <span className="text-sm font-medium capitalize">
-                          {source}
+                          {category}
                         </span>
                         <Badge variant="secondary" size="sm">
                           {items.length}
@@ -390,28 +451,6 @@ export function LinkedInImportDialog({
               </ScrollArea>
             </div>
           )}
-
-          {/* No Data Found */}
-          {status === "success" && importItems.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 gap-6">
-              <div className="size-20 rounded-full bg-muted flex items-center justify-center">
-                <AlertCircleIcon className="size-10 text-muted-foreground" />
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  No profile data was found. Make sure you're logged in and have
-                  a complete LinkedIn profile.
-                </p>
-              </div>
-              <Button
-                onClick={handleStartImport}
-                variant="outline"
-                className="gap-2"
-              >
-                Try Again
-              </Button>
-            </div>
-          )}
         </div>
 
         <DialogFooter>
@@ -419,7 +458,7 @@ export function LinkedInImportDialog({
             <>
               <Button
                 variant="outline"
-                onClick={handleClose}
+                onClick={() => onOpenChange(false)}
                 disabled={isSaving}
               >
                 Cancel
