@@ -14,7 +14,7 @@ import {
   TwitterIcon,
   UserIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,7 @@ export function ProfileImportDialog({
   onSuccess,
 }: ProfileImportDialogProps) {
   const { addEntries } = useMemoryMutations();
+  const requestIdRef = useRef<number>(0);
   const [status, setStatus] = useState<ProfileScraperStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [importItems, setImportItems] = useState<ProfileImportItem[]>([]);
@@ -135,6 +136,8 @@ export function ProfileImportDialog({
     setError(null);
     setImportItems([]);
 
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       const profileService = getProfileService();
       setStatus("scraping");
@@ -142,11 +145,15 @@ export function ProfileImportDialog({
       const result = await profileService.scrapeProfileUrl(
         targetUrl,
         (newStatus) => {
+          if (requestIdRef.current !== currentRequestId) return;
           if (newStatus === "parsing") {
             setStatus("parsing");
           }
         },
       );
+
+      // Ignore result if dialog was closed or a new request started
+      if (requestIdRef.current !== currentRequestId) return;
 
       if (!result.success || !result.items) {
         setStatus("error");
@@ -167,6 +174,9 @@ export function ProfileImportDialog({
 
       logger.debug("Successfully extracted profile data:", result.items.length);
     } catch (err) {
+      // Ignore error if dialog was closed or a new request started
+      if (requestIdRef.current !== currentRequestId) return;
+
       logger.error("Import error:", err);
       setStatus("error");
       setError(
@@ -245,6 +255,9 @@ export function ProfileImportDialog({
   const handleClose = (open: boolean) => {
     if (!open) {
       if (isSaving) return;
+
+      // Invalidate any in-flight requests
+      requestIdRef.current++;
 
       setStatus("idle");
       setError(null);

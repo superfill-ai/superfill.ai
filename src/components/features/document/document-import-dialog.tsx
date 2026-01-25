@@ -70,6 +70,14 @@ const CATEGORY_COLORS: Record<AllowedCategory, string> = {
   general: "bg-gray-500/10 text-gray-600 border-gray-200",
 };
 
+const PROGRESS_BY_STATUS: Record<DocumentParserStatus, number> = {
+  idle: 0,
+  reading: 30,
+  parsing: 60,
+  success: 100,
+  error: 0,
+};
+
 export function DocumentImportDialog({
   open,
   onOpenChange,
@@ -86,13 +94,6 @@ export function DocumentImportDialog({
 
   const selectedCount = importItems.filter((item) => item.selected).length;
 
-  const PROGRESS_BY_STATUS: Record<DocumentParserStatus, number> = {
-    idle: 0,
-    reading: 30,
-    parsing: 60,
-    success: 100,
-    error: 0,
-  };
   const progress = PROGRESS_BY_STATUS[status];
 
   const handleFileSelect = async (
@@ -252,6 +253,8 @@ export function DocumentImportDialog({
             Import from Document
           </DialogTitle>
           <DialogDescription>
+            {status === "idle" &&
+              "Upload a PDF or text file to extract information."}
             {status === "success" &&
               "Select the information you want to import."}
             {(status === "reading" || status === "parsing") &&
