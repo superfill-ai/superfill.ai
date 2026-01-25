@@ -272,6 +272,7 @@ export class AutopilotManager {
       try {
         await browser.runtime.sendMessage({
           type: "FILL_ALL_FRAMES",
+          timestamp: Date.now(),
           fieldsToFill: this.fieldsToFill.map((f) => ({
             fieldOpid: f.fieldOpid,
             value: f.value,

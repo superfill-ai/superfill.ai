@@ -274,6 +274,7 @@ export class PreviewSidebarManager {
     try {
       await browser.runtime.sendMessage({
         type: "FILL_ALL_FRAMES",
+        timestamp: Date.now(),
         fieldsToFill: fieldsToFill.map((f) => ({
           fieldOpid: f.fieldOpid,
           value: f.value,
