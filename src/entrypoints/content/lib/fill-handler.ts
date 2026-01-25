@@ -361,6 +361,9 @@ export const handleFill = async (
       }
 
       if (!matched) {
+        logger.warn(
+          `Select element ${element.name || element.id || "(unnamed)"} has no option matching value "${value}". Setting value directly.`,
+        );
         element.value = value;
       }
 

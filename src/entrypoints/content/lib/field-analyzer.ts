@@ -93,11 +93,12 @@ export class FieldAnalyzer {
 
   isElementVisible(element: FormFieldElement): boolean {
     const style = getCachedComputedStyle(element);
+    if (!style) return false;
     return (
       element.offsetWidth > 0 &&
       element.offsetHeight > 0 &&
-      style?.visibility !== "hidden" &&
-      style?.display !== "none"
+      style.visibility !== "hidden" &&
+      style.display !== "none"
     );
   }
 
@@ -123,10 +124,11 @@ export class FieldAnalyzer {
       try {
         const topEl = shadowRoot.elementFromPoint(centerX, centerY);
         if (!topEl) return false;
+        if (topEl === element) return true;
         let current: Element | null = topEl;
-        while (current?.parentElement) {
+        while (current) {
           if (current === element) return true;
-          current = current.parentElement;
+          current = current.parentElement ?? null;
         }
         return false;
       } catch {
