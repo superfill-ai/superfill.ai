@@ -95,13 +95,16 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
     RECOMMENDED_PROVIDERS.includes(c.id as AIProvider),
   );
 
-  // Check if AI is already configured
   useEffect(() => {
     const checkExistingConfig = async () => {
-      const settings = await storage.aiSettings.getValue();
-      if (settings.selectedProvider) {
-        setKeyValidated(true);
-        setSelectedProvider(settings.selectedProvider);
+      try {
+        const settings = await storage.aiSettings.getValue();
+        if (settings.selectedProvider) {
+          setKeyValidated(true);
+          setSelectedProvider(settings.selectedProvider);
+        }
+      } catch (error) {
+        logger.error("Failed to check existing AI config:", error);
       }
     };
     checkExistingConfig();
@@ -216,16 +219,21 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
   });
 
   const handleCompleteOnboarding = async () => {
-    await storage.uiSettings.setValue({
-      ...(await storage.uiSettings.getValue()),
-      onboardingCompleted: true,
-    });
+    try {
+      await storage.uiSettings.setValue({
+        ...(await storage.uiSettings.getValue()),
+        onboardingCompleted: true,
+      });
 
-    toast.success(`Welcome to ${APP_NAME}!`, {
-      description: "Setup complete. Start filling forms automatically!",
-    });
+      toast.success(`Welcome to ${APP_NAME}!`, {
+        description: "Setup complete. Start filling forms automatically!",
+      });
 
-    logger.debug("Onboarding completed successfully");
+      logger.debug("Onboarding completed successfully");
+    } catch (error) {
+      logger.error("Failed to complete onboarding:", error);
+      toast.error("Failed to save settings");
+    }
   };
 
   const handleProfileSuccess = async () => {
@@ -387,10 +395,9 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                             </Button>
                           </div>
                           <FieldDescription className="flex items-center gap-1">
-                            {selectedProvider &&
-                              allConfigs.find(
-                                (c) => c.id === selectedProvider,
-                              ) &&
+                            {allConfigs.find(
+                              (c) => c.id === selectedProvider,
+                            ) &&
                               getProviderKeyHint(
                                 allConfigs.find(
                                   (c) => c.id === selectedProvider,

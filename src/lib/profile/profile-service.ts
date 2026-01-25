@@ -34,9 +34,19 @@ export class ProfileService {
   private scrapeTabId: number | null = null;
   private scrapeResolve: ((result: ProfileScraperResult) => void) | null = null;
   private onStatusChange: ((status: string) => void) | null = null;
+  private scrapeTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.setupMessageListener();
+  }
+
+  private clearScrapeState(): void {
+    if (this.scrapeTimeout) {
+      clearTimeout(this.scrapeTimeout);
+      this.scrapeTimeout = null;
+    }
+    this.scrapeResolve = null;
+    this.onStatusChange = null;
   }
 
   private setupMessageListener(): void {
@@ -70,7 +80,7 @@ export class ProfileService {
         success: false,
         error: result.error || "Failed to extract page content",
       });
-      this.scrapeResolve = null;
+      this.clearScrapeState();
       return;
     }
 
@@ -81,13 +91,13 @@ export class ProfileService {
       const extractedItems = await parseProfileWithAI(result.rawContent);
       const importItems = convertToImportItems(extractedItems);
 
-      this.scrapeResolve({
+      this.scrapeResolve?.({
         success: true,
         items: importItems,
       });
     } catch (error) {
       logger.error("AI parsing failed:", error);
-      this.scrapeResolve({
+      this.scrapeResolve?.({
         success: false,
         error:
           error instanceof Error
@@ -95,8 +105,7 @@ export class ProfileService {
             : "Failed to parse profile with AI",
       });
     } finally {
-      this.scrapeResolve = null;
-      this.onStatusChange = null;
+      this.clearScrapeState();
     }
   }
 
@@ -156,14 +165,13 @@ export class ProfileService {
       this.scrapeResolve = resolve;
       this.onStatusChange = onStatusChange || null;
 
-      const timeout = setTimeout(() => {
+      this.scrapeTimeout = setTimeout(() => {
         if (this.scrapeResolve) {
           this.scrapeResolve({
             success: false,
             error: "Scraping timed out. The page might be slow to load.",
           });
-          this.scrapeResolve = null;
-          this.onStatusChange = null;
+          this.clearScrapeState();
         }
 
         if (this.scrapeTabId) {
@@ -187,7 +195,7 @@ export class ProfileService {
           }
         })
         .catch((error) => {
-          clearTimeout(timeout);
+          this.clearScrapeState();
           logger.error("Failed to open profile tab:", error);
           resolve({
             success: false,

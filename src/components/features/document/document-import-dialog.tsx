@@ -114,12 +114,11 @@ export function DocumentImportDialog({
     }
 
     setFileName(file.name);
-    setStatus("reading");
+    setStatus("parsing");
     setError(null);
     setImportItems([]);
 
     try {
-      setStatus("parsing");
       const result = await parseDocument(file);
 
       if (!result.success || !result.items) {

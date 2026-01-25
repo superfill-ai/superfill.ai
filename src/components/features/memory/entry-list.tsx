@@ -403,13 +403,11 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
       <ProfileImportDialog
         open={showProfileImport}
         onOpenChange={setShowProfileImport}
-        onSuccess={() => setShowProfileImport(false)}
       />
 
       <DocumentImportDialog
         open={showDocumentImport}
         onOpenChange={setShowDocumentImport}
-        onSuccess={() => setShowDocumentImport(false)}
       />
     </div>
   );

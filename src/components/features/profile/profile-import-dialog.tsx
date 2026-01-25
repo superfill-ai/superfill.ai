@@ -112,18 +112,16 @@ export function ProfileImportDialog({
   const [urlInput, setUrlInput] = useState("");
 
   const selectedCount = importItems.filter((item) => item.selected).length;
-  const progress =
-    status === "idle"
-      ? 0
-      : status === "opening-tab"
-        ? 20
-        : status === "scraping"
-          ? 40
-          : status === "parsing"
-            ? 70
-            : status === "success"
-              ? 100
-              : 0;
+
+  const PROGRESS_BY_STATUS: Record<ProfileScraperStatus, number> = {
+    idle: 0,
+    "opening-tab": 20,
+    scraping: 40,
+    parsing: 70,
+    success: 100,
+    error: 0,
+  };
+  const progress = PROGRESS_BY_STATUS[status];
 
   const handleStartImport = async (url?: string) => {
     const targetUrl = url || urlInput;

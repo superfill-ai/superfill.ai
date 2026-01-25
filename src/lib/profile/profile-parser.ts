@@ -72,6 +72,12 @@ Be thorough - users want to capture as much useful information as possible from 
 export async function parseProfileWithAI(
   pageContent: string,
 ): Promise<ExtractedItem[]> {
+  const trimmedContent = pageContent.trim();
+  if (!trimmedContent || trimmedContent.length < 50) {
+    logger.debug("Page content too short, skipping AI parsing");
+    return [];
+  }
+
   const aiSettings = await storage.aiSettings.getValue();
   const { selectedProvider, selectedModels } = aiSettings;
 
