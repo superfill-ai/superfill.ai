@@ -122,7 +122,7 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
           description: "Your memories have been created successfully.",
         });
 
-        logger.debug("Onboarding completed successfully");
+        logger.info("Onboarding completed successfully");
       } catch (error) {
         logger.error("Onboarding error:", error);
         toast.error(

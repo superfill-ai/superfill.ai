@@ -56,10 +56,10 @@ export default defineBackground({
             title: "Fill with superfill.ai",
             contexts: ["editable", "page"],
           });
-          logger.debug("Context menu created");
+          logger.info("Context menu created");
         } else {
           await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
-          logger.debug("Context menu removed");
+          logger.info("Context menu removed");
         }
       } catch (error) {
         logger.error("Failed to update context menu:", error);
@@ -79,7 +79,7 @@ export default defineBackground({
 
     browser.contextMenus.onClicked.addListener(async (info, tab) => {
       if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
-        logger.debug("Context menu autofill triggered", { tabId: tab.id });
+        logger.info("Context menu autofill triggered", { tabId: tab.id });
         try {
           await autofillService.startAutofillOnActiveTab();
         } catch (error) {
@@ -94,9 +94,7 @@ export default defineBackground({
       const uiSettings = await storage.uiSettings.getValue();
 
       if (details.reason === "install") {
-        logger.debug(
-          "Extension installed for the first time, opening settings",
-        );
+        logger.info("Extension installed for the first time, opening settings");
 
         const storedMemories = await storage.memories.getValue();
 
@@ -110,7 +108,7 @@ export default defineBackground({
       } else if (details.reason === "update") {
         const previousVersion = uiSettings.extensionVersion || "0.0.0";
 
-        logger.debug("Extension updated", {
+        logger.info("Extension updated", {
           from: previousVersion,
           to: currentVersion,
         });
@@ -143,58 +141,6 @@ export default defineBackground({
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
 
-    // TODO: Implement webRequest-based form submission detection with proper scoping
-    // Currently commented out due to privacy concerns with <all_urls> scope.
-    // Need to:
-    // 1. Scope webRequest to only URLs with detected forms (like Bitwarden does)
-    // 2. Dynamically add/remove listeners based on active tabs with forms
-    // 3. Remove URL logging in production
-    // 4. Add privacy disclosure documentation
-    // See: https://github.com/bitwarden/clients (overlay-notifications.background.ts)
-    //
-    // if (browser.webRequest?.onBeforeRequest) {
-    //   browser.webRequest.onBeforeRequest.addListener(
-    //     (details) => {
-    //       if (
-    //         details.method === "POST" ||
-    //         details.method === "PUT" ||
-    //         details.method === "PATCH"
-    //       ) {
-    //         logger.debug(
-    //           "webRequest detected form submission:",
-    //           details.method,
-    //           details.url,
-    //         );
-    //
-    //         if (details.tabId && details.tabId !== -1) {
-    //           browser.tabs
-    //             .sendMessage(details.tabId, {
-    //               type: "FORM_SUBMITTED_VIA_WEBREQUEST",
-    //               url: details.url,
-    //               method: details.method,
-    //               timestamp: Date.now(),
-    //             })
-    //             .catch((error) => {
-    //               logger.debug("Could not notify content script:", error);
-    //             });
-    //         }
-    //       }
-    //       return undefined;
-    //     },
-    //     {
-    //       urls: ["<all_urls>"],
-    //       types: ["xmlhttprequest", "main_frame", "sub_frame"],
-    //     },
-    //   );
-    //   logger.debug(
-    //     "webRequest listener registered for form submission detection",
-    //   );
-    // } else {
-    //   logger.debug(
-    //     "webRequest API not available, using content script detection only",
-    //   );
-    // }
-
     contentAutofillMessaging.onMessage(
       "saveCapturedMemories",
       async ({ data }) => {
@@ -223,7 +169,7 @@ export default defineBackground({
             modelName,
           );
 
-          logger.debug("Captured memories saved:", result);
+          logger.info("Captured memories saved:", result);
           return result;
         } catch (error) {
           logger.error("Failed to save captured memories:", error);
@@ -232,35 +178,33 @@ export default defineBackground({
       },
     );
 
-    browser.runtime.onMessage.addListener((message, sender) => {
-      if (
-        message.type === "FILL_ALL_FRAMES" &&
-        sender.tab?.id &&
-        sender.url &&
-        sender.frameId !== undefined
-      ) {
-        const tabId = sender.tab.id;
-        const fieldsToFill = message.fieldsToFill;
+    contentAutofillMessaging.onMessage(
+      "broadcastFillToAllFrames",
+      async ({ data, sender }) => {
+        const tabId = sender.tab?.id;
+        if (!tabId) {
+          logger.error("No tab ID in sender for broadcastFillToAllFrames");
+          return;
+        }
 
-        logger.debug(
-          `Broadcasting fill command to all frames in tab ${tabId} for ${fieldsToFill.length} fields`,
+        logger.info(
+          `Broadcasting fill command to all frames in tab ${tabId} for ${data.fieldsToFill.length} fields`,
         );
 
         contentAutofillMessaging
-          .sendMessage("fillFields", { fieldsToFill }, tabId)
+          .sendMessage("fillFields", { fieldsToFill: data.fieldsToFill }, tabId)
           .catch((error) => {
             logger.error("Failed to broadcast fill command:", error);
           });
-      }
-      return true;
-    });
+      },
+    );
 
-    logger.debug("Background script initialized with all services");
+    logger.info("Background script initialized with all services");
 
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
         autofillService.dispose();
-        logger.debug("Background script HMR cleanup completed");
+        logger.info("Background script HMR cleanup completed");
       });
     }
   },

@@ -27,7 +27,7 @@ export const migrateAISettings = async () => {
           aiSettingsFallback.inlineTriggerEnabled,
       };
       await storage.aiSettings.setValue(migratedSettings);
-      logger.debug("AI settings migrated", {
+      logger.info("AI settings migrated", {
         contextMenuEnabled: migratedSettings.contextMenuEnabled,
         inlineTriggerEnabled: migratedSettings.inlineTriggerEnabled,
       });

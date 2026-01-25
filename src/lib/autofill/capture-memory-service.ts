@@ -30,12 +30,12 @@ export class CaptureMemoryService {
   ): Promise<{ success: boolean; savedCount: number }> {
     try {
       if (capturedFields.length === 0) {
-        logger.debug("No fields to capture");
+        logger.info("No fields to capture");
         return { success: true, savedCount: 0 };
       }
 
-      logger.debug(`Processing ${capturedFields.length} captured fields`);
-      logger.debug(
+      logger.info(`Processing ${capturedFields.length} captured fields`);
+      logger.info(
         "Captured fields details:",
         capturedFields.map((f) => ({
           opid: f.fieldOpid,
@@ -48,8 +48,8 @@ export class CaptureMemoryService {
       const fieldsToSave = capturedFields.filter((f) => f.question && f.answer);
 
       if (fieldsToSave.length === 0) {
-        logger.debug("No valid fields with both question and answer");
-        logger.debug(
+        logger.info("No valid fields with both question and answer");
+        logger.info(
           "Filtered out fields:",
           capturedFields.map((f) => ({
             opid: f.fieldOpid,
@@ -60,14 +60,14 @@ export class CaptureMemoryService {
         return { success: true, savedCount: 0 };
       }
 
-      logger.debug(
+      logger.info(
         `${fieldsToSave.length} fields passed question+answer filter`,
       );
 
       const currentMemories = await storage.memories.getValue();
 
       if (!provider || !apiKey) {
-        logger.debug("No AI provider configured, using fallback deduplication");
+        logger.info("No AI provider configured, using fallback deduplication");
         const fallbackResult = this.deduplicator.fallbackDeduplication(
           fieldsToSave.map((f, index) => ({
             index,
@@ -91,7 +91,7 @@ export class CaptureMemoryService {
           newMemories.length +
           fallbackResult.operations.filter((op) => op.action === "update")
             .length;
-        logger.debug(
+        logger.info(
           `Fallback saved ${newMemories.length} new memories and updated ${fallbackResult.operations.filter((op) => op.action === "update").length} existing`,
         );
 
@@ -111,7 +111,7 @@ export class CaptureMemoryService {
         modelName,
       );
 
-      logger.debug(
+      logger.info(
         `Deduplication completed:`,
         deduplicationResult.operations.map((op) => ({
           action: op.action,
@@ -138,7 +138,7 @@ export class CaptureMemoryService {
         (op) => op.action === "skip",
       ).length;
 
-      logger.debug(
+      logger.info(
         `Successfully processed: ${createCount} created, ${updateCount} updated, ${skipCount} skipped`,
       );
 

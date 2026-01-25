@@ -18,7 +18,9 @@ import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 const logger = createLogger("ai-matcher");
 
 const AIMatchSchema = z.object({
-  fieldOpid: z.string().describe("The unique field operation ID being matched"),
+  highlightIndex: z
+    .number()
+    .describe("The highlight index [N] of the field being matched"),
   value: z
     .string()
     .nullable()
@@ -62,12 +64,12 @@ export class AIMatcher {
     domContext?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
-      logger.debug("No fields to match");
+      logger.info("No fields to match");
       return [];
     }
 
     if (memories.length === 0) {
-      logger.debug("No memories available for matching");
+      logger.info("No memories available for matching");
       return fields.map((field) =>
         createEmptyMapping<CompressedFieldData, FieldMapping>(
           field,
@@ -90,7 +92,7 @@ export class AIMatcher {
       const mappings = this.convertAIResultsToMappings(aiResults, fields);
 
       const elapsed = performance.now() - startTime;
-      logger.debug(
+      logger.info(
         `AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
 
@@ -121,7 +123,7 @@ export class AIMatcher {
         domContext,
       );
 
-      logger.debug(`AI matching with ${provider} for ${fields.length} fields`, {
+      logger.info(`AI matching with ${provider} for ${fields.length} fields`, {
         websiteContext,
       });
 
@@ -320,10 +322,10 @@ export class AIMatcher {
     domContext?: string,
   ): string {
     const fieldsMarkdown = fields
-      .map((f, idx) => {
+      .filter((f) => f.highlightIndex !== null)
+      .map((f) => {
         const parts = [
-          `**Field ${idx + 1}**`,
-          `- fieldOpid: ${f.opid}`,
+          `**[${f.highlightIndex}]**`,
           `- type: ${f.type}`,
           `- purpose: ${f.purpose}`,
           `- labels: ${f.labels.length > 0 ? f.labels.join(", ") : "none"}`,
@@ -394,16 +396,33 @@ export class AIMatcher {
     aiResults: AIBatchMatchResult,
     fields: CompressedFieldData[],
   ): FieldMapping[] {
-    const fieldMap = new Map(fields.map((f) => [f.opid, f]));
+    const seenIndices = new Set<number>();
+
+    for (const field of fields) {
+      if (field.highlightIndex !== null) {
+        if (seenIndices.has(field.highlightIndex)) {
+          logger.warn(
+            `Duplicate highlightIndex detected: ${field.highlightIndex} (opid: ${field.opid})`,
+          );
+        }
+        seenIndices.add(field.highlightIndex);
+      }
+    }
+
+    const fieldByIndex = new Map(
+      fields
+        .filter((f) => f.highlightIndex !== null)
+        .map((f) => [f.highlightIndex as number, f]),
+    );
 
     return aiResults.matches.map((aiMatch) => {
-      const field = fieldMap.get(aiMatch.fieldOpid);
+      const field = fieldByIndex.get(aiMatch.highlightIndex);
       if (!field) {
         logger.warn(
-          `AI returned match for unknown field: ${aiMatch.fieldOpid}`,
+          `AI returned match for unknown highlight index: [${aiMatch.highlightIndex}]`,
         );
         return createEmptyMapping<{ opid: string }, FieldMapping>(
-          { opid: aiMatch.fieldOpid },
+          { opid: `__${aiMatch.highlightIndex}` },
           "Field not found",
         );
       }
@@ -412,7 +431,7 @@ export class AIMatcher {
       const value = aiMatch.value;
 
       return {
-        fieldOpid: aiMatch.fieldOpid,
+        fieldOpid: field.opid,
         value,
         confidence,
         reasoning:
