@@ -37,7 +37,7 @@ export class FieldDataTracker {
     sessionId: string,
   ): Promise<void> {
     if (this.session && this.session.url === url) {
-      logger.debug("Reusing existing tracking session for URL:", url);
+      logger.info("Reusing existing tracking session for URL:", url);
       return;
     }
 
@@ -53,7 +53,7 @@ export class FieldDataTracker {
     };
 
     await this.saveSession();
-    logger.debug("Started tracking session:", sessionId, {
+    logger.info("Started tracking session:", sessionId, {
       preservedFields: existingTrackedFields.size,
     });
   }
@@ -61,7 +61,7 @@ export class FieldDataTracker {
   attachFieldListeners(
     fields: DetectedFieldSnapshot[],
     mappings: Map<FieldOpId, FieldMapping>,
-    fieldCache: Map<FieldOpId, { element: FormFieldElement }>,
+    getCachedField: (opid: FieldOpId) => { element: FormFieldElement } | null,
   ): void {
     if (!this.session) {
       logger.warn("No active session, skipping field listener attachment");
@@ -73,9 +73,9 @@ export class FieldDataTracker {
       if (!this.isTrackableField(field)) continue;
       if (this.activeListeners.has(field.opid)) continue;
 
-      const cachedField = fieldCache.get(field.opid);
+      const cachedField = getCachedField(field.opid);
       if (!cachedField) {
-        logger.debug(`Field ${field.opid} not in cache`);
+        logger.info(`Field ${field.opid} not in cache`);
         continue;
       }
       const element = cachedField.element;
@@ -90,7 +90,7 @@ export class FieldDataTracker {
       attachedCount++;
     }
 
-    logger.debug(
+    logger.info(
       `Attached ${attachedCount} new listeners (total: ${this.activeListeners.size} fields)`,
     );
   }
@@ -132,7 +132,7 @@ export class FieldDataTracker {
     this.session.trackedFields.set(field.opid, trackedData);
     await this.saveSession();
 
-    logger.debug(`Tracked field ${field.opid}:`, {
+    logger.info(`Tracked field ${field.opid}:`, {
       value: value.substring(0, 20),
       wasAIFilled,
     });
@@ -183,7 +183,7 @@ export class FieldDataTracker {
     this.aiFilledFields.clear();
 
     await browser.storage.local.remove(STORAGE_KEY);
-    logger.debug("Cleared capture session");
+    logger.info("Cleared capture session");
   }
 
   dispose(): void {
@@ -236,7 +236,7 @@ export class FieldDataTracker {
 
       const age = Date.now() - stored.startedAt;
       if (age > SESSION_TIMEOUT) {
-        logger.debug("Session expired, clearing");
+        logger.info("Session expired, clearing");
         await browser.storage.local.remove(STORAGE_KEY);
         this.session = null;
         return;
@@ -250,7 +250,7 @@ export class FieldDataTracker {
         startedAt: stored.startedAt,
       };
 
-      logger.debug("Loaded existing session:", this.session.sessionId);
+      logger.info("Loaded existing session:", this.session.sessionId);
     } catch (error) {
       logger.error("Failed to load session:", error);
       this.session = null;
@@ -271,7 +271,7 @@ export class FieldDataTracker {
 
     const age = Date.now() - this.session.startedAt;
     if (age > SESSION_TIMEOUT) {
-      logger.debug("Session expired during cleanup check");
+      logger.info("Session expired during cleanup check");
       await this.clearSession();
     }
   }

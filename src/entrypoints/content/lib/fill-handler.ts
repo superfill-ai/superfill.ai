@@ -59,7 +59,7 @@ const fillWithHumanTyping = async (
 
     return true;
   } catch (error) {
-    logger.debug("Human typing failed:", error);
+    logger.info("Human typing failed:", error);
     return false;
   }
 };
@@ -89,7 +89,7 @@ const fillReactSelect = async (
   value: string,
 ): Promise<boolean> => {
   try {
-    logger.debug(`React Select: attempting to fill with value "${value}"`);
+    logger.info(`React Select: attempting to fill with value "${value}"`);
 
     const selectContainer = element.closest(
       '.select, .select__container, [class*="select"]',
@@ -99,9 +99,7 @@ const fillReactSelect = async (
         'input[type="hidden"], input[aria-hidden="true"], input[tabindex="-1"]:not([role])',
       );
       if (hiddenInput && hiddenInput !== element) {
-        logger.debug(
-          `React Select: found hidden input, setting value directly`,
-        );
+        logger.info(`React Select: found hidden input, setting value directly`);
 
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
@@ -147,7 +145,7 @@ const fillReactSelect = async (
       );
     }
 
-    logger.debug(`React Select: menu found: ${!!menuEl}`);
+    logger.info(`React Select: menu found: ${!!menuEl}`);
 
     let options: NodeListOf<HTMLElement> | HTMLElement[] = [];
 
@@ -161,14 +159,14 @@ const fillReactSelect = async (
       );
     }
 
-    logger.debug(`React Select: found ${options.length} options`);
+    logger.info(`React Select: found ${options.length} options`);
 
     const normalizedValue = value.toLowerCase().trim();
     let matchedOption: HTMLElement | null = null;
 
     for (const option of options) {
       const optionText = option.textContent?.toLowerCase().trim() || "";
-      logger.debug(`React Select: checking option "${optionText}"`);
+      logger.info(`React Select: checking option "${optionText}"`);
 
       if (optionText === normalizedValue) {
         matchedOption = option;
@@ -180,7 +178,7 @@ const fillReactSelect = async (
     }
 
     if (matchedOption) {
-      logger.debug(
+      logger.info(
         `React Select: clicking matched option "${matchedOption.textContent}"`,
       );
       matchedOption.dispatchEvent(
@@ -191,7 +189,7 @@ const fillReactSelect = async (
       return true;
     }
 
-    logger.debug("React Select: no direct match, trying to type and filter");
+    logger.info("React Select: no direct match, trying to type and filter");
 
     element.value = "";
     element.dispatchEvent(
@@ -223,13 +221,13 @@ const fillReactSelect = async (
       '[class*="select__option"], [id*="react-select"][id*="option"], [role="option"]',
     );
 
-    logger.debug(
+    logger.info(
       `React Select: found ${filteredOptions.length} filtered options`,
     );
 
     if (filteredOptions.length > 0) {
       const firstOption = filteredOptions[0];
-      logger.debug(
+      logger.info(
         `React Select: clicking first filtered option "${firstOption.textContent}"`,
       );
       firstOption.dispatchEvent(
@@ -250,7 +248,7 @@ const fillReactSelect = async (
       }),
     );
 
-    logger.debug(`React Select: pressed Enter as fallback`);
+    logger.info(`React Select: pressed Enter as fallback`);
     return true;
   } catch (error) {
     logger.error("Error filling React Select:", error);
@@ -261,14 +259,16 @@ const fillReactSelect = async (
 export const handleFill = async (
   fieldsToFill: FieldsToFillData,
   frameInfo: { isMainFrame: boolean },
-  fieldCache: Map<FieldOpId, DetectedField>,
+  formDetectionService: {
+    getCachedField: (opid: FieldOpId) => DetectedField | null;
+  },
 ) => {
-  logger.debug(
+  logger.info(
     `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
   );
 
   for (const { fieldOpid, value } of fieldsToFill) {
-    const field = fieldCache.get(fieldOpid as FieldOpId);
+    const field = formDetectionService.getCachedField(fieldOpid as FieldOpId);
 
     if (!field) {
       logger.warn(`Field ${fieldOpid} not in cache, skipping`);
@@ -285,7 +285,7 @@ export const handleFill = async (
         if (radioName) {
           const form = element.form;
           if (!form) {
-            logger.debug(`Radio button ${radioName} has no form, skipping`);
+            logger.info(`Radio button ${radioName} has no form, skipping`);
             continue;
           }
 
@@ -309,7 +309,7 @@ export const handleFill = async (
               radio.dispatchEvent(new Event("input", { bubbles: true }));
               radio.dispatchEvent(new Event("change", { bubbles: true }));
               matched = true;
-              logger.debug(
+              logger.info(
                 `Radio group ${radioName}: selected value "${radio.value}"`,
               );
               break;
@@ -371,6 +371,6 @@ export const handleFill = async (
       element.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
-    logger.debug(`Filled field ${fieldOpid} with value`);
+    logger.info(`Filled field ${fieldOpid} with value`);
   }
 };

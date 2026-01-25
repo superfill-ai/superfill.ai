@@ -39,19 +39,19 @@ class AutofillService {
 
     this.unwatchAiSettings = aiSettings.watch((newSettings) => {
       this.currentAiSettings = newSettings;
-      logger.debug("AI settings updated:", newSettings);
+      logger.info("AI settings updated:", newSettings);
     });
 
     aiSettings.getValue().then((settings) => {
       this.currentAiSettings = settings;
-      logger.debug("AI settings initialized:", settings);
+      logger.info("AI settings initialized:", settings);
     });
   }
 
   dispose() {
     this.unwatchAiSettings?.();
     this.unwatchAiSettings = undefined;
-    logger.debug("AutofillService disposed");
+    logger.info("AutofillService disposed");
   }
 
   async startAutofillOnActiveTab(): Promise<{
@@ -64,7 +64,7 @@ class AutofillService {
     let tabId: number | undefined;
     const sessionService = getSessionService();
 
-    logger.debug("Starting autofill");
+    logger.info("Starting autofill");
 
     try {
       const [tab] = await browser.tabs.query({
@@ -77,7 +77,7 @@ class AutofillService {
       }
 
       tabId = tab.id;
-      logger.debug("Starting autofill on tab:", tabId, tab.url);
+      logger.info("Starting autofill on tab:", tabId, tab.url);
 
       try {
         await contentAutofillMessaging.sendMessage(
@@ -97,34 +97,24 @@ class AutofillService {
 
       const session = await sessionService.startSession();
       sessionId = session.id;
-      logger.debug("Started autofill session:", sessionId);
+      logger.info("Started autofill session:", sessionId);
 
       const requestId = `autofill-${sessionId}-${Date.now()}`;
       const collectedResults: DetectFormsResult[] = [];
 
       const collectionPromise = new Promise<void>((resolve) => {
-        const messageListener = (message: {
-          type?: string;
-          requestId?: string;
-          result?: DetectFormsResult;
-        }) => {
-          if (
-            message.type === "FRAME_FORMS_DETECTED" &&
-            message.requestId === requestId &&
-            message.result
-          ) {
-            collectedResults.push(message.result);
-            logger.debug(
-              `Received forms from frame:`,
-              message.result.frameInfo,
-            );
-          }
-        };
-
-        browser.runtime.onMessage.addListener(messageListener);
+        const removeListener = contentAutofillMessaging.onMessage(
+          "frameFormsDetected",
+          ({ data }) => {
+            if (data.requestId === requestId && data.result) {
+              collectedResults.push(data.result);
+              logger.info(`Received forms from frame:`, data.result.frameInfo);
+            }
+          },
+        );
 
         setTimeout(() => {
-          browser.runtime.onMessage.removeListener(messageListener);
+          removeListener();
           resolve();
         }, 2000);
       });
@@ -141,7 +131,7 @@ class AutofillService {
 
       await collectionPromise;
 
-      logger.debug(`Collected results from ${collectedResults.length} frames`);
+      logger.info(`Collected results from ${collectedResults.length} frames`);
 
       const successfulResults = collectedResults.filter(
         (result) => result.success === true,
@@ -167,7 +157,7 @@ class AutofillService {
       const websiteContext =
         mainFrameResult?.websiteContext || successfulResults[0].websiteContext;
 
-      logger.debug(
+      logger.info(
         `Detected ${totalFields} fields in ${allForms.length} forms across ${successfulResults.length} frames`,
       );
 
@@ -202,7 +192,7 @@ class AutofillService {
         websiteContext,
       );
 
-      logger.debug("Autofill processing result:", processingResult);
+      logger.info("Autofill processing result:", processingResult);
 
       const matchedCount = processingResult.mappings.filter(
         (mapping) => mapping.value !== null,
@@ -235,7 +225,7 @@ class AutofillService {
         throw new Error(processingResult.error || "Failed to process fields");
       }
 
-      logger.debug(
+      logger.info(
         `Processed ${allFields.length} fields and found ${matchedCount} matches`,
       );
 
@@ -306,7 +296,7 @@ class AutofillService {
 
       const passwordFieldsCount = fields.length - nonPasswordFields.length;
       if (passwordFieldsCount > 0) {
-        logger.debug(`Filtered out ${passwordFieldsCount} password fields`);
+        logger.info(`Filtered out ${passwordFieldsCount} password fields`);
       }
 
       const fieldsToProcess = nonPasswordFields.slice(0, MAX_FIELDS_PER_PAGE);
@@ -336,7 +326,7 @@ class AutofillService {
       const allMappings = this.combineMappings(fieldsToProcess, mappings);
       const processingTime = performance.now() - startTime;
 
-      logger.debug(
+      logger.info(
         `Autofill completed in ${processingTime.toFixed(2)}ms: ${mappings.length} mappings`,
       );
 
@@ -381,7 +371,7 @@ class AutofillService {
 
       const selectedModel = settings.selectedModels?.[provider];
 
-      logger.debug(
+      logger.info(
         "AutofillService: Using AI provider",
         provider,
         "with model",
@@ -496,7 +486,7 @@ class AutofillService {
     const confidenceThreshold =
       this.currentAiSettings?.confidenceThreshold ?? 0.6;
 
-    logger.debug(
+    logger.info(
       `Applying confidence threshold: ${confidenceThreshold} to ${processingResult.mappings.length} mappings`,
     );
 
@@ -505,7 +495,7 @@ class AutofillService {
         mapping.value !== null && mapping.confidence >= confidenceThreshold;
 
       if (mapping.value !== null) {
-        logger.debug(
+        logger.info(
           `Field ${mapping.fieldOpid}: confidence=${mapping.confidence}, threshold=${confidenceThreshold}, autoFill=${meetsThreshold}`,
         );
       }
@@ -520,7 +510,7 @@ class AutofillService {
       (m) => m.autoFill,
     ).length;
 
-    logger.debug(
+    logger.info(
       `${autoEnabledCount} of ${mappingsWithThreshold.length} fields auto-enabled based on threshold`,
       mappingsWithThreshold,
     );

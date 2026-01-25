@@ -1,11 +1,6 @@
 import "./content.css";
 
-import {
-  cacheDetectedForms as cacheFormsInMaps,
-  collectFrameForms,
-  filterAndProcessForms,
-  getFrameInfo,
-} from "@/entrypoints/content/lib/iframe-handler";
+import { getFrameInfo } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
 import { isElementPartOfForm, isMessagingSite } from "@/lib/copies";
@@ -15,22 +10,14 @@ import {
   getCaptureSettings,
   isSiteBlocked,
 } from "@/lib/storage/capture-settings";
-import type {
-  AutofillProgress,
-  DetectedField,
-  DetectedForm,
-  DetectFormsResult,
-  FieldOpId,
-  FormOpId,
-  PreviewSidebarPayload,
-} from "@/types/autofill";
+import type { AutofillProgress, PreviewSidebarPayload } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
 import { handleFill } from "./lib/fill-handler";
 import { FillTriggerManager } from "./lib/fill-trigger-manager";
-import { FormDetector } from "./lib/form-detector";
+import { FormDetectionService } from "./lib/form-detection-service";
 import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 import {
   destroyUIManagers,
@@ -40,8 +27,7 @@ import {
 
 const logger = createLogger("content");
 
-const formCache = new Map<FormOpId, DetectedForm>();
-const fieldCache = new Map<FieldOpId, DetectedField>();
+let formDetectionService: FormDetectionService;
 
 export default defineContentScript({
   allFrames: true,
@@ -52,12 +38,18 @@ export default defineContentScript({
   async main(ctx) {
     const frameInfo = getFrameInfo();
 
-    logger.debug("Content script loaded:", frameInfo);
+    logger.info("Content script loaded:", frameInfo);
 
     const fieldAnalyzer = new FieldAnalyzer();
-    const formDetector = new FormDetector(fieldAnalyzer);
     const contextExtractor = new WebsiteContextExtractor();
     const fillTriggerManager = new FillTriggerManager();
+
+    formDetectionService = new FormDetectionService(
+      fieldAnalyzer,
+      contextExtractor,
+    );
+    formDetectionService.initialize();
+
     let captureSettings: Awaited<ReturnType<typeof getCaptureSettings>>;
 
     const shouldAutoCaptureForCurrentPage = (
@@ -100,7 +92,7 @@ export default defineContentScript({
 
       if (!submissionMonitor && !fieldTracker && !captureService) return;
 
-      logger.debug("Stopping memory capture:", reason);
+      logger.info("Stopping memory capture:", reason);
 
       try {
         await captureMemoryManager?.hide();
@@ -148,7 +140,7 @@ export default defineContentScript({
         return;
       }
 
-      logger.debug("Initializing memory capture for site:", {
+      logger.info("Initializing memory capture for site:", {
         hostname,
         pathname,
         reason,
@@ -162,16 +154,14 @@ export default defineContentScript({
 
         submissionMonitor.start();
         await captureService.initializeAutoTracking(
-          formDetector,
+          formDetectionService,
           fieldTracker,
           submissionMonitor,
-          formCache,
-          fieldCache,
         );
 
         unlistenSubmission = submissionMonitor.onSubmission(
           async (submittedFieldOpids) => {
-            logger.debug(
+            logger.info(
               `Form submitted with ${submittedFieldOpids.size} fields`,
               Array.from(submittedFieldOpids),
             );
@@ -179,7 +169,7 @@ export default defineContentScript({
             try {
               captureSettings = await getCaptureSettings();
               if (!shouldAutoCaptureForCurrentPage(captureSettings)) {
-                logger.debug(
+                logger.info(
                   "Skipping capture due to updated settings (disabled/blocked)",
                 );
                 return;
@@ -194,7 +184,7 @@ export default defineContentScript({
                 !currentCaptureService ||
                 !currentCaptureMemoryManager
               ) {
-                logger.debug(
+                logger.info(
                   "Skipping capture because services were stopped mid-flight",
                 );
                 return;
@@ -204,11 +194,11 @@ export default defineContentScript({
                 await currentFieldTracker.getCapturedFields();
 
               if (trackedFields.length === 0) {
-                logger.debug("No tracked fields to capture");
+                logger.info("No tracked fields to capture");
                 return;
               }
 
-              logger.debug(
+              logger.info(
                 `Processing ${trackedFields.length} tracked fields for capture`,
               );
 
@@ -218,11 +208,11 @@ export default defineContentScript({
                 );
 
               if (capturedFields.length === 0) {
-                logger.debug("No user-entered fields to capture");
+                logger.info("No user-entered fields to capture");
                 return;
               }
 
-              logger.debug(
+              logger.info(
                 `Showing capture prompt for ${capturedFields.length} fields`,
               );
 
@@ -272,7 +262,7 @@ export default defineContentScript({
           };
         }
 
-        logger.debug("Capture settings updated:", {
+        logger.info("Capture settings updated:", {
           hostname,
           enabled: captureSettings.enabled,
           isBlocked: isSiteBlocked(hostname, captureSettings),
@@ -290,97 +280,18 @@ export default defineContentScript({
     }
 
     contentAutofillMessaging.onMessage(
-      "collectAllFrameForms",
-      async ({ data }: { data: { requestId: string } }) => {
-        const result = await collectFrameForms(
-          formDetector,
-          contextExtractor,
-          frameInfo,
-        );
-
-        if (result.success) {
-          const allForms = formDetector.detectAll();
-          const forms = filterAndProcessForms(allForms);
-          cacheFormsInMaps(forms, formCache, fieldCache);
-        }
-
-        await browser.runtime.sendMessage({
-          type: "FRAME_FORMS_DETECTED",
-          requestId: data.requestId,
-          result,
-        });
-      },
-    );
-
-    contentAutofillMessaging.onMessage(
-      "detectForms",
-      async (): Promise<DetectFormsResult> => {
-        const result = (await collectFrameForms(
-          formDetector,
-          contextExtractor,
-          frameInfo,
-        )) as DetectFormsResult;
-
-        if (result.success) {
-          const allForms = formDetector.detectAll();
-          const forms = filterAndProcessForms(allForms);
-          cacheFormsInMaps(forms, formCache, fieldCache);
-
-          logger.debug(
-            "Detected forms and fields:",
-            forms.length,
-            result.totalFields,
-          );
-
-          forms.forEach((form, index) => {
-            logger.debug(`Form ${index + 1}:`, {
-              opid: form.opid,
-              name: form.name,
-              fieldCount: form.fields.length,
-              action: form.action,
-              method: form.method,
-            });
-
-            form.fields.slice(0, 3).forEach((field) => {
-              logger.debug(`  └─ Field ${field.opid}:`, {
-                type: field.metadata.fieldType,
-                purpose: field.metadata.fieldPurpose,
-                labels: {
-                  tag: field.metadata.labelTag,
-                  aria: field.metadata.labelAria,
-                  placeholder: field.metadata.placeholder,
-                },
-              });
-            });
-
-            if (form.fields.length > 3) {
-              logger.debug(
-                `  └─ ... and ${form.fields.length - 3} more fields`,
-              );
-            }
-          });
-
-          logger.debug("Extracted website context:", result.websiteContext);
-        }
-
-        return result;
-      },
-    );
-
-    contentAutofillMessaging.onMessage(
       "updateProgress",
       async ({ data: progress }: { data: AutofillProgress }) => {
         if (!frameInfo.isMainFrame) {
-          logger.debug("Skipping progress UI in iframe");
+          logger.info("Skipping progress UI in iframe");
           return true;
         }
 
         return handleUpdateProgress(
           progress,
           ctx,
-          (fieldOpid) => fieldCache.get(fieldOpid) ?? null,
-          (formOpid) => formCache.get(formOpid) ?? null,
-          fieldCache,
+          (fieldOpid) => formDetectionService.getCachedField(fieldOpid),
+          (formOpid) => formDetectionService.getCachedForm(formOpid),
         );
       },
     );
@@ -389,16 +300,15 @@ export default defineContentScript({
       "showPreview",
       async ({ data }: { data: PreviewSidebarPayload }) => {
         if (!frameInfo.isMainFrame) {
-          logger.debug("Skipping preview UI in iframe");
+          logger.info("Skipping preview UI in iframe");
           return true;
         }
 
         return handleShowPreview(
           data,
           ctx,
-          (fieldOpid) => fieldCache.get(fieldOpid) ?? null,
-          (formOpid) => formCache.get(formOpid) ?? null,
-          fieldCache,
+          (fieldOpid) => formDetectionService.getCachedField(fieldOpid),
+          (formOpid) => formDetectionService.getCachedForm(formOpid),
         );
       },
     );
@@ -406,11 +316,11 @@ export default defineContentScript({
     contentAutofillMessaging.onMessage("fillFields", async ({ data }) => {
       const { fieldsToFill } = data;
 
-      logger.debug(
+      logger.info(
         `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
       );
 
-      await handleFill(fieldsToFill, frameInfo, fieldCache);
+      await handleFill(fieldsToFill, frameInfo, formDetectionService);
     });
 
     contentAutofillMessaging.onMessage("closePreview", async () => {
@@ -428,6 +338,10 @@ export default defineContentScript({
     });
 
     ctx.onInvalidated(() => {
+      try {
+        formDetectionService.dispose();
+      } catch {}
+
       try {
         unwatchCaptureSettings?.();
       } catch {}

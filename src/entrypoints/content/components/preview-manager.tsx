@@ -4,6 +4,8 @@ import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
+import { handleFill as fillFields } from "@/entrypoints/content/lib/fill-handler";
+import { getFrameInfo } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
@@ -213,7 +215,7 @@ export class PreviewSidebarManager {
         autoFill: true,
       };
 
-      logger.debug(`Mapping fields: ${data.id} to fieldOpid: ${fieldOpid}`);
+      logger.info(`Mapping fields: ${data.id} to fieldOpid: ${fieldOpid}`);
 
       this.mappingLookup?.set(fieldOpid, updatedMapping);
 
@@ -247,7 +249,7 @@ export class PreviewSidebarManager {
         this.renderCurrentState();
       }
 
-      logger.debug("Field mapping updated from new memory entry:", data.id);
+      logger.info("Field mapping updated from new memory entry:", data.id);
     } catch (error) {
       logger.error("Failed to map memory entry to field preview:", error);
       throw error;
@@ -272,17 +274,21 @@ export class PreviewSidebarManager {
     }[],
   ) {
     try {
-      await browser.runtime.sendMessage({
-        type: "FILL_ALL_FRAMES",
-        timestamp: Date.now(),
-        fieldsToFill: fieldsToFill.map((f) => ({
-          fieldOpid: f.fieldOpid,
-          value: f.value,
-          confidence: f.confidence,
-        })),
-      });
+      const frameInfo = getFrameInfo();
+
+      // Only broadcast from main frame - all frames (including main) will receive the fillFields message
+      if (frameInfo.isMainFrame) {
+        await contentAutofillMessaging.sendMessage("broadcastFillToAllFrames", {
+          fieldsToFill,
+        });
+      } else {
+        // For iframes, fill directly since broadcast won't reach us
+        await fillFields(fieldsToFill, frameInfo, {
+          getCachedField: this.options.getFieldMetadata,
+        });
+      }
     } catch (error) {
-      logger.error("Failed to send fill request to background:", error);
+      logger.error("Failed to fill fields:", error);
       await this.showProgress({
         state: "failed",
         message: "Failed to auto-fill fields. Please try again.",
@@ -324,7 +330,7 @@ export class PreviewSidebarManager {
           fieldsMatched: matchedCount,
         });
 
-        logger.debug("Session completed:", this.sessionId);
+        logger.info("Session completed:", this.sessionId);
       } catch (error) {
         logger.error("Failed to complete session:", error);
       }

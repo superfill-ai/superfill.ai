@@ -30,6 +30,8 @@ export class FormDetector {
 
   detectAll(): DetectedForm[] {
     DOM_CACHE.clear();
+    this.fieldOpidCounter = 0;
+    this.formOpidCounter = 0;
 
     const forms: DetectedForm[] = [];
     this.shadowRootFields = [];

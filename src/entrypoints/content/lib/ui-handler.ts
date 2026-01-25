@@ -37,14 +37,12 @@ const ensureAutopilotManager = (
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
-  fieldCache: Map<FieldOpId, DetectedField>,
 ) => {
   if (!autopilotManager) {
     autopilotManager = new AutopilotManager({
       ctx,
       getFieldMetadata,
       getFormMetadata,
-      fieldCache,
     });
   }
 
@@ -56,7 +54,6 @@ export const handleUpdateProgress = async (
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
-  fieldCache: Map<FieldOpId, DetectedField>,
 ): Promise<boolean> => {
   try {
     const settingStore = await storage.aiSettings.getValue();
@@ -72,7 +69,6 @@ export const handleUpdateProgress = async (
         ctx,
         getFieldMetadata,
         getFormMetadata,
-        fieldCache,
       );
       await manager.showProgress(progress);
       return true;
@@ -96,14 +92,13 @@ export const handleShowPreview = async (
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
-  fieldCache: Map<FieldOpId, DetectedField>,
 ): Promise<boolean> => {
-  logger.debug("Received preview payload from background", {
+  logger.info("Received preview payload from background", {
     mappings: data.mappings.length,
     forms: data.forms.length,
   });
 
-  logger.debug("Full payload structure:", {
+  logger.info("Full payload structure:", {
     payload: data,
   });
 
@@ -111,19 +106,14 @@ export const handleShowPreview = async (
   let manager: PreviewSidebarManager | AutopilotManager;
 
   if (settingStore.autopilotMode) {
-    manager = ensureAutopilotManager(
-      ctx,
-      getFieldMetadata,
-      getFormMetadata,
-      fieldCache,
-    );
+    manager = ensureAutopilotManager(ctx, getFieldMetadata, getFormMetadata);
   } else {
     manager = ensurePreviewManager(ctx, getFieldMetadata, getFormMetadata);
   }
 
   try {
     if (settingStore.autopilotMode && manager instanceof AutopilotManager) {
-      logger.debug("Autopilot manager created, attempting to show...");
+      logger.info("Autopilot manager created, attempting to show...");
 
       await manager.processAutofillData(
         data.mappings,
@@ -131,15 +121,15 @@ export const handleShowPreview = async (
         data.sessionId,
       );
 
-      logger.debug("Autopilot manager processed data successfully");
+      logger.info("Autopilot manager processed data successfully");
     } else if (manager instanceof PreviewSidebarManager) {
-      logger.debug("Preview manager created, attempting to show...");
+      logger.info("Preview manager created, attempting to show...");
 
       await manager.show({
         payload: data,
       });
 
-      logger.debug("Preview shown successfully");
+      logger.info("Preview shown successfully");
     }
     return true;
   } catch (error) {

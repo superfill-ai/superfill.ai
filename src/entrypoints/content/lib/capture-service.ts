@@ -2,47 +2,52 @@ import { isTrackableFieldType } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type {
   CapturedFieldData,
-  DetectedField,
   DetectedForm,
   FieldMapping,
   FieldOpId,
-  FormOpId,
   TrackedFieldData,
 } from "@/types/autofill";
 import type { FieldDataTracker } from "./field-data-tracker";
-import type { FormDetector } from "./form-detector";
+import type { FormDetectionService } from "./form-detection-service";
 import type { FormSubmissionMonitor } from "./form-submission-monitor";
-import { cacheDetectedForms, serializeForms } from "./iframe-handler";
+import { serializeForms } from "./iframe-handler";
 
 const logger = createLogger("capture-service");
 
 export class CaptureService {
   private mutationObserver: MutationObserver | null = null;
-  private formDetector: FormDetector | null = null;
+  private formDetectionService: FormDetectionService | null = null;
   private fieldTracker: FieldDataTracker | null = null;
   private submissionMonitor: FormSubmissionMonitor | null = null;
-  private formCache: Map<FormOpId, DetectedForm> | null = null;
-  private fieldCache: Map<FieldOpId, DetectedField> | null = null;
   private sessionId: string | null = null;
   private lastFormCount = 0;
   private recheckFormsTimeout: number | null = null;
 
   initializeAutoTracking = async (
-    formDetector: FormDetector,
+    formDetectionService: FormDetectionService,
     fieldTracker: FieldDataTracker,
     submissionMonitor: FormSubmissionMonitor,
-    formCache: Map<FormOpId, DetectedForm>,
-    fieldCache: Map<FieldOpId, DetectedField>,
   ) => {
-    this.formDetector = formDetector;
+    this.formDetectionService = formDetectionService;
     this.fieldTracker = fieldTracker;
     this.submissionMonitor = submissionMonitor;
-    this.formCache = formCache;
-    this.fieldCache = fieldCache;
 
     try {
-      const allForms = formDetector.detectAll();
-      logger.debug(`Detected ${allForms.length} forms`);
+      let allForms: DetectedForm[];
+      if (formDetectionService.hasCachedForms()) {
+        logger.info(
+          `Reusing ${formDetectionService.getCacheStats().formCount} cached forms for auto-tracking`,
+        );
+        allForms = formDetectionService.getCachedForms();
+      } else {
+        logger.info("Cache empty, detecting forms for auto-tracking");
+        const result = await formDetectionService.detectFormsInCurrentFrame();
+        if (!result.success) {
+          logger.error("Failed to detect forms:", result.error);
+          return;
+        }
+        allForms = formDetectionService.getCachedForms();
+      }
 
       this.sessionId = crypto.randomUUID();
       await fieldTracker.startTracking(
@@ -52,7 +57,7 @@ export class CaptureService {
       );
 
       if (allForms.length === 0) {
-        logger.debug(
+        logger.info(
           "No forms detected initially, setting up mutation observer for dynamic forms...",
         );
         this.startMutationObserver();
@@ -62,7 +67,7 @@ export class CaptureService {
       this.lastFormCount = allForms.length;
       this.attachFieldListeners(allForms);
 
-      logger.debug(`Auto-tracking initialized: ${allForms.length} forms`);
+      logger.info(`Auto-tracking initialized: ${allForms.length} forms`);
 
       this.startMutationObserver();
     } catch (error) {
@@ -71,36 +76,39 @@ export class CaptureService {
   };
 
   private attachFieldListeners(allForms: DetectedForm[]): void {
-    if (!this.formCache || !this.fieldCache || !this.fieldTracker) return;
+    if (!this.formDetectionService || !this.fieldTracker) return;
 
-    cacheDetectedForms(allForms, this.formCache, this.fieldCache);
     const serializedFormCache = serializeForms(allForms);
 
     const emptyMappings = new Map<FieldOpId, FieldMapping>();
     const allSerializedFields = serializedFormCache.flatMap((f) => f.fields);
 
-    logger.debug(`Attaching listeners to ${allSerializedFields.length} fields`);
+    logger.info(`Attaching listeners to ${allSerializedFields.length} fields`);
+
+    if (!this.formDetectionService) {
+      logger.error("Form detection service not initialized");
+      return;
+    }
 
     this.fieldTracker.attachFieldListeners(
       allSerializedFields,
       emptyMappings,
-      this.fieldCache,
+      // biome-ignore lint/style/noNonNullAssertion: its aight
+      (opid) => this.formDetectionService!.getCachedField(opid),
     );
 
     if (this.submissionMonitor) {
-      const fieldsToRegister = Array.from(this.fieldCache.entries()).map(
-        ([opid, field]) => ({
+      const fieldsToRegister = this.formDetectionService
+        .getAllCachedFieldEntries()
+        .map(([opid, field]) => ({
           opid,
           element: field.element,
           formElement: field.element.form || null,
-        }),
-      );
+        }));
       this.submissionMonitor.registerFields(fieldsToRegister);
     }
 
-    logger.debug(
-      "Auto-tracking listeners attached for form submission capture",
-    );
+    logger.info("Auto-tracking listeners attached for form submission capture");
   }
 
   private startMutationObserver(): void {
@@ -108,7 +116,7 @@ export class CaptureService {
       return;
     }
 
-    logger.debug("Starting mutation observer for dynamic forms...");
+    logger.info("Starting mutation observer for dynamic forms...");
 
     this.mutationObserver = new MutationObserver((mutations) => {
       let shouldRecheck = false;
@@ -128,7 +136,7 @@ export class CaptureService {
                 element.querySelector("textarea") ||
                 element.querySelector("select")
               ) {
-                logger.debug("New form element detected:", element.tagName);
+                logger.info("New form element detected:", element.tagName);
                 shouldRecheck = true;
                 break;
               }
@@ -167,13 +175,14 @@ export class CaptureService {
       clearTimeout(this.recheckFormsTimeout);
     }
 
-    this.recheckFormsTimeout = window.setTimeout(() => {
-      if (!this.formDetector) return;
+    this.recheckFormsTimeout = window.setTimeout(async () => {
+      if (!this.formDetectionService) return;
 
-      const allForms = this.formDetector.detectAll();
+      await this.formDetectionService.detectFormsInCurrentFrame();
+      const allForms = this.formDetectionService.getCachedForms();
 
       if (allForms.length > this.lastFormCount) {
-        logger.debug(
+        logger.info(
           `New forms detected! ${allForms.length} total (was ${this.lastFormCount})`,
         );
         this.lastFormCount = allForms.length;
@@ -193,19 +202,9 @@ export class CaptureService {
       this.mutationObserver = null;
     }
 
-    this.formDetector = null;
+    this.formDetectionService = null;
     this.fieldTracker = null;
     this.submissionMonitor = null;
-
-    if (this.formCache) {
-      this.formCache.clear();
-      this.formCache = null;
-    }
-
-    if (this.fieldCache) {
-      this.fieldCache.clear();
-      this.fieldCache = null;
-    }
 
     this.sessionId = null;
     this.lastFormCount = 0;
@@ -214,10 +213,10 @@ export class CaptureService {
   identifyCaptureOpportunities(
     trackedFields: TrackedFieldData[],
   ): CapturedFieldData[] {
-    logger.debug(`Processing ${trackedFields.length} tracked fields`);
+    logger.info(`Processing ${trackedFields.length} tracked fields`);
 
     const userEntered = this.findUserEnteredFields(trackedFields);
-    logger.debug(`Found ${userEntered.length} user-entered fields to capture`);
+    logger.info(`Found ${userEntered.length} user-entered fields to capture`);
 
     return userEntered;
   }
@@ -229,17 +228,17 @@ export class CaptureService {
 
     for (const tracked of trackedFields) {
       if (tracked.wasAIFilled) {
-        logger.debug(`Skipping field ${tracked.fieldOpid}: was AI-filled`);
+        logger.info(`Skipping field ${tracked.fieldOpid}: was AI-filled`);
         continue;
       }
 
       if (!tracked.value || tracked.value.trim() === "") {
-        logger.debug(`Skipping field ${tracked.fieldOpid}: empty value`);
+        logger.info(`Skipping field ${tracked.fieldOpid}: empty value`);
         continue;
       }
 
       if (!this.isTrackableFieldType(tracked.metadata.fieldType)) {
-        logger.debug(
+        logger.info(
           `Skipping field ${tracked.fieldOpid}: non-trackable type ${tracked.metadata.fieldType}`,
         );
         continue;
@@ -247,13 +246,13 @@ export class CaptureService {
 
       const question = this.extractQuestion(tracked.metadata);
       if (!question) {
-        logger.debug(
+        logger.info(
           `Skipping field ${tracked.fieldOpid}: no question/label extracted`,
         );
         continue;
       }
 
-      logger.debug(
+      logger.info(
         `Capturing user-entered field ${tracked.fieldOpid}: "${question}"`,
       );
 

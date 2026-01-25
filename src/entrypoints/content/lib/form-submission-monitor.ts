@@ -34,14 +34,6 @@ type SubmissionCallback = (
 const DUPLICATE_SUBMISSION_THRESHOLD_MS = 1000;
 const FORM_SUBMISSION_TIMEOUT_MS = 1500;
 
-// TODO: Re-enable webRequest integration when properly scoped
-// interface WebRequestSubmissionMessage {
-//   type: "FORM_SUBMITTED_VIA_WEBREQUEST";
-//   url: string;
-//   method: string;
-//   timestamp: number;
-// }
-
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
   private buttonListeners: Map<
@@ -57,11 +49,6 @@ export class FormSubmissionMonitor {
   private pendingSubmissionTimeout: number | null = null;
   private trackedFields = new Set<FieldOpId>();
   private formFieldsMap = new WeakMap<HTMLFormElement, Set<FieldOpId>>();
-  // TODO: Re-enable when webRequest is properly implemented
-  // private hasWebRequestAPI = false;
-  // private webRequestListener:
-  //   | ((message: WebRequestSubmissionMessage) => void)
-  //   | null = null;
   private originalPushState: typeof history.pushState | null = null;
   private originalReplaceState: typeof history.replaceState | null = null;
   private boundPopStateListener: (() => void) | null = null;
@@ -72,38 +59,12 @@ export class FormSubmissionMonitor {
       return;
     }
 
-    // TODO: Re-enable webRequest integration when properly scoped
-    // this.webRequestListener = (message: WebRequestSubmissionMessage) => {
-    //   if (message.type === "FORM_SUBMITTED_VIA_WEBREQUEST") {
-    //     logger.debug(
-    //       "Received webRequest submission notification:",
-    //       message.url,
-    //       message.method,
-    //     );
-    //     if (!this.hasWebRequestAPI) {
-    //       this.hasWebRequestAPI = true;
-    //       logger.debug(
-    //         "webRequest API confirmed working via background script",
-    //       );
-    //     }
-    //
-    //     if (this.pendingSubmissionTimeout) {
-    //       window.clearTimeout(this.pendingSubmissionTimeout);
-    //       this.pendingSubmissionTimeout = null;
-    //       logger.debug("Cancelled pending timeout - webRequest took priority");
-    //     }
-    //     this.triggerPendingSubmission();
-    //   }
-    // };
-    //
-    // browser.runtime.onMessage.addListener(this.webRequestListener);
-
     this.attachSubmitButtonListeners();
     this.startMutationObserver();
     this.startUrlChangeDetection();
     this.isMonitoring = true;
 
-    logger.debug("Form submission monitor started");
+    logger.info("Form submission monitor started");
   }
 
   dispose(): void {
@@ -122,12 +83,6 @@ export class FormSubmissionMonitor {
       this.pendingSubmissionTimeout = null;
     }
 
-    // TODO: Re-enable when webRequest is properly implemented
-    // if (this.webRequestListener) {
-    //   browser.runtime.onMessage.removeListener(this.webRequestListener);
-    //   this.webRequestListener = null;
-    // }
-
     if (this.boundPopStateListener) {
       window.removeEventListener("popstate", this.boundPopStateListener);
       this.boundPopStateListener = null;
@@ -144,7 +99,7 @@ export class FormSubmissionMonitor {
     }
 
     this.isMonitoring = false;
-    logger.debug("Form submission monitor stopped");
+    logger.info("Form submission monitor stopped");
   }
 
   onSubmission(callback: SubmissionCallback): () => void {
@@ -171,7 +126,7 @@ export class FormSubmissionMonitor {
         this.formFieldsMap.get(field.formElement)?.add(field.opid);
       }
     }
-    logger.debug(`Registered ${fields.length} tracked fields`);
+    logger.info(`Registered ${fields.length} tracked fields`);
   }
 
   private attachSubmitButtonListeners(): void {
@@ -181,7 +136,7 @@ export class FormSubmissionMonitor {
       this.attachButtonListener(button);
     }
 
-    logger.debug(`Attached listeners to ${buttons.length} submit buttons`);
+    logger.info(`Attached listeners to ${buttons.length} submit buttons`);
   }
 
   private findSubmitButtons(): Array<HTMLButtonElement | HTMLInputElement> {
@@ -233,7 +188,7 @@ export class FormSubmissionMonitor {
     if (this.buttonListeners.has(button)) return;
 
     const listener = () => {
-      logger.debug("Submit button clicked", button);
+      logger.info("Submit button clicked", button);
 
       this.scheduleSubmissionTimeout();
 
@@ -265,25 +220,25 @@ export class FormSubmissionMonitor {
 
   private async handleFormSubmission(form: HTMLFormElement): Promise<void> {
     if (this.isDuplicateSubmission(form)) {
-      logger.debug("Skipping duplicate form submission");
+      logger.info("Skipping duplicate form submission");
       return;
     }
 
     this.recentFormSubmissions.set(form, Date.now());
     const fields = this.extractFieldOpids(form);
-    logger.debug(`Form submission detected with ${fields.size} fields`);
+    logger.info(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
   private async handleStandaloneSubmission(): Promise<void> {
     if (this.isDuplicateSubmission("standalone")) {
-      logger.debug("Skipping duplicate standalone submission");
+      logger.info("Skipping duplicate standalone submission");
       return;
     }
 
     this.lastStandaloneSubmission = Date.now();
     const fields = this.extractAllVisibleFieldOpids();
-    logger.debug(`Standalone submission detected with ${fields.size} fields`);
+    logger.info(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
@@ -403,14 +358,14 @@ export class FormSubmissionMonitor {
       this.handleUrlChange();
     };
 
-    logger.debug("URL change detection started");
+    logger.info("URL change detection started");
   }
 
   private handleUrlChange(): void {
     const newUrl = window.location.href;
 
     if (newUrl !== this.lastUrl) {
-      logger.debug("URL changed, checking for pending submission", {
+      logger.info("URL changed, checking for pending submission", {
         from: this.lastUrl,
         to: newUrl,
       });
@@ -429,7 +384,7 @@ export class FormSubmissionMonitor {
     }
 
     this.pendingSubmissionTimeout = window.setTimeout(() => {
-      logger.debug("Submission timeout triggered");
+      logger.info("Submission timeout triggered");
       this.triggerPendingSubmission();
     }, FORM_SUBMISSION_TIMEOUT_MS);
   }

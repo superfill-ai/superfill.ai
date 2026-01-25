@@ -1,6 +1,7 @@
 {
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
+    "sourceMap": true,
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,

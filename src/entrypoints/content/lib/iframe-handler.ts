@@ -1,4 +1,3 @@
-import type { FormDetector } from "@/entrypoints/content/lib/form-detector";
 import { MIN_FIELD_QUALITY } from "@/lib/autofill/constants";
 import {
   createFilterStats,
@@ -55,7 +54,7 @@ export const getFrameInfo = (): FrameInfo => {
         win = win.parent;
       }
     } catch (_crossOriginError) {
-      logger.debug(
+      logger.info(
         "Cross-origin access error while calculating frame depth, stopping at depth:",
         depth,
       );
@@ -94,7 +93,7 @@ export const getIframeOffset = (frameInfo: FrameInfo): IframeOffset => {
       currentWindow = currentWindow.parent;
     }
   } catch {
-    logger.debug("Cannot calculate iframe offset (cross-origin)");
+    logger.info("Cannot calculate iframe offset (cross-origin)");
   }
 
   return { x, y };
@@ -168,12 +167,12 @@ export const filterAndProcessForms = (
             !hasValidContext(field.metadata)
           ) {
             stats.reasons.unknownUnlabeled++;
-            logger.debug(
+            logger.info(
               `Filtered field ${field.opid}: unknown purpose, no labels, no valid context, low quality score ${quality.toFixed(2)}`,
             );
           } else {
             stats.reasons.noQuality++;
-            logger.debug(
+            logger.info(
               `Filtered field ${field.opid}: low quality score ${quality.toFixed(2)}`,
             );
           }
@@ -188,7 +187,7 @@ export const filterAndProcessForms = (
           if (seenLabels.has(normalizedLabel)) {
             stats.filtered++;
             stats.reasons.duplicate++;
-            logger.debug(
+            logger.info(
               `Filtered field ${field.opid}: duplicate label "${primaryLabel}"`,
             );
             return false;
@@ -206,66 +205,26 @@ export const filterAndProcessForms = (
     })
     .filter((form) => form.fields.length > 0);
 
-  logger.debug(
+  logger.info(
     `Field filtering: ${stats.total} detected, ${stats.filtered} filtered, ${stats.total - stats.filtered} kept`,
   );
-  logger.debug(
+  logger.info(
     `Filter reasons: ${stats.reasons.noQuality} low quality, ${stats.reasons.unknownUnlabeled} unknown+unlabeled, ${stats.reasons.duplicate} duplicates`,
   );
 
   return forms;
 };
 
-export const collectFrameForms = async (
-  formDetector: FormDetector,
-  contextExtractor: WebsiteContextExtractor,
-  frameInfo: FrameInfo,
-): Promise<FormCollectionResult> => {
-  try {
-    const allForms = formDetector.detectAll();
-    const forms = filterAndProcessForms(allForms);
-    const iframeOffset = getIframeOffset(frameInfo);
-    const serializedForms = serializeForms(forms, undefined, iframeOffset);
-
-    const totalFields = forms.reduce(
-      (sum, form) => sum + form.fields.length,
-      0,
-    );
-
-    const websiteContext = contextExtractor.extract();
-
-    logger.debug(
-      `Frame ${frameInfo.isMainFrame ? "main" : "iframe"} (depth: ${frameInfo.frameDepth}) detected ${forms.length} forms with ${totalFields} fields`,
-    );
-
-    return {
-      success: true,
-      forms: serializedForms,
-      totalFields,
-      websiteContext,
-      frameInfo,
-      iframeOffset,
-    };
-  } catch (error) {
-    logger.error("Error detecting forms in frame:", error);
-    return {
-      success: false,
-      forms: [],
-      totalFields: 0,
-      error: error instanceof Error ? error.message : "Unknown error",
-      frameInfo,
-      iframeOffset: { x: 0, y: 0 },
-    };
-  }
-};
-
 export const cacheDetectedForms = (
   forms: DetectedForm[],
   formCache: Map<FormOpId, DetectedForm>,
   fieldCache: Map<FieldOpId, DetectedField>,
+  clearExisting = true,
 ): void => {
-  formCache.clear();
-  fieldCache.clear();
+  if (clearExisting) {
+    formCache.clear();
+    fieldCache.clear();
+  }
 
   for (const form of forms) {
     formCache.set(form.opid, form);
