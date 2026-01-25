@@ -25,6 +25,7 @@ const memoryEntrySchema = z.object({
       message: "Invalid ISO timestamp",
     }),
     source: z.enum(["manual", "import", "autofill"]),
+    fieldPurpose: z.string().optional(),
   }),
   embedding: z.array(z.number()).optional(), // Phase 2: Vector embedding
 });
@@ -32,7 +33,7 @@ const memoryEntrySchema = z.object({
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
 
 const filledFieldSchema = z.object({
-  selector: z.string(),
+  selector: z.string().optional(),
   label: z.string(),
   filledValue: z.string(),
   fieldType: z.string(),

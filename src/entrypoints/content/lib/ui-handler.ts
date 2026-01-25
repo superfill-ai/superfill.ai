@@ -93,12 +93,12 @@ export const handleShowPreview = async (
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
 ): Promise<boolean> => {
-  logger.debug("Received preview payload from background", {
+  logger.info("Received preview payload from background", {
     mappings: data.mappings.length,
     forms: data.forms.length,
   });
 
-  logger.debug("Full payload structure:", {
+  logger.info("Full payload structure:", {
     payload: data,
   });
 
@@ -113,7 +113,7 @@ export const handleShowPreview = async (
 
   try {
     if (settingStore.autopilotMode && manager instanceof AutopilotManager) {
-      logger.debug("Autopilot manager created, attempting to show...");
+      logger.info("Autopilot manager created, attempting to show...");
 
       await manager.processAutofillData(
         data.mappings,
@@ -121,15 +121,15 @@ export const handleShowPreview = async (
         data.sessionId,
       );
 
-      logger.debug("Autopilot manager processed data successfully");
+      logger.info("Autopilot manager processed data successfully");
     } else if (manager instanceof PreviewSidebarManager) {
-      logger.debug("Preview manager created, attempting to show...");
+      logger.info("Preview manager created, attempting to show...");
 
       await manager.show({
         payload: data,
       });
 
-      logger.debug("Preview shown successfully");
+      logger.info("Preview shown successfully");
     }
     return true;
   } catch (error) {

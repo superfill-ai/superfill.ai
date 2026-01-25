@@ -1,5 +1,11 @@
 import type { FillSession, MemoryEntry } from "@/types/memory";
 
+export interface CaptureSettings {
+  enabled: boolean;
+  blockedDomains: string[];
+  neverAskSites: string[];
+}
+
 export const memoriesFallback: MemoryEntry[] = [];
 
 const memories = storage.defineItem<MemoryEntry[]>("local:data:memories", {
@@ -17,7 +23,22 @@ const fillSessions = storage.defineItem<FillSession[]>(
   },
 );
 
+export const captureSettingsFallback: CaptureSettings = {
+  enabled: true,
+  blockedDomains: [],
+  neverAskSites: [],
+};
+
+const captureSettings = storage.defineItem<CaptureSettings>(
+  "local:data:capture-settings",
+  {
+    fallback: captureSettingsFallback,
+    version: 1,
+  },
+);
+
 export const dataStorage = {
   memories,
   fillSessions,
+  captureSettings,
 };

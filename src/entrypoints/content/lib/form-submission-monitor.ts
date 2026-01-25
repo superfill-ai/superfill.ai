@@ -31,11 +31,11 @@ type SubmissionCallback = (
   submittedFields: Set<FieldOpId>,
 ) => void | Promise<void>;
 
-const SUBMISSION_DEBOUNCE_MS = 500;
+const DUPLICATE_SUBMISSION_THRESHOLD_MS = 1000;
+const FORM_SUBMISSION_TIMEOUT_MS = 1500;
 
 export class FormSubmissionMonitor {
   private submissionCallbacks: Set<SubmissionCallback> = new Set();
-  private formListeners: Map<HTMLFormElement, () => void> = new Map();
   private buttonListeners: Map<
     HTMLButtonElement | HTMLInputElement,
     () => void
@@ -45,6 +45,13 @@ export class FormSubmissionMonitor {
   private lastStandaloneSubmission: number = 0;
   private isMonitoring = false;
   private observer: MutationObserver | null = null;
+  private lastUrl: string = window.location.href;
+  private pendingSubmissionTimeout: number | null = null;
+  private trackedFields = new Set<FieldOpId>();
+  private formFieldsMap = new WeakMap<HTMLFormElement, Set<FieldOpId>>();
+  private originalPushState: typeof history.pushState | null = null;
+  private originalReplaceState: typeof history.replaceState | null = null;
+  private boundPopStateListener: (() => void) | null = null;
 
   start(): void {
     if (this.isMonitoring) {
@@ -52,26 +59,47 @@ export class FormSubmissionMonitor {
       return;
     }
 
-    this.attachExistingFormListeners();
     this.attachSubmitButtonListeners();
     this.startMutationObserver();
+    this.startUrlChangeDetection();
     this.isMonitoring = true;
 
-    logger.debug("Form submission monitor started");
+    logger.info("Form submission monitor started");
   }
 
   dispose(): void {
     if (!this.isMonitoring) return;
 
     this.removeAllListeners();
+    this.submissionCallbacks.clear();
 
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
     }
 
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
+
+    if (this.boundPopStateListener) {
+      window.removeEventListener("popstate", this.boundPopStateListener);
+      this.boundPopStateListener = null;
+    }
+
+    if (this.originalPushState) {
+      history.pushState = this.originalPushState;
+      this.originalPushState = null;
+    }
+
+    if (this.originalReplaceState) {
+      history.replaceState = this.originalReplaceState;
+      this.originalReplaceState = null;
+    }
+
     this.isMonitoring = false;
-    logger.debug("Form submission monitor stopped");
+    logger.info("Form submission monitor stopped");
   }
 
   onSubmission(callback: SubmissionCallback): () => void {
@@ -81,36 +109,24 @@ export class FormSubmissionMonitor {
     };
   }
 
-  private attachExistingFormListeners(): void {
-    const forms = document.querySelectorAll<HTMLFormElement>("form");
+  registerFields(
+    fields: Array<{
+      opid: FieldOpId;
+      element: HTMLElement;
+      formElement: HTMLFormElement | null;
+    }>,
+  ): void {
+    for (const field of fields) {
+      this.trackedFields.add(field.opid);
 
-    for (const form of forms) {
-      this.attachFormListener(form);
-    }
-
-    logger.debug(`Attached listeners to ${forms.length} forms`);
-  }
-
-  private attachFormListener(form: HTMLFormElement): void {
-    if (this.formListeners.has(form)) return;
-
-    const listener = async (event: Event) => {
-      try {
-        event.preventDefault();
-        logger.debug("Form submit event detected", form);
-
-        await this.handleFormSubmission(form);
-      } catch (error) {
-        logger.error("Error handling form submission:", error);
-      } finally {
-        form.submit();
+      if (field.formElement) {
+        if (!this.formFieldsMap.has(field.formElement)) {
+          this.formFieldsMap.set(field.formElement, new Set());
+        }
+        this.formFieldsMap.get(field.formElement)?.add(field.opid);
       }
-    };
-
-    form.addEventListener("submit", listener);
-    this.formListeners.set(form, () => {
-      form.removeEventListener("submit", listener);
-    });
+    }
+    logger.info(`Registered ${fields.length} tracked fields`);
   }
 
   private attachSubmitButtonListeners(): void {
@@ -120,7 +136,7 @@ export class FormSubmissionMonitor {
       this.attachButtonListener(button);
     }
 
-    logger.debug(`Attached listeners to ${buttons.length} submit buttons`);
+    logger.info(`Attached listeners to ${buttons.length} submit buttons`);
   }
 
   private findSubmitButtons(): Array<HTMLButtonElement | HTMLInputElement> {
@@ -171,41 +187,58 @@ export class FormSubmissionMonitor {
   ): void {
     if (this.buttonListeners.has(button)) return;
 
-    const listener = async () => {
-      logger.debug("Submit button clicked", button);
+    const listener = () => {
+      logger.info("Submit button clicked", button);
+
+      this.scheduleSubmissionTimeout();
+
       const form = button.closest("form");
+      const handleCompletion = () => {
+        this.clearPendingSubmissionTimeout();
+      };
+
       if (form) {
-        await this.handleFormSubmission(form);
+        this.handleFormSubmission(form)
+          .then(handleCompletion)
+          .catch((error) => {
+            logger.error("handleFormSubmission error:", error);
+            handleCompletion();
+          });
       } else {
-        await this.handleStandaloneSubmission();
+        this.handleStandaloneSubmission()
+          .then(handleCompletion)
+          .catch((error) => {
+            logger.error("handleStandaloneSubmission error:", error);
+            handleCompletion();
+          });
       }
     };
 
-    button.addEventListener("click", listener);
+    button.addEventListener("click", listener, { passive: true });
     this.buttonListeners.set(button, listener);
   }
 
   private async handleFormSubmission(form: HTMLFormElement): Promise<void> {
     if (this.isDuplicateSubmission(form)) {
-      logger.debug("Skipping duplicate form submission");
+      logger.info("Skipping duplicate form submission");
       return;
     }
 
     this.recentFormSubmissions.set(form, Date.now());
     const fields = this.extractFieldOpids(form);
-    logger.debug(`Form submission detected with ${fields.size} fields`);
+    logger.info(`Form submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
   private async handleStandaloneSubmission(): Promise<void> {
     if (this.isDuplicateSubmission("standalone")) {
-      logger.debug("Skipping duplicate standalone submission");
+      logger.info("Skipping duplicate standalone submission");
       return;
     }
 
     this.lastStandaloneSubmission = Date.now();
     const fields = this.extractAllVisibleFieldOpids();
-    logger.debug(`Standalone submission detected with ${fields.size} fields`);
+    logger.info(`Standalone submission detected with ${fields.size} fields`);
     await this.notifyCallbacks(fields);
   }
 
@@ -217,7 +250,7 @@ export class FormSubmissionMonitor {
 
     if (!lastSubmission) return false;
 
-    return Date.now() - lastSubmission < SUBMISSION_DEBOUNCE_MS;
+    return Date.now() - lastSubmission < DUPLICATE_SUBMISSION_THRESHOLD_MS;
   }
 
   private extractFieldOpids(form: HTMLFormElement): Set<FieldOpId> {
@@ -238,23 +271,7 @@ export class FormSubmissionMonitor {
   }
 
   private extractAllVisibleFieldOpids(): Set<FieldOpId> {
-    const opids = new Set<FieldOpId>();
-
-    const fields = document.querySelectorAll<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >("input, textarea, select");
-
-    for (const field of fields) {
-      if (!field.checkVisibility()) continue;
-
-      const opid = field.getAttribute("data-superfill-opid");
-
-      if (opid) {
-        opids.add(opid as FieldOpId);
-      }
-    }
-
-    return opids;
+    return new Set(this.trackedFields);
   }
 
   private async notifyCallbacks(fields: Set<FieldOpId>): Promise<void> {
@@ -282,28 +299,22 @@ export class FormSubmissionMonitor {
     this.observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
-          if (node instanceof HTMLFormElement) {
-            this.attachFormListener(node);
-          } else if (node instanceof HTMLElement) {
-            const forms = node.querySelectorAll<HTMLFormElement>("form");
-            for (const form of forms) {
-              this.attachFormListener(form);
-            }
-
+          if (node instanceof HTMLElement) {
             if (
               (node instanceof HTMLButtonElement ||
                 node instanceof HTMLInputElement) &&
               this.isSubmitButton(node)
             ) {
               this.attachButtonListener(node);
-              const buttons = node.querySelectorAll<
-                HTMLButtonElement | HTMLInputElement
-              >("button, input[type='button'], input[type='submit']");
+            }
 
-              for (const button of buttons) {
-                if (this.isSubmitButton(button)) {
-                  this.attachButtonListener(button);
-                }
+            const buttons = node.querySelectorAll<
+              HTMLButtonElement | HTMLInputElement
+            >("button, input[type='button'], input[type='submit']");
+
+            for (const button of buttons) {
+              if (this.isSubmitButton(button)) {
+                this.attachButtonListener(button);
               }
             }
           }
@@ -318,15 +329,84 @@ export class FormSubmissionMonitor {
   }
 
   private removeAllListeners(): void {
-    for (const cleanup of this.formListeners.values()) {
-      cleanup();
-    }
-    this.formListeners.clear();
-
     for (const [button, listener] of this.buttonListeners.entries()) {
       button.removeEventListener("click", listener);
     }
     this.buttonListeners.clear();
+  }
+
+  private startUrlChangeDetection(): void {
+    this.boundPopStateListener = () => {
+      this.handleUrlChange();
+    };
+    window.addEventListener("popstate", this.boundPopStateListener);
+
+    this.originalPushState = history.pushState;
+    this.originalReplaceState = history.replaceState;
+
+    history.pushState = (...args) => {
+      if (this.originalPushState) {
+        this.originalPushState.apply(history, args);
+      }
+      this.handleUrlChange();
+    };
+
+    history.replaceState = (...args) => {
+      if (this.originalReplaceState) {
+        this.originalReplaceState.apply(history, args);
+      }
+      this.handleUrlChange();
+    };
+
+    logger.info("URL change detection started");
+  }
+
+  private handleUrlChange(): void {
+    const newUrl = window.location.href;
+
+    if (newUrl !== this.lastUrl) {
+      logger.info("URL changed, checking for pending submission", {
+        from: this.lastUrl,
+        to: newUrl,
+      });
+
+      this.lastUrl = newUrl;
+
+      if (this.pendingSubmissionTimeout) {
+        this.triggerPendingSubmission();
+      }
+    }
+  }
+
+  private scheduleSubmissionTimeout(): void {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+    }
+
+    this.pendingSubmissionTimeout = window.setTimeout(() => {
+      logger.info("Submission timeout triggered");
+      this.triggerPendingSubmission();
+    }, FORM_SUBMISSION_TIMEOUT_MS);
+  }
+
+  private clearPendingSubmissionTimeout(): void {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
+  }
+
+  private async triggerPendingSubmission(): Promise<void> {
+    if (this.pendingSubmissionTimeout) {
+      window.clearTimeout(this.pendingSubmissionTimeout);
+      this.pendingSubmissionTimeout = null;
+    }
+
+    try {
+      await this.handleStandaloneSubmission();
+    } catch (error) {
+      logger.error("Error in triggerPendingSubmission:", error);
+    }
   }
 }
 

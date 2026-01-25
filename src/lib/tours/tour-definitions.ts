@@ -71,6 +71,16 @@ export function getCurrentAppTour(version: string): TourDefinition {
         },
       },
       {
+        element: '[data-tour="capture-settings"]',
+        popover: {
+          title: "📥 Memory Capture",
+          description:
+            "Control automatic memory capture with these settings. You can enable/disable capture and manage sites where you don't want to be asked.<br/>Don't worry about duplicates! Superfill automatically detects similar questions and updates existing memories instead of creating duplicates.",
+          side: "bottom",
+          align: "start",
+        },
+      },
+      {
         element: '[data-tour="ai-provider"]',
         popover: {
           title: "🧠 AI Provider",

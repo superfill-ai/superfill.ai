@@ -1,11 +1,11 @@
-# <img src="./public/favicon.svg" alt="Superfill.ai favicon" width="32"/> &nbsp; [Superfill.ai](https://superfill.ai) 
+# <img src="./public/favicon.svg" alt="Superfill.ai favicon" width="32"/> &nbsp; [Superfill.ai](https://superfill.ai)
 
 > An AI-powered browser extension that stores your information once and intelligently auto-fills forms across any website.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://reactjs.org/)
 [![WXT](https://img.shields.io/badge/WXT-Framework-orange.svg)](https://wxt.dev/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)  • 
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)  •
 [![CodeQL](https://github.com/superfill-ai/superfill.ai/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/superfill-ai/superfill.ai/actions/workflows/github-code-scanning/codeql)
 
 <a href="https://www.producthunt.com/products/superfill-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-superfill&#0045;ai" target="_blank" rel="noopener noreferrer"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1039252&theme=neutral&t=1764745107177" alt="superfill&#0046;ai - Stop&#0032;typing&#0046;&#0032;Start&#0032;autofilling&#0032;with&#0032;Superfill&#0046;AI&#0046; | Product Hunt" style="width: 200px, height: 44px" width="200" height="44" /></a>
@@ -99,6 +99,7 @@ Superfill.ai is a cross-browser memory extension that eliminates repetitive data
 
 #### NOT STARTED
 
+- [ ] Multi-step wizard form detection (distinguish "Next" vs "Submit" buttons to capture only on final submission)
 - [ ] Cache Previous fill results for faster fill on similar form fields/urls
 - [ ] Image based matching algorithm for better context understanding
 - [ ] Explore alternate modes:
