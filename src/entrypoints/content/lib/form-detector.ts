@@ -337,41 +337,8 @@ export class FormDetector {
       label: this.getRadioLabel(radio),
       element: radio,
     }));
-
-    // Get all radio values for comparison
     const radioValues = radios.map((radio) => radio.value);
-
-    // Check if any field label matches a radio value, if so, clear those labels
-    if (
-      field.metadata.labelTag &&
-      radioValues.includes(field.metadata.labelTag)
-    ) {
-      field.metadata.labelTag = null;
-    }
-    if (
-      field.metadata.labelData &&
-      radioValues.includes(field.metadata.labelData)
-    ) {
-      field.metadata.labelData = null;
-    }
-    if (
-      field.metadata.labelAria &&
-      radioValues.includes(field.metadata.labelAria)
-    ) {
-      field.metadata.labelAria = null;
-    }
-    if (
-      field.metadata.labelLeft &&
-      radioValues.includes(field.metadata.labelLeft)
-    ) {
-      field.metadata.labelLeft = null;
-    }
-    if (
-      field.metadata.labelTop &&
-      radioValues.includes(field.metadata.labelTop)
-    ) {
-      field.metadata.labelTop = null;
-    }
+    this.clearLabelsMatchingOptions(field.metadata, radioValues);
 
     return field;
   }
@@ -407,6 +374,28 @@ export class FormDetector {
     return null;
   }
 
+  private clearLabelsMatchingOptions(
+    metadata: FieldMetadata,
+    optionValues: string[],
+  ) {
+    if (!optionValues || optionValues.length === 0) return;
+    const keys: (keyof FieldMetadata)[] = [
+      "labelTag",
+      "labelData",
+      "labelAria",
+      "labelLeft",
+      "labelTop",
+    ];
+
+    for (const key of keys) {
+      const val = metadata[key];
+      if (typeof val === "string" && optionValues.includes(val)) {
+        (metadata as unknown as Record<string, string | null>)[key as string] =
+          null;
+      }
+    }
+  }
+
   private createDetectedField(element: FormFieldElement): DetectedField {
     const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
 
@@ -424,44 +413,13 @@ export class FormDetector {
     // Add options for select elements
     if (element instanceof HTMLSelectElement) {
       const optionValues = Array.from(element.options).map((opt) => opt.value);
-
       field.metadata.options = Array.from(element.options).map((option) => ({
         value: option.value,
         label: option.textContent?.trim() || null,
-        element: option as unknown as HTMLInputElement,
+        element: option,
       }));
 
-      // Check if any field label matches a select option value, if so, clear those labels
-      if (
-        field.metadata.labelTag &&
-        optionValues.includes(field.metadata.labelTag)
-      ) {
-        field.metadata.labelTag = null;
-      }
-      if (
-        field.metadata.labelData &&
-        optionValues.includes(field.metadata.labelData)
-      ) {
-        field.metadata.labelData = null;
-      }
-      if (
-        field.metadata.labelAria &&
-        optionValues.includes(field.metadata.labelAria)
-      ) {
-        field.metadata.labelAria = null;
-      }
-      if (
-        field.metadata.labelLeft &&
-        optionValues.includes(field.metadata.labelLeft)
-      ) {
-        field.metadata.labelLeft = null;
-      }
-      if (
-        field.metadata.labelTop &&
-        optionValues.includes(field.metadata.labelTop)
-      ) {
-        field.metadata.labelTop = null;
-      }
+      this.clearLabelsMatchingOptions(field.metadata, optionValues);
     }
 
     return field;

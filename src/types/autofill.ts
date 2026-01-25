@@ -68,7 +68,7 @@ export interface DetectedFieldSnapshot
 export interface RadioOption {
   value: string;
   label: string | null;
-  element: HTMLInputElement;
+  element: Element;
 }
 
 export interface RadioOptionSnapshot {
