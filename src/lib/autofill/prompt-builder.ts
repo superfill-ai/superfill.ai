@@ -3,12 +3,12 @@ import type {
   DetectedFormSnapshot,
 } from "@/types/autofill";
 
-function escapeForPrompt(value: string): string {
-  return value
+const escapeForPrompt = (value: string) =>
+  value
+    .replace(/\\/g, "\\\\")
     .replace(/"/g, '\\"')
     .replace(/[\r\n]+/g, " ")
     .trim();
-}
 
 export function serializeFieldForAI(field: DetectedFieldSnapshot): string {
   const idx =
