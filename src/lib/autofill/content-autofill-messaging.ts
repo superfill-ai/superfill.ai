@@ -15,6 +15,11 @@ interface ContentAutofillProtocolMap {
   showPreview: (data: PreviewSidebarPayload) => boolean;
   closePreview: () => boolean;
   updateProgress: (progress: AutofillProgress) => boolean;
+  broadcastFillToAllFrames: (data: { fieldsToFill: FieldsToFillData }) => void;
+  frameFormsDetected: (data: {
+    requestId: string;
+    result: DetectFormsResult;
+  }) => void;
 
   startSession: () => FillSession;
   updateSessionStatus: (data: {

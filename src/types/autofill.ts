@@ -50,6 +50,7 @@ export interface DetectedField {
   element: FormFieldElement;
   metadata: FieldMetadata;
   formOpid: FormOpId;
+  highlightIndex: number | null;
 }
 
 export interface FieldMetadataSnapshot
@@ -103,6 +104,10 @@ export interface FieldMetadata {
   fieldType: FieldType;
   fieldPurpose: FieldPurpose;
 
+  isVisible: boolean;
+  isTopElement: boolean;
+  isInteractive: boolean;
+
   /** For radio/checkbox groups: list of available options */
   options?: RadioOption[];
 }
@@ -140,6 +145,7 @@ export type FormFieldElement =
 
 export interface CompressedFieldData {
   opid: string;
+  highlightIndex: number | null;
   type: FieldType;
   purpose: FieldPurpose;
   labels: string[];
@@ -252,4 +258,5 @@ export interface FilterStats {
 export type FieldsToFillData = Array<{
   fieldOpid: FieldOpId;
   value: string;
+  confidence?: number;
 }>;

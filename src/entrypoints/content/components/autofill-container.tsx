@@ -181,7 +181,13 @@ type AutofillContainerProps = {
   progress?: AutofillProgress;
   data?: PreviewRenderData;
   onClose: () => void;
-  onFill: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
+  onFill: (
+    fieldsToFill: {
+      fieldOpid: FieldOpId;
+      value: string;
+      confidence?: number;
+    }[],
+  ) => void;
   onHighlight: (fieldOpid: FieldOpId) => void;
   onUnhighlight: () => void;
   onMemoryAddition: (fieldOpid: FieldOpId, data: MemoryEntry) => Promise<void>;
@@ -238,7 +244,11 @@ export const AutofillContainer = ({
   const handleFill = () => {
     if (!data || !onFill) return;
 
-    const fieldsToFill: { fieldOpid: FieldOpId; value: string }[] = [];
+    const fieldsToFill: {
+      fieldOpid: FieldOpId;
+      value: string;
+      confidence?: number;
+    }[] = [];
 
     for (const form of data.forms) {
       for (const field of form.fields) {
@@ -249,6 +259,7 @@ export const AutofillContainer = ({
             fieldsToFill.push({
               fieldOpid: field.fieldOpid,
               value: valueToFill,
+              confidence: field.mapping.confidence,
             });
           }
         }

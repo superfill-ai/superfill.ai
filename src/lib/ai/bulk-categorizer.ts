@@ -40,7 +40,7 @@ export class BulkCategorizer {
     modelName?: string,
   ): Promise<CategorizedField[]> {
     if (fields.length === 0) {
-      logger.debug("No fields to categorize");
+      logger.info("No fields to categorize");
       return [];
     }
 
@@ -52,9 +52,7 @@ export class BulkCategorizer {
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(fields);
 
-      logger.debug(
-        `Bulk categorizing ${fields.length} fields with ${provider}`,
-      );
+      logger.info(`Bulk categorizing ${fields.length} fields with ${provider}`);
 
       const { object: result } = await generateObject({
         model,
@@ -66,7 +64,7 @@ export class BulkCategorizer {
       const categorized = this.mapResultsToFields(result, fields);
 
       const elapsed = performance.now() - startTime;
-      logger.debug(
+      logger.info(
         `Bulk categorization completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
 

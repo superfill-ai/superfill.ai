@@ -55,7 +55,7 @@ export class FillTriggerManager {
 
     document.addEventListener("focusin", this.boundHandleFocusIn, true);
     document.addEventListener("focusout", this.boundHandleFocusOut, true);
-    logger.debug("FillTriggerManager initialized", {
+    logger.info("FillTriggerManager initialized", {
       enabled: this.isEnabled,
       isMessagingSiteBlocked: this.isMessagingSiteBlocked,
       hasFormCheck: !!this.isPartOfForm,
@@ -73,7 +73,7 @@ export class FillTriggerManager {
       return;
 
     if (this.isPartOfForm && !this.isPartOfForm(target)) {
-      logger.debug("Skipping inline trigger - field not part of a form", {
+      logger.info("Skipping inline trigger - field not part of a form", {
         tag: target.tagName,
         id: target.id,
         name: target.getAttribute("name"),
@@ -221,7 +221,7 @@ export class FillTriggerManager {
       });
 
       await this.button.mount(field);
-      logger.debug("Fill trigger shown for field", {
+      logger.info("Fill trigger shown for field", {
         tag: field.tagName,
         id: field.id,
         name: field.getAttribute("name"),
@@ -247,7 +247,7 @@ export class FillTriggerManager {
     this.button?.remove();
     this.button = null;
     this.currentField = null;
-    logger.debug("Fill trigger hidden");
+    logger.info("Fill trigger hidden");
   }
 
   destroy() {
@@ -255,6 +255,6 @@ export class FillTriggerManager {
     this.unwatchAiSettings();
     document.removeEventListener("focusin", this.boundHandleFocusIn, true);
     document.removeEventListener("focusout", this.boundHandleFocusOut, true);
-    logger.debug("FillTriggerManager destroyed");
+    logger.info("FillTriggerManager destroyed");
   }
 }

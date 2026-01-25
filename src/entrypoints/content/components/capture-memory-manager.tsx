@@ -186,7 +186,7 @@ export class CaptureMemoryManager {
     const siteTitle = document.title;
     const siteDomain = window.location.hostname;
 
-    logger.debug("Showing capture memory", {
+    logger.info("Showing capture memory", {
       fieldsCount: capturedFields.length,
       siteDomain,
     });
@@ -233,7 +233,7 @@ export class CaptureMemoryManager {
   async hide(): Promise<void> {
     if (!this.isVisible) return;
 
-    logger.debug("Hiding capture memory");
+    logger.info("Hiding capture memory");
 
     if (this.ui) {
       this.ui.remove();
@@ -297,7 +297,7 @@ export class CaptureMemoryManager {
   }
 
   private async handleSave(): Promise<void> {
-    logger.debug("Saving captured memories");
+    logger.info("Saving captured memories");
 
     const siteTitle = document.title;
     const siteDomain = window.location.hostname;
@@ -314,13 +314,13 @@ export class CaptureMemoryManager {
       );
 
       if (result.success) {
-        logger.debug(`Saved ${result.savedCount} memories`);
+        logger.info(`Saved ${result.savedCount} memories`);
 
         const totalFields = this.currentFields.length;
         this.savedCount = result.savedCount;
         this.skippedCount = totalFields - this.savedCount;
 
-        logger.debug(
+        logger.info(
           `Saved ${this.savedCount} memories, skipped ${this.skippedCount} duplicates`,
         );
 
@@ -348,12 +348,12 @@ export class CaptureMemoryManager {
   }
 
   private async handleDismiss(): Promise<void> {
-    logger.debug("Dismissing capture memory");
+    logger.info("Dismissing capture memory");
     await this.hide();
   }
 
   private async handleNeverAsk(siteDomain: string): Promise<void> {
-    logger.debug(`Adding ${siteDomain} to never ask list`);
+    logger.info(`Adding ${siteDomain} to never ask list`);
 
     try {
       await addNeverAskSite(siteDomain);

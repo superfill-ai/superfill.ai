@@ -91,7 +91,7 @@ export class DeduplicationCategorizer {
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(newFields, existingMemories);
 
-      logger.debug("Deduplication + Categorization LLM request:", {
+      logger.info("Deduplication + Categorization LLM request:", {
         newFieldsCount: newFields.length,
         existingMemoriesCount: existingMemories.length,
         provider,
@@ -117,7 +117,7 @@ export class DeduplicationCategorizer {
         },
       });
 
-      logger.debug("Deduplication + Categorization result:", {
+      logger.info("Deduplication + Categorization result:", {
         operationsCount: result.operations.length,
         breakdown: {
           create: result.operations.filter((op) => op.action === "create")
@@ -152,7 +152,7 @@ export class DeduplicationCategorizer {
 
       return this.fallbackDeduplication(newFields, existingMemories);
     } finally {
-      logger.debug("Deduplication + Categorization completed");
+      logger.info("Deduplication + Categorization completed");
     }
   }
 
@@ -287,7 +287,7 @@ For each new field (index 0 to ${newFields.length - 1}), determine if it's a cre
     newFields: FieldToProcess[],
     existingMemories: MemoryEntry[],
   ): DeduplicationResult {
-    logger.debug("Using fallback exact-match deduplication");
+    logger.info("Using fallback exact-match deduplication");
 
     const operations: DeduplicationOperation[] = [];
 

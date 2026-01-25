@@ -53,7 +53,7 @@ export class TourManager {
       lastTourCompletedAt: new Date().toISOString(),
     });
 
-    logger.debug("Tour marked as completed:", tourId);
+    logger.info("Tour marked as completed:", tourId);
   }
 
   async updateExtensionVersion(version: string): Promise<void> {

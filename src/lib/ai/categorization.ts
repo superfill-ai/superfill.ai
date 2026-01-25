@@ -293,7 +293,7 @@ Rephrase the following answer based on the provided context.
       "Contextual rephrasing failed, returning original answer:",
       error,
     );
-    // If rephrasing fails for any reason, it's safer to return the original answer.
+
     return originalAnswer;
   }
 };
