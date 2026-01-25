@@ -77,6 +77,7 @@ export function DocumentImportDialog({
 }: DocumentImportDialogProps) {
   const { addEntries } = useMemoryMutations();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const parseRequestIdRef = useRef<number>(0);
   const [status, setStatus] = useState<DocumentParserStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [importItems, setImportItems] = useState<DocumentImportItem[]>([]);
@@ -109,6 +110,7 @@ export function DocumentImportDialog({
     if (!isPdf && !isTxt) {
       setError("Please select a PDF or text file");
       setStatus("error");
+      event.target.value = "";
       return;
     }
 
@@ -117,8 +119,13 @@ export function DocumentImportDialog({
     setError(null);
     setImportItems([]);
 
+    const currentRequestId = ++parseRequestIdRef.current;
+
     try {
       const result = await parseDocument(file);
+
+      // Ignore result if dialog was closed or a new parse started
+      if (parseRequestIdRef.current !== currentRequestId) return;
 
       if (!result.success || !result.items) {
         setStatus("error");
@@ -132,6 +139,9 @@ export function DocumentImportDialog({
 
       logger.debug("Successfully extracted document data:", items.length);
     } catch (err) {
+      // Ignore error if dialog was closed or a new parse started
+      if (parseRequestIdRef.current !== currentRequestId) return;
+
       logger.error("Import error:", err);
       setStatus("error");
       setError(
@@ -209,6 +219,9 @@ export function DocumentImportDialog({
     if (!open) {
       // Always allow closing unless actively saving
       if (isSaving) return;
+
+      // Invalidate any in-flight parse operations
+      parseRequestIdRef.current++;
 
       setStatus("idle");
       setError(null);
@@ -371,25 +384,28 @@ export function DocumentImportDialog({
 
                       <div className="space-y-1 pl-2">
                         {items.map((item) => (
-                          <button
-                            type="button"
+                          <div
                             key={item.id}
-                            onClick={() => handleToggleItem(item.id)}
-                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors w-full text-left"
+                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors w-full"
                           >
                             <Checkbox
+                              id={`item-${item.id}`}
                               checked={item.selected}
+                              onCheckedChange={() => handleToggleItem(item.id)}
                               className="mt-0.5"
                             />
-                            <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={`item-${item.id}`}
+                              className="flex-1 min-w-0 cursor-pointer"
+                            >
                               <p className="text-sm font-medium truncate">
                                 {item.label}
                               </p>
                               <p className="text-xs text-muted-foreground line-clamp-2">
                                 {item.answer}
                               </p>
-                            </div>
-                          </button>
+                            </label>
+                          </div>
                         ))}
                       </div>
                     </div>

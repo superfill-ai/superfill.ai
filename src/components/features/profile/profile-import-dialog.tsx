@@ -71,6 +71,15 @@ const CATEGORY_COLORS: Record<AllowedCategory, string> = {
   general: "bg-amber-500/10 text-amber-600 border-amber-200",
 };
 
+const PROGRESS_BY_STATUS: Record<ProfileScraperStatus, number> = {
+  idle: 0,
+  "opening-tab": 20,
+  scraping: 40,
+  parsing: 70,
+  success: 100,
+  error: 0,
+};
+
 const QUICK_SHORTCUTS = [
   {
     id: "linkedin",
@@ -112,15 +121,6 @@ export function ProfileImportDialog({
   const [urlInput, setUrlInput] = useState("");
 
   const selectedCount = importItems.filter((item) => item.selected).length;
-
-  const PROGRESS_BY_STATUS: Record<ProfileScraperStatus, number> = {
-    idle: 0,
-    "opening-tab": 20,
-    scraping: 40,
-    parsing: 70,
-    success: 100,
-    error: 0,
-  };
   const progress = PROGRESS_BY_STATUS[status];
 
   const handleStartImport = async (url?: string) => {
@@ -421,25 +421,28 @@ export function ProfileImportDialog({
 
                       <div className="space-y-1 pl-2">
                         {items.map((item) => (
-                          <button
-                            type="button"
+                          <div
                             key={item.id}
-                            onClick={() => handleToggleItem(item.id)}
-                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors w-full text-left"
+                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors w-full"
                           >
                             <Checkbox
+                              id={`profile-item-${item.id}`}
                               checked={item.selected}
+                              onCheckedChange={() => handleToggleItem(item.id)}
                               className="mt-0.5"
                             />
-                            <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={`profile-item-${item.id}`}
+                              className="flex-1 min-w-0 cursor-pointer"
+                            >
                               <p className="text-sm font-medium truncate">
                                 {item.label}
                               </p>
                               <p className="text-xs text-muted-foreground line-clamp-2">
                                 {item.answer}
                               </p>
-                            </div>
-                          </button>
+                            </label>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -455,7 +458,7 @@ export function ProfileImportDialog({
             <>
               <Button
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleClose(false)}
                 disabled={isSaving}
               >
                 Cancel
