@@ -170,6 +170,10 @@ export const App = () => {
     handleOpenSettings();
   });
 
+  const handleCreateMemoryFirst = () => {
+    setActiveTab("add-memory");
+  };
+
   const handleAutofill = async () => {
     try {
       if (!selectedProvider) {
@@ -338,7 +342,7 @@ export const App = () => {
           className="h-full flex flex-col gap-0"
         >
           <TabsList className="w-full rounded-none border-b">
-            <TabsTrigger value="autofill" disabled={!hasMemories}>
+            <TabsTrigger value="autofill">
               Autofill <Kbd>a</Kbd>
             </TabsTrigger>
             <TabsTrigger value="add-memory">
@@ -357,20 +361,22 @@ export const App = () => {
               <Button
                 variant="shine"
                 className="w-full flex gap-2"
-                disabled={!hasMemories}
-                onClick={handleAutofill}
+                onClick={hasMemories ? handleAutofill : handleCreateMemoryFirst}
               >
                 <SparklesIcon className="size-4" />
-                Autofill with AI
+                {hasMemories ? "Autofill with AI" : "Create Memory First"}
               </Button>
             </div>
 
             <Card className="gap-2">
               <CardHeader>
-                <CardTitle>Ready to Autofill</CardTitle>
+                <CardTitle>
+                  {hasMemories ? "Ready to Autofill" : "No Memories Yet"}
+                </CardTitle>
                 <CardDescription>
-                  Click the button above to intelligently fill form fields on
-                  this page using your stored memories.
+                  {hasMemories
+                    ? "Click the button above to intelligently fill form fields on this page using your stored memories."
+                    : "Create your first memory entry to start using AI-powered autofill on web forms."}
                 </CardDescription>
               </CardHeader>
               <CardFooter>

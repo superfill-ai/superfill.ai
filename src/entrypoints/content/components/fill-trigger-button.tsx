@@ -226,7 +226,7 @@ export class FillTriggerButton {
       };
       window.addEventListener("keydown", this.onEscapeKey, true);
 
-      logger.debug("Fill trigger mounted");
+      logger.info("Fill trigger mounted");
     } catch (err) {
       logger.error("Mount error:", err);
       this.remove();
@@ -245,14 +245,14 @@ export class FillTriggerButton {
     if (!this.dropdown) return;
     this.isDropdownOpen = true;
     this.dropdown.classList.add("open");
-    logger.debug("Dropdown opened");
+    logger.info("Dropdown opened");
   }
 
   private closeDropdown() {
     if (!this.dropdown) return;
     this.isDropdownOpen = false;
     this.dropdown.classList.remove("open");
-    logger.debug("Dropdown closed");
+    logger.info("Dropdown closed");
   }
 
   private async handleFillClick() {
@@ -261,7 +261,7 @@ export class FillTriggerButton {
 
       this.fillButton.disabled = true;
 
-      logger.debug("Superfill fill button clicked");
+      logger.info("Superfill fill button clicked");
       await this.onFillClick();
       this.remove();
     } catch (error) {
@@ -298,7 +298,7 @@ export class FillTriggerButton {
       this.onClickOutside = null;
       this.onEscapeKey = null;
 
-      logger.debug("Fill trigger removed");
+      logger.info("Fill trigger removed");
     } catch (err) {
       logger.warn("Remove error:", err);
     }

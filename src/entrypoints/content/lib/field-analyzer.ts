@@ -6,8 +6,203 @@ import type {
   FormFieldElement,
 } from "@/types/autofill";
 
+export const DOM_CACHE = {
+  computedStyles: new WeakMap<Element, CSSStyleDeclaration>(),
+  clear: () => {
+    DOM_CACHE.computedStyles = new WeakMap();
+  },
+};
+
+function getCachedComputedStyle(element: Element): CSSStyleDeclaration | null {
+  if (!element) return null;
+  if (DOM_CACHE.computedStyles.has(element)) {
+    return DOM_CACHE.computedStyles.get(element) ?? null;
+  }
+  const style = window.getComputedStyle(element);
+  DOM_CACHE.computedStyles.set(element, style);
+  return style;
+}
+
+const INTERACTIVE_CURSORS = new Set([
+  "pointer",
+  "move",
+  "text",
+  "grab",
+  "grabbing",
+  "cell",
+  "copy",
+  "alias",
+  "all-scroll",
+  "col-resize",
+  "context-menu",
+  "crosshair",
+  "e-resize",
+  "ew-resize",
+  "n-resize",
+  "ne-resize",
+  "nesw-resize",
+  "ns-resize",
+  "nw-resize",
+  "nwse-resize",
+  "row-resize",
+  "s-resize",
+  "se-resize",
+  "sw-resize",
+  "vertical-text",
+  "w-resize",
+  "zoom-in",
+  "zoom-out",
+]);
+
+const INTERACTIVE_ROLES = new Set([
+  "button",
+  "menuitem",
+  "tab",
+  "switch",
+  "slider",
+  "spinbutton",
+  "combobox",
+  "searchbox",
+  "textbox",
+  "listbox",
+  "option",
+  "scrollbar",
+]);
+
+const INTERACTIVE_TAGS = new Set([
+  "a",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "details",
+  "summary",
+  "label",
+  "option",
+  "optgroup",
+  "fieldset",
+  "legend",
+]);
+
 export class FieldAnalyzer {
   private labelCache = new WeakMap<Element, string | null>();
+
+  isElementVisible(element: FormFieldElement): boolean {
+    const style = getCachedComputedStyle(element);
+    if (!style) return false;
+    return (
+      element.offsetWidth > 0 &&
+      element.offsetHeight > 0 &&
+      style.visibility !== "hidden" &&
+      style.display !== "none"
+    );
+  }
+
+  isTopElement(element: FormFieldElement): boolean {
+    const rects = element.getClientRects();
+    if (!rects || rects.length === 0) return false;
+
+    const rect = rects[Math.floor(rects.length / 2)];
+    if (rect.width === 0 || rect.height === 0) return false;
+
+    const isInViewport = !(
+      rect.bottom < 0 ||
+      rect.top > window.innerHeight ||
+      rect.right < 0 ||
+      rect.left > window.innerWidth
+    );
+    if (!isInViewport) return false;
+
+    const shadowRoot = element.getRootNode();
+    if (shadowRoot instanceof ShadowRoot) {
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      try {
+        const topEl = shadowRoot.elementFromPoint(centerX, centerY);
+        if (!topEl) return false;
+        if (topEl === element) return true;
+        let current: Element | null = topEl;
+        while (current) {
+          if (current === element) return true;
+          current = current.parentElement ?? null;
+        }
+        return false;
+      } catch {
+        return true;
+      }
+    }
+
+    const margin = 5;
+    const checkPoints = [
+      { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+      { x: rect.left + margin, y: rect.top + margin },
+      { x: rect.right - margin, y: rect.bottom - margin },
+    ];
+
+    return checkPoints.some(({ x, y }) => {
+      try {
+        const topEl = document.elementFromPoint(x, y);
+        if (!topEl) return false;
+        let current: Element | null = topEl;
+        while (current && current !== document.documentElement) {
+          if (current === element) return true;
+          current = current.parentElement;
+        }
+        return false;
+      } catch {
+        return true;
+      }
+    });
+  }
+
+  isInteractiveElement(element: FormFieldElement): boolean {
+    if (!element || element.nodeType !== Node.ELEMENT_NODE) return false;
+
+    const tagName = element.tagName.toLowerCase();
+    const style = getCachedComputedStyle(element);
+
+    if (style?.cursor && INTERACTIVE_CURSORS.has(style.cursor)) {
+      return true;
+    }
+
+    if (INTERACTIVE_TAGS.has(tagName)) {
+      if (
+        element.hasAttribute("disabled") ||
+        element.hasAttribute("readonly") ||
+        (element as HTMLInputElement).disabled ||
+        (element as HTMLInputElement).readOnly
+      ) {
+        return false;
+      }
+      return true;
+    }
+
+    const role = element.getAttribute("role");
+    if (role && INTERACTIVE_ROLES.has(role)) return true;
+
+    if (
+      element.getAttribute("contenteditable") === "true" ||
+      (element as HTMLElement).isContentEditable
+    ) {
+      return true;
+    }
+
+    if (
+      element.hasAttribute("onclick") ||
+      typeof (element as HTMLElement).onclick === "function"
+    ) {
+      return true;
+    }
+
+    if (
+      element.hasAttribute("tabindex") &&
+      element.getAttribute("tabindex") !== "-1"
+    ) {
+      return true;
+    }
+
+    return false;
+  }
 
   analyzeField(field: DetectedField): FieldMetadata {
     const element = field.element;
@@ -16,12 +211,19 @@ export class FieldAnalyzer {
     const labels = this.extractLabels(element);
     const fieldType = this.classifyFieldType(element);
 
+    const isVisible = this.isElementVisible(element);
+    const isTopEl = isVisible ? this.isTopElement(element) : false;
+    const isInteractive = this.isInteractiveElement(element);
+
     const metadata: Omit<FieldMetadata, "fieldPurpose"> = {
       ...basicAttrs,
       ...labels,
       fieldType,
       rect: element.getBoundingClientRect(),
       currentValue: this.getCurrentValue(element),
+      isVisible,
+      isTopElement: isTopEl,
+      isInteractive,
     };
 
     return {
@@ -268,9 +470,6 @@ export class FieldAnalyzer {
       return element.value || "";
     }
     if (element instanceof HTMLInputElement) {
-      if (element.type === "checkbox" || element.type === "radio") {
-        return element.checked ? element.value || "on" : "";
-      }
       return element.value || "";
     }
     if (element instanceof HTMLTextAreaElement) {
@@ -298,8 +497,6 @@ export class FieldAnalyzer {
         password: "password",
         number: "number",
         date: "date",
-        checkbox: "checkbox",
-        radio: "radio",
       };
 
       return typeMap[type] || "text";

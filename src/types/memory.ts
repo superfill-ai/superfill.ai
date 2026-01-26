@@ -33,7 +33,7 @@ const memoryEntrySchema = z.object({
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
 
 const filledFieldSchema = z.object({
-  selector: z.string(),
+  selector: z.string().optional(),
   label: z.string(),
   filledValue: z.string(),
   fieldType: z.string(),

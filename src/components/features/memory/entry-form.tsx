@@ -15,6 +15,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
@@ -27,6 +34,7 @@ import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import type { FieldMetadataSnapshot } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("component:entry-form");
@@ -35,6 +43,7 @@ interface EntryFormProps {
   mode: "create" | "edit";
   layout?: "compact" | "normal" | "preview";
   initialData?: Partial<MemoryEntry>;
+  fieldMetadata?: FieldMetadataSnapshot;
   onSuccess?: (data: MemoryEntry) => void;
   onCancel?: () => void;
 }
@@ -48,8 +57,8 @@ const entryFormSchema = z.object({
 
 export function EntryForm({
   mode,
-  initialData,
   layout = "normal",
+  initialData,
   onSuccess,
   onCancel,
 }: EntryFormProps) {
@@ -360,9 +369,17 @@ export function EntryForm({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   aria-invalid={isInvalid}
+                  aria-describedby={
+                    isInvalid ? `${field.name}-error` : undefined
+                  }
                   placeholder="Your information (e.g., email, phone, address)"
                 />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id={`${field.name}-error`}
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             );
           }}
@@ -442,24 +459,36 @@ export function EntryForm({
                     aria-invalid={isInvalid}
                   />
                 ) : (
-                  <select
-                    id={field.name}
-                    name={field.name}
+                  <Select
                     value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="w-full rounded-md text-muted-foreground px-3 py-2 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                    onValueChange={field.handleChange}
                   >
-                    <option value="" disabled>
-                      Select a category
-                    </option>
-                    {categoryOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id={field.name}
+                      onBlur={field.handleBlur}
+                      aria-invalid={isInvalid}
+                      aria-describedby={
+                        isInvalid ? `${field.name}-error` : undefined
+                      }
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoryOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id={`${field.name}-error`}
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             );
           }}

@@ -4,6 +4,8 @@ import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
+import { handleFill as fillFields } from "@/entrypoints/content/lib/fill-handler";
+import { getFrameInfo } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
@@ -24,7 +26,7 @@ const logger = createLogger("autopilot-manager");
 const HOST_ID = "superfill-autopilot-ui";
 
 export interface AutopilotFillData {
-  fieldOpid: string;
+  fieldOpid: FieldOpId;
   value: string;
   confidence: number;
 }
@@ -95,7 +97,7 @@ export class AutopilotManager {
         },
       });
 
-      logger.debug("Autopilot manager initialized");
+      logger.info("Autopilot manager initialized");
     } catch (error) {
       logger.error("Failed to initialize autopilot manager:", error);
       throw error;
@@ -150,7 +152,7 @@ export class AutopilotManager {
         this.reactRoot.render(this.renderAutopilotLoader());
       }
 
-      logger.debug("Showing autopilot progress:", progress.state);
+      logger.info("Showing autopilot progress:", progress.state);
     } catch (error) {
       logger.error("Failed to show autopilot progress:", error);
     }
@@ -186,7 +188,7 @@ export class AutopilotManager {
           mapping.autoFill !== false
         ) {
           fieldsToFill.push({
-            fieldOpid: mapping.fieldOpid,
+            fieldOpid: mapping.fieldOpid as FieldOpId,
             value: valueToFill,
             confidence: mapping.confidence,
           });
@@ -194,7 +196,7 @@ export class AutopilotManager {
       }
       this.fieldsToFill = fieldsToFill;
 
-      logger.debug(
+      logger.info(
         `Prepared ${this.fieldsToFill.length} fields for autopilot fill`,
       );
 
@@ -233,61 +235,23 @@ export class AutopilotManager {
         status: "filling",
       });
 
-      let filledCount = 0;
-
-      for (const field of this.fieldsToFill) {
-        try {
-          let element = document.querySelector(
-            `[data-superfill-opid="${field.fieldOpid}"]`,
-          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-
-          if (!element && field.fieldOpid.startsWith("__")) {
-            logger.warn(
-              `Falling back to index-based lookup for ${field.fieldOpid}`,
-            );
-            const index = field.fieldOpid.substring(2);
-            const allInputs = document.querySelectorAll(
-              "input, textarea, select",
-            );
-            element = allInputs[parseInt(index, 10)] as
-              | HTMLInputElement
-              | HTMLTextAreaElement
-              | HTMLSelectElement;
-          }
-
-          if (element && element.type !== "password") {
-            element.value = field.value;
-            element.setAttribute("data-superfill-filled", "true");
-            element.setAttribute("data-superfill-original", field.value);
-
-            element.dispatchEvent(new Event("input", { bubbles: true }));
-            element.dispatchEvent(new Event("change", { bubbles: true }));
-            element.dispatchEvent(new Event("blur", { bubbles: true }));
-
-            filledCount++;
-            logger.debug(
-              `Filled field ${field.fieldOpid} with value: ${field.value}`,
-            );
-          } else {
-            logger.warn(
-              `Field element not found or is password field for opid: ${field.fieldOpid}`,
-            );
-          }
-        } catch (fieldError) {
-          logger.error(`Failed to fill field ${field.fieldOpid}:`, fieldError);
-        }
-      }
-
       try {
-        await browser.runtime.sendMessage({
-          type: "FILL_ALL_FRAMES",
-          fieldsToFill: this.fieldsToFill.map((f) => ({
-            fieldOpid: f.fieldOpid,
-            value: f.value,
-          })),
-        });
+        const frameInfo = getFrameInfo();
+
+        if (frameInfo.isMainFrame) {
+          await contentAutofillMessaging.sendMessage(
+            "broadcastFillToAllFrames",
+            {
+              fieldsToFill: this.fieldsToFill,
+            },
+          );
+        } else {
+          await fillFields(this.fieldsToFill, frameInfo, {
+            getCachedField: this.options.getFieldMetadata,
+          });
+        }
       } catch (error) {
-        logger.error("Failed to send fill request to background:", error);
+        logger.error("Failed to fill fields:", error);
         await this.showProgress({
           state: "failed",
           message: "Auto-fill failed",
@@ -300,22 +264,22 @@ export class AutopilotManager {
         state: "completed",
         message: "Auto-fill completed successfully",
         fieldsDetected: this.fieldsToFill.length,
-        fieldsMatched: filledCount,
+        fieldsMatched: this.fieldsToFill.length,
       });
       await contentAutofillMessaging.sendMessage("updateSessionStatus", {
         sessionId: this.sessionId ?? "",
         status: "completed",
       });
 
-      logger.debug(
-        `Autopilot completed: filled ${filledCount}/${this.fieldsToFill.length} fields`,
+      logger.info(
+        `Autopilot completed: filled ${this.fieldsToFill.length} fields`,
       );
 
       if (this.sessionId) {
         await this.completeSession();
       }
 
-      return filledCount > 0;
+      return this.fieldsToFill.length > 0;
     } catch (error) {
       logger.error("Failed to execute autopilot autofill:", error);
 
@@ -340,7 +304,7 @@ export class AutopilotManager {
         sessionId: this.sessionId,
       });
 
-      logger.debug(`Session ${this.sessionId} completed successfully`);
+      logger.info(`Session ${this.sessionId} completed successfully`);
     } catch (error) {
       logger.error("Failed to complete autopilot session:", error);
     }
@@ -358,7 +322,7 @@ export class AutopilotManager {
     this.fieldsToFill = [];
     this.sessionId = null;
 
-    logger.debug("Autopilot manager hidden");
+    logger.info("Autopilot manager hidden");
   }
 
   isActive(): boolean {
@@ -398,7 +362,7 @@ export class AutopilotManager {
           if (!mapping) continue;
 
           const filledField: FilledField = {
-            selector: `[data-superfill-opid="${field.opid}"]`,
+            selector: "",
             label: getPrimaryLabel(field.metadata),
             filledValue: mapping.value || "",
             fieldType: field.metadata.fieldType,

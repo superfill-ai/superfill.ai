@@ -2,12 +2,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EntryForm } from "@/components/features/memory/entry-form";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -186,7 +180,13 @@ type AutofillContainerProps = {
   progress?: AutofillProgress;
   data?: PreviewRenderData;
   onClose: () => void;
-  onFill: (fieldsToFill: { fieldOpid: FieldOpId; value: string }[]) => void;
+  onFill: (
+    fieldsToFill: {
+      fieldOpid: FieldOpId;
+      value: string;
+      confidence?: number;
+    }[],
+  ) => void;
   onHighlight: (fieldOpid: FieldOpId) => void;
   onUnhighlight: () => void;
   onMemoryAddition: (fieldOpid: FieldOpId, data: MemoryEntry) => Promise<void>;
@@ -243,7 +243,11 @@ export const AutofillContainer = ({
   const handleFill = () => {
     if (!data || !onFill) return;
 
-    const fieldsToFill: { fieldOpid: FieldOpId; value: string }[] = [];
+    const fieldsToFill: {
+      fieldOpid: FieldOpId;
+      value: string;
+      confidence?: number;
+    }[] = [];
 
     for (const form of data.forms) {
       for (const field of form.fields) {
@@ -254,6 +258,7 @@ export const AutofillContainer = ({
             fieldsToFill.push({
               fieldOpid: field.fieldOpid,
               value: valueToFill,
+              confidence: field.mapping.confidence,
             });
           }
         }
@@ -332,45 +337,24 @@ export const AutofillContainer = ({
               </div>
             ) : currentMode === "preview" && data ? (
               <ScrollArea className="flex-1 min-h-0">
-                <Accordion
-                  type="multiple"
-                  defaultValue={data.forms.map(
+                <div className="space-y-3 py-2">
+                  {data.forms.flatMap(
                     (form: PreviewRenderData["forms"][number]) =>
-                      form.snapshot.opid,
+                      form.fields.map((field: PreviewFieldData) => (
+                        <FieldRow
+                          key={field.fieldOpid}
+                          field={field}
+                          selected={selection.has(field.fieldOpid)}
+                          onToggle={(next) =>
+                            handleToggle(field.fieldOpid, next)
+                          }
+                          onHighlight={() => onHighlight?.(field.fieldOpid)}
+                          onUnhighlight={() => onUnhighlight?.()}
+                          onMemoryAddition={onMemoryAddition}
+                        />
+                      )),
                   )}
-                >
-                  {data.forms.map(
-                    (form: PreviewRenderData["forms"][number]) => (
-                      <AccordionItem
-                        value={form.snapshot.opid}
-                        key={form.snapshot.opid}
-                      >
-                        <AccordionTrigger className="text-left text-sm font-semibold">
-                          {form.snapshot.name || "Unnamed form"}
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="space-y-3 py-2">
-                            {form.fields.map((field: PreviewFieldData) => (
-                              <FieldRow
-                                key={field.fieldOpid}
-                                field={field}
-                                selected={selection.has(field.fieldOpid)}
-                                onToggle={(next) =>
-                                  handleToggle(field.fieldOpid, next)
-                                }
-                                onHighlight={() =>
-                                  onHighlight?.(field.fieldOpid)
-                                }
-                                onUnhighlight={() => onUnhighlight?.()}
-                                onMemoryAddition={onMemoryAddition}
-                              />
-                            ))}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ),
-                  )}
-                </Accordion>
+                </div>
               </ScrollArea>
             ) : null}
           </CardContent>

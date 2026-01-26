@@ -43,6 +43,13 @@ export const MESSAGING_SITE_BLOCKLIST_DOMAINS = [
   // Social Media Messaging
   "reddit.com",
 
+  // Project Management & Collaboration (often have chat/comments)
+  "linear.app",
+  "notion.so",
+  "clickup.com",
+  "asana.com",
+  "monday.com",
+
   // Other Chat Platforms
   "chat.google.com",
   "hangouts.google.com",
@@ -78,4 +85,27 @@ export function isMessagingSite(hostname: string, pathname: string): boolean {
       lowerHostname.includes(entry.domain) &&
       lowerPathname.startsWith(entry.path),
   );
+}
+
+export function isElementPartOfForm(element: HTMLElement): boolean {
+  const countInputs = (root: ParentNode): number => {
+    const inputs = root.querySelectorAll(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]):not([type="image"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable]:not([contenteditable="false"])',
+    );
+    return inputs.length;
+  };
+
+  if (countInputs(document) < 2) return false;
+
+  const formParent = element.closest('form, [role="form"], [data-form], .form');
+  if (formParent) {
+    return countInputs(formParent) >= 2;
+  }
+
+  const container = element.closest("div, section, main, aside");
+  if (container) {
+    return countInputs(container) >= 2;
+  }
+
+  return false;
 }

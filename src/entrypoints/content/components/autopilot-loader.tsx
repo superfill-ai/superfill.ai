@@ -32,7 +32,7 @@ export const AutopilotLoader = ({
 }: AutopilotLoaderProps) => {
   const [isVisible, setIsVisible] = useState(true);
 
-  logger.debug("Rendering AutopilotLoader with progress:", progress);
+  logger.info("Rendering AutopilotLoader with progress:", progress);
 
   useEffect(() => {
     if (progress.state === "completed" || progress.state === "failed") {
