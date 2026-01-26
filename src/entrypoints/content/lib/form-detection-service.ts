@@ -23,6 +23,18 @@ import type { FieldAnalyzer } from "./field-analyzer";
 import { DOM_CACHE } from "./field-analyzer";
 
 const logger = createLogger("form-detection-service");
+const ignoredTypes = new Set([
+  "hidden",
+  "submit",
+  "reset",
+  "button",
+  "image",
+  "file",
+  "radio",
+  "checkbox",
+  "color",
+  "range",
+]);
 
 export class FormDetectionService {
   private fieldOpidCounter = 0;
@@ -31,17 +43,7 @@ export class FormDetectionService {
   private fieldCache = new Map<FieldOpId, DetectedField>();
   private formCache = new Map<FormOpId, DetectedForm>();
   private detectedElements = new Set<FormFieldElement>();
-  private detectedRadioGroups = new Set<string>();
   private shadowRootFields: DetectedField[] = [];
-
-  private ignoredTypes = new Set([
-    "hidden",
-    "submit",
-    "reset",
-    "button",
-    "image",
-    "file",
-  ]);
 
   constructor(
     private analyzer: FieldAnalyzer,
@@ -79,7 +81,6 @@ export class FormDetectionService {
     try {
       DOM_CACHE.clear();
       this.detectedElements.clear();
-      this.detectedRadioGroups.clear();
       this.shadowRootFields = [];
       this.globalHighlightIndex = 0;
 
@@ -277,7 +278,6 @@ export class FormDetectionService {
 
   private findFieldsInForm(form: HTMLFormElement): DetectedField[] {
     const fields: DetectedField[] = [];
-    const radioGroups = new Map<string, HTMLInputElement[]>();
 
     for (const element of Array.from(form.elements)) {
       const fieldElement = element as FormFieldElement;
@@ -289,29 +289,7 @@ export class FormDetectionService {
         continue;
       }
 
-      if (
-        fieldElement instanceof HTMLInputElement &&
-        fieldElement.type === "radio"
-      ) {
-        const name = fieldElement.name;
-        if (name) {
-          const group = radioGroups.get(name) ?? [];
-          group.push(fieldElement);
-          radioGroups.set(name, group);
-        }
-        continue;
-      }
-
       fields.push(this.createDetectedField(fieldElement));
-    }
-
-    for (const [groupName, radios] of radioGroups) {
-      const groupKey = `${form.name || form.id || "form"}_${groupName}`;
-      if (this.detectedRadioGroups.has(groupKey)) continue;
-      this.detectedRadioGroups.add(groupKey);
-
-      const field = this.createRadioGroupField(radios);
-      if (field) fields.push(field);
     }
 
     return fields;
@@ -321,7 +299,6 @@ export class FormDetectionService {
     existingForms: HTMLFormElement[],
   ): DetectedField[] {
     const fields: DetectedField[] = [];
-    const radioGroups = new Map<string, HTMLInputElement[]>();
     const walker = this.createTreeWalker(document.documentElement, (node) =>
       this.isFieldElement(node),
     );
@@ -332,29 +309,11 @@ export class FormDetectionService {
 
       if (!element.form && !this.isInsideForm(element, existingForms)) {
         if (this.isValidField(element) && !this.detectedElements.has(element)) {
-          if (element instanceof HTMLInputElement && element.type === "radio") {
-            const name = element.name;
-            if (name) {
-              const group = radioGroups.get(name) ?? [];
-              group.push(element);
-              radioGroups.set(name, group);
-            }
-          } else {
-            fields.push(this.createDetectedField(element));
-          }
+          fields.push(this.createDetectedField(element));
         }
       }
 
       node = walker.nextNode();
-    }
-
-    for (const [groupName, radios] of radioGroups) {
-      const groupKey = `standalone_${groupName}`;
-      if (this.detectedRadioGroups.has(groupKey)) continue;
-      this.detectedRadioGroups.add(groupKey);
-
-      const field = this.createRadioGroupField(radios);
-      if (field) fields.push(field);
     }
 
     return fields;
@@ -377,56 +336,6 @@ export class FormDetectionService {
     return field;
   }
 
-  private createRadioGroupField(
-    radios: HTMLInputElement[],
-  ): DetectedField | null {
-    if (radios.length === 0) return null;
-
-    const primaryRadio = radios[0];
-    const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
-
-    for (const radio of radios) {
-      this.detectedElements.add(radio);
-    }
-
-    const field: DetectedField = {
-      opid,
-      element: primaryRadio,
-      metadata: {} as FieldMetadata,
-      formOpid: "" as FormOpId,
-      highlightIndex: null,
-    };
-
-    field.metadata = this.analyzer.analyzeField(field);
-    field.metadata.options = radios.map((radio) => ({
-      value: radio.value,
-      label: this.getRadioLabel(radio),
-      element: radio,
-    }));
-
-    return field;
-  }
-
-  private getRadioLabel(radio: HTMLInputElement): string | null {
-    if (radio.id) {
-      const label = document.querySelector<HTMLLabelElement>(
-        `label[for="${radio.id}"]`,
-      );
-      if (label) return label.textContent?.trim() || null;
-    }
-
-    const parentLabel = radio.closest("label");
-    if (parentLabel) {
-      const clone = parentLabel.cloneNode(true) as HTMLLabelElement;
-      const inputs = clone.querySelectorAll("input");
-      for (const input of Array.from(inputs)) input.remove();
-      const text = clone.textContent?.trim();
-      if (text) return text;
-    }
-
-    return radio.value || null;
-  }
-
   private createTreeWalker(
     root: Node,
     acceptNode: (node: Node) => boolean,
@@ -445,7 +354,6 @@ export class FormDetectionService {
   }
 
   private traverseShadowRoot(shadowRoot: ShadowRoot): void {
-    const radioGroups = new Map<string, HTMLInputElement[]>();
     const walker = document.createTreeWalker(
       shadowRoot,
       NodeFilter.SHOW_ELEMENT,
@@ -467,28 +375,10 @@ export class FormDetectionService {
       const element = node as FormFieldElement;
 
       if (this.isValidField(element) && !this.detectedElements.has(element)) {
-        if (element instanceof HTMLInputElement && element.type === "radio") {
-          const name = element.name;
-          if (name) {
-            const group = radioGroups.get(name) ?? [];
-            group.push(element);
-            radioGroups.set(name, group);
-          }
-        } else {
-          this.shadowRootFields.push(this.createDetectedField(element));
-        }
+        this.shadowRootFields.push(this.createDetectedField(element));
       }
 
       node = walker.nextNode();
-    }
-
-    for (const [groupName, radios] of radioGroups) {
-      const groupKey = `shadow_${groupName}`;
-      if (this.detectedRadioGroups.has(groupKey)) continue;
-      this.detectedRadioGroups.add(groupKey);
-
-      const field = this.createRadioGroupField(radios);
-      if (field) this.shadowRootFields.push(field);
     }
   }
 
@@ -503,7 +393,7 @@ export class FormDetectionService {
     }
 
     if (element instanceof HTMLInputElement) {
-      if (this.ignoredTypes.has(element.type)) return false;
+      if (ignoredTypes.has(element.type)) return false;
     }
 
     return true;
