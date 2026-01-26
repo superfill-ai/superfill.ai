@@ -245,7 +245,7 @@ export class AIMatcher {
     - Field: "Short Bio" on a 'social' network.
     - 'value': "Software engineer, 5 years with React & Node.js."
     
-    *Example 4: Splitting Name Data*
+    *Example 3: Splitting Name Data*
     - Original Answer: "John Fitzgerald Doe"
     - Field Context: Field Purpose is 'name.first', Field Label is 'First Name'
     - 'value': "John"
