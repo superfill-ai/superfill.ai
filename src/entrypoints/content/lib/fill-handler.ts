@@ -278,16 +278,7 @@ export const handleFill = async (
     if (element instanceof HTMLInputElement) {
       element.focus({ preventScroll: true });
 
-      if (element.type === "checkbox") {
-        const normalizedCheckboxValue = value.trim().toLowerCase();
-
-        element.checked =
-          normalizedCheckboxValue === "true" ||
-          normalizedCheckboxValue === "on" ||
-          normalizedCheckboxValue === "1";
-        element.dispatchEvent(new Event("input", { bubbles: true }));
-        element.dispatchEvent(new Event("change", { bubbles: true }));
-      } else if (element.getAttribute("role") === "combobox") {
+      if (element.getAttribute("role") === "combobox") {
         await fillReactSelect(element, value);
       } else {
         const success = await fillWithHumanTyping(element, value);

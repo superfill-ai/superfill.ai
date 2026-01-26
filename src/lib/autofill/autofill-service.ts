@@ -430,9 +430,7 @@ class AutofillService {
 
     const context = contextParts.filter(Boolean).join(" ");
 
-    const includeOptions = ["select", "checkbox"].includes(
-      field.metadata.fieldType,
-    );
+    const includeOptions = field.metadata.fieldType === "select";
 
     return {
       opid: field.opid,

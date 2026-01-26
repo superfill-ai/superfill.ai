@@ -57,8 +57,6 @@ const INTERACTIVE_CURSORS = new Set([
 const INTERACTIVE_ROLES = new Set([
   "button",
   "menuitem",
-  "menuitemcheckbox",
-  "checkbox",
   "tab",
   "switch",
   "slider",
@@ -472,9 +470,6 @@ export class FieldAnalyzer {
       return element.value || "";
     }
     if (element instanceof HTMLInputElement) {
-      if (element.type === "checkbox") {
-        return element.checked ? element.value || "on" : "";
-      }
       return element.value || "";
     }
     if (element instanceof HTMLTextAreaElement) {
@@ -502,7 +497,6 @@ export class FieldAnalyzer {
         password: "password",
         number: "number",
         date: "date",
-        checkbox: "checkbox",
       };
 
       return typeMap[type] || "text";

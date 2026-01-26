@@ -56,7 +56,7 @@ export interface DetectedField {
 export interface FieldMetadataSnapshot
   extends Omit<FieldMetadata, "rect" | "options"> {
   rect: DOMRectInit;
-  options?: CheckboxOptionSnapshot[];
+  options?: SelectOptionSnapshot[];
 }
 
 export interface DetectedFieldSnapshot
@@ -65,13 +65,13 @@ export interface DetectedFieldSnapshot
   metadata: FieldMetadataSnapshot;
 }
 
-export interface CheckboxOption {
+export interface SelectOption {
   value: string;
   label: string | null;
-  element: HTMLInputElement;
+  element: HTMLOptionElement;
 }
 
-export interface CheckboxOptionSnapshot {
+export interface SelectOptionSnapshot {
   value: string;
   label: string | null;
 }
@@ -108,8 +108,8 @@ export interface FieldMetadata {
   isTopElement: boolean;
   isInteractive: boolean;
 
-  /** For checkbox groups: list of available options */
-  options?: CheckboxOption[];
+  /** For select fields: list of available options */
+  options?: SelectOption[];
 }
 
 export type FieldType =
@@ -149,7 +149,7 @@ export interface CompressedFieldData {
   purpose: FieldPurpose;
   labels: string[];
   context: string;
-  options?: CheckboxOptionSnapshot[];
+  options?: SelectOptionSnapshot[];
 }
 
 export interface CompressedMemoryData {
