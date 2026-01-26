@@ -278,49 +278,7 @@ export const handleFill = async (
     if (element instanceof HTMLInputElement) {
       element.focus({ preventScroll: true });
 
-      if (element.type === "radio") {
-        const radioName = element.name;
-        if (radioName) {
-          const form = element.form;
-          if (!form) {
-            logger.info(`Radio button ${radioName} has no form, skipping`);
-            continue;
-          }
-
-          const radios = form.querySelectorAll<HTMLInputElement>(
-            `input[type="radio"][name="${CSS.escape(radioName)}"]`,
-          );
-
-          let matched = false;
-          const normalizedValue = value.toLowerCase().trim();
-
-          for (const radio of radios) {
-            const radioValue = radio.value.toLowerCase().trim();
-            const radioLabel =
-              radio.labels?.[0]?.textContent?.toLowerCase().trim() || "";
-
-            if (
-              radioValue === normalizedValue ||
-              radioLabel === normalizedValue
-            ) {
-              radio.checked = true;
-              radio.dispatchEvent(new Event("input", { bubbles: true }));
-              radio.dispatchEvent(new Event("change", { bubbles: true }));
-              matched = true;
-              logger.info(
-                `Radio group ${radioName}: selected value "${radio.value}"`,
-              );
-              break;
-            }
-          }
-
-          if (!matched) {
-            logger.warn(
-              `Radio group ${radioName}: no option matched value "${value}"`,
-            );
-          }
-        }
-      } else if (element.type === "checkbox") {
+      if (element.type === "checkbox") {
         const normalizedCheckboxValue = value.trim().toLowerCase();
 
         element.checked =

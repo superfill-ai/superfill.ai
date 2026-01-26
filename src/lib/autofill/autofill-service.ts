@@ -430,7 +430,7 @@ class AutofillService {
 
     const context = contextParts.filter(Boolean).join(" ");
 
-    const includeOptions = ["select", "radio", "checkbox"].includes(
+    const includeOptions = ["select", "checkbox"].includes(
       field.metadata.fieldType,
     );
 

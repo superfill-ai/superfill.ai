@@ -59,7 +59,6 @@ export function EntryForm({
   mode,
   layout = "normal",
   initialData,
-  fieldMetadata,
   onSuccess,
   onCancel,
 }: EntryFormProps) {
@@ -357,56 +356,24 @@ export function EntryForm({
             const isInvalid =
               field.state.meta.isTouched && !field.state.meta.isValid;
 
-            const isRadioWithOptions =
-              isPreviewMode &&
-              fieldMetadata?.fieldType === "radio" &&
-              fieldMetadata?.options &&
-              fieldMetadata.options.length > 0;
-
             return (
               <Field
                 data-invalid={isInvalid}
                 className={layout === "compact" ? "gap-1" : ""}
               >
                 <FieldLabel htmlFor={field.name}>Answer *</FieldLabel>
-                {isRadioWithOptions ? (
-                  <Select
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                  >
-                    <SelectTrigger
-                      id={field.name}
-                      onBlur={field.handleBlur}
-                      aria-invalid={isInvalid}
-                      aria-describedby={
-                        isInvalid ? `${field.name}-error` : undefined
-                      }
-                      className="w-full"
-                    >
-                      <SelectValue placeholder="-- Choose an option --" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fieldMetadata.options?.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label || option.value}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Textarea
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    aria-invalid={isInvalid}
-                    aria-describedby={
-                      isInvalid ? `${field.name}-error` : undefined
-                    }
-                    placeholder="Your information (e.g., email, phone, address)"
-                  />
-                )}
+                <Textarea
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={isInvalid}
+                  aria-describedby={
+                    isInvalid ? `${field.name}-error` : undefined
+                  }
+                  placeholder="Your information (e.g., email, phone, address)"
+                />
                 {isInvalid && (
                   <FieldError
                     id={`${field.name}-error`}
