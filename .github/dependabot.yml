@@ -8,7 +8,7 @@ updates:
   - package-ecosystem: "bun"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Etc/UTC"
@@ -88,7 +88,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "quarterly"
       day: "monday"
       time: "10:00"
       timezone: "Etc/UTC"
