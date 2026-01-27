@@ -1,6 +1,7 @@
 import { CircleHelp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { LoginDialog } from "@/components/features/auth/login-dialog";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
@@ -32,23 +33,46 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { APP_NAME } from "@/constants";
+import { useAuth } from "@/hooks/use-auth";
 import { useMemories } from "@/hooks/use-memories";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSync } from "@/hooks/use-sync";
+import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import { getCurrentAppTour } from "@/lib/tours/tour-definitions";
 import { tourManager } from "@/lib/tours/tour-manager";
 import { getUpdateForVersion } from "@/lib/tours/version-updates";
 
+const logger = createLogger("options:App");
+
 export const App = () => {
   const isMobile = useIsMobile();
-  const { entries } = useMemories();
+  const { isAuthenticated, loading, signOut, checkAuthStatus } = useAuth();
+  const { syncing, canSync, timeUntilNextSync, syncStatus, performSync } =
+    useSync();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const { entries } = useMemories();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWelcomeTour, setShowWelcomeTour] = useState(false);
   const [showUpdateTour, setShowUpdateTour] = useState(false);
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateChanges, setUpdateChanges] = useState<string[]>([]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: not needed
+  useEffect(() => {
+    checkAuthStatus().catch(logger.error);
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      logger.debug("Signed out successfully");
+    } catch (error) {
+      logger.error("Sign-out failed", error);
+    }
+  };
 
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -146,6 +170,34 @@ export const App = () => {
     setEditingEntryId(null);
   };
 
+  const handleSync = async () => {
+    if (!isAuthenticated) {
+      setLoginDialogOpen(true);
+      return;
+    }
+
+    const result = await performSync();
+    if (result) {
+      logger.debug("Manual sync completed", result);
+    }
+  };
+
+  const formatTimeRemaining = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const getSyncButtonText = () => {
+    if (syncing) return "Syncing...";
+    if (!canSync && timeUntilNextSync > 0) {
+      return `Wait ${formatTimeRemaining(timeUntilNextSync)} for next sync`;
+    }
+    if (syncStatus === "synced") return "Sync";
+    if (syncStatus === "error") return "Retry Sync";
+    return "Sync";
+  };
+
   const handleExploreApp = () => {
     setShowWelcomeTour(false);
   };
@@ -213,6 +265,30 @@ export const App = () => {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          {!isAuthenticated ? (
+            <Button
+              onClick={() => setLoginDialogOpen(true)}
+              disabled={loading}
+              variant="outline"
+              size="sm"
+            >
+              {loading ? "Loading auth..." : "Sign in"}
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={handleSync}
+                variant={syncStatus === "error" ? "destructive" : "outline"}
+                size="sm"
+                disabled={syncing || !canSync}
+              >
+                {getSyncButtonText()}
+              </Button>
+              <Button onClick={handleSignOut} variant="ghost" size="sm">
+                Sign out
+              </Button>
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -229,6 +305,8 @@ export const App = () => {
           <ThemeToggle />
         </div>
       </header>
+
+      <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
 
       <main className="flex-1 overflow-hidden">
         <Tabs

@@ -1,8 +1,8 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getAIModel } from "@/lib/ai/model-factory";
 import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
+import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 
 const logger = createLogger("bulk-categorizer");

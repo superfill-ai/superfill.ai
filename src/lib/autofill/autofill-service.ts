@@ -357,8 +357,17 @@ class AutofillService {
     const compressedFields = fields.map((f) => this.compressField(f));
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
+    const settings = this.currentAiSettings;
+
+    if (!settings) {
+      throw new Error("AI settings not loaded");
+    }
+
+    const useCloudMode = settings.cloudModelsEnabled;
+
     try {
       const settings = this.currentAiSettings;
+
       if (!settings) {
         throw new Error("AI settings not loaded");
       }
@@ -393,9 +402,10 @@ class AutofillService {
         compressedFields,
         compressedMemories,
         websiteContext,
-        provider,
+        useCloudMode,
+        settings.selectedProvider,
         apiKey,
-        selectedModel,
+        settings.selectedModels?.[settings.selectedProvider || "openai"],
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);
