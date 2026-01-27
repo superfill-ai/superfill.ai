@@ -26,14 +26,7 @@ export default defineConfig({
       name: APP_NAME,
       version: "0.2.2",
       description: "AI-powered form filling browser extension",
-      permissions: [
-        "activeTab",
-        "storage",
-        "offscreen",
-        "contextMenus",
-        // TODO: Enable webRequest-based form submission detection with proper scoping
-        // "webRequest",
-      ],
+      permissions: ["activeTab", "storage", "offscreen", "contextMenus"],
       host_permissions: [
         "https://api.openai.com/*",
         "https://api.anthropic.com/*",
