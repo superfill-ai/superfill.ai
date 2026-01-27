@@ -4,6 +4,10 @@ import {
   getAutofillService,
   registerAutofillService,
 } from "@/lib/autofill/autofill-service";
+import {
+  getCaptureMemoryService,
+  registerCaptureMemoryService,
+} from "@/lib/autofill/capture-memory-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
   getSessionService,
@@ -13,7 +17,10 @@ import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
-import { registerKeyVaultService } from "@/lib/security/key-vault-service";
+import {
+  getKeyVaultService,
+  registerKeyVaultService,
+} from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import { getSyncService, registerSyncService } from "@/lib/sync/sync-service";
 import type { AuthSuccessMessage, Message } from "@/types/message";
@@ -31,6 +38,7 @@ export default defineBackground({
     }
     registerAutofillService();
     registerAuthService();
+    registerCaptureMemoryService();
     registerCategorizationService();
     registerKeyValidationService();
     registerKeyVaultService();
@@ -39,6 +47,8 @@ export default defineBackground({
     registerSyncService();
     const authService = getAuthService();
     const autofillService = getAutofillService();
+    const captureMemoryService = getCaptureMemoryService();
+    const keyVault = getKeyVaultService();
     const sessionService = getSessionService();
     const syncService = getSyncService();
 
@@ -183,6 +193,43 @@ export default defineBackground({
           .catch((error) => {
             logger.error("Failed to broadcast fill command:", error);
           });
+      },
+    );
+
+    contentAutofillMessaging.onMessage(
+      "saveCapturedMemories",
+      async ({ data }) => {
+        try {
+          const aiSettings = await storage.aiSettings.getValue();
+          const provider = aiSettings.selectedProvider;
+
+          if (!provider) {
+            logger.error("No AI provider configured");
+            return { success: false, savedCount: 0 };
+          }
+
+          const apiKey = await keyVault.getKey(provider);
+
+          if (!apiKey) {
+            logger.error("Failed to retrieve API key for categorization");
+            return { success: false, savedCount: 0 };
+          }
+
+          const modelName = aiSettings.selectedModels?.[provider];
+
+          const result = await captureMemoryService.saveCapturedMemories(
+            data.capturedFields,
+            provider,
+            apiKey,
+            modelName,
+          );
+
+          logger.info("Captured memories saved:", result);
+          return result;
+        } catch (error) {
+          logger.error("Failed to save captured memories:", error);
+          return { success: false, savedCount: 0 };
+        }
       },
     );
 
