@@ -57,10 +57,6 @@ const INTERACTIVE_CURSORS = new Set([
 const INTERACTIVE_ROLES = new Set([
   "button",
   "menuitem",
-  "menuitemradio",
-  "menuitemcheckbox",
-  "radio",
-  "checkbox",
   "tab",
   "switch",
   "slider",
@@ -474,9 +470,6 @@ export class FieldAnalyzer {
       return element.value || "";
     }
     if (element instanceof HTMLInputElement) {
-      if (element.type === "checkbox" || element.type === "radio") {
-        return element.checked ? element.value || "on" : "";
-      }
       return element.value || "";
     }
     if (element instanceof HTMLTextAreaElement) {
@@ -504,8 +497,6 @@ export class FieldAnalyzer {
         password: "password",
         number: "number",
         date: "date",
-        checkbox: "checkbox",
-        radio: "radio",
       };
 
       return typeMap[type] || "text";

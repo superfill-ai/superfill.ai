@@ -56,7 +56,7 @@ export interface DetectedField {
 export interface FieldMetadataSnapshot
   extends Omit<FieldMetadata, "rect" | "options"> {
   rect: DOMRectInit;
-  options?: RadioOptionSnapshot[];
+  options?: SelectOptionSnapshot[];
 }
 
 export interface DetectedFieldSnapshot
@@ -65,13 +65,13 @@ export interface DetectedFieldSnapshot
   metadata: FieldMetadataSnapshot;
 }
 
-export interface RadioOption {
+export interface SelectOption {
   value: string;
   label: string | null;
-  element: HTMLInputElement;
+  element: HTMLOptionElement;
 }
 
-export interface RadioOptionSnapshot {
+export interface SelectOptionSnapshot {
   value: string;
   label: string | null;
 }
@@ -108,8 +108,8 @@ export interface FieldMetadata {
   isTopElement: boolean;
   isInteractive: boolean;
 
-  /** For radio/checkbox groups: list of available options */
-  options?: RadioOption[];
+  /** For select fields: list of available options */
+  options?: SelectOption[];
 }
 
 export type FieldType =
@@ -119,7 +119,6 @@ export type FieldType =
   | "url"
   | "textarea"
   | "select"
-  | "radio"
   | "checkbox"
   | "date"
   | "number"
@@ -150,7 +149,7 @@ export interface CompressedFieldData {
   purpose: FieldPurpose;
   labels: string[];
   context: string;
-  options?: RadioOptionSnapshot[];
+  options?: SelectOptionSnapshot[];
 }
 
 export interface CompressedMemoryData {
