@@ -8,7 +8,6 @@ import type { AllowedCategory } from "@/types/memory";
 
 const logger = createLogger("document-parser");
 
-// Simple schema - let AI decide what's important
 const ExtractedInfoSchema = z.object({
   items: z.array(
     z.object({
@@ -81,7 +80,6 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
 
-    // Extract hyperlinks from annotations
     try {
       const annotations = await page.getAnnotations();
       for (const annotation of annotations as PDFAnnotation[]) {
@@ -131,7 +129,6 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     fullText += "\n";
   }
 
-  // Append extracted links at the end so AI can use them
   if (allLinks.length > 0) {
     const uniqueLinks = [...new Set(allLinks)];
     fullText += "\n--- HYPERLINKS FOUND IN DOCUMENT ---\n";
@@ -221,7 +218,6 @@ export async function parseDocument(file: File): Promise<DocumentParseResult> {
   try {
     logger.debug("Starting document parsing for:", file.name);
 
-    // Extract text based on file type
     let text: string;
 
     if (
@@ -268,7 +264,6 @@ export async function parseDocument(file: File): Promise<DocumentParseResult> {
   }
 }
 
-// Convert extracted items to the format needed for import
 export interface DocumentImportItem extends ExtractedItem {
   id: string;
   selected: boolean;
@@ -284,7 +279,6 @@ export function convertToImportItems(
   }));
 }
 
-// Helper to get category for memory storage
 export function getCategoryForItem(item: ExtractedItem): AllowedCategory {
   return item.category as AllowedCategory;
 }

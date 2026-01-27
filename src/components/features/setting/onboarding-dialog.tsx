@@ -67,7 +67,6 @@ interface OnboardingDialogProps {
   open: boolean;
 }
 
-// Recommended providers for onboarding (most common/easy to set up)
 const RECOMMENDED_PROVIDERS: AIProvider[] = ["openai", "anthropic", "gemini"];
 
 export function OnboardingDialog({ open }: OnboardingDialogProps) {
@@ -80,8 +79,6 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
   const [phoneDisplay, setPhoneDisplay] = useState("");
   const [showProfileImport, setShowProfileImport] = useState(false);
   const [showDocumentImport, setShowDocumentImport] = useState(false);
-
-  // AI Setup state
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(
     null,
   );
