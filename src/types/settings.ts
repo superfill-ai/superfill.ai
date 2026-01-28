@@ -22,6 +22,9 @@ export interface UISettings {
   extensionVersion?: string;
   completedTours?: string[];
   lastTourCompletedAt?: string;
+  rightClickGuideEnabled?: boolean; 
+  rightClickGuideSnoozed?: Record<string, string>; 
+  rightClickGuideNeverShow?: string[]; 
 }
 
 export interface ProviderOption {
