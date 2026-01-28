@@ -18,6 +18,7 @@ import { SliderWithInput } from "@/components/ui/slider-with-input";
 import { Switch } from "@/components/ui/switch";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";
+import { RightClickGuideSettings } from "./right-click-guide-settings";
 
 export const AutofillSettings = () => {
   const autofillEnabledId = useId();
@@ -217,6 +218,19 @@ export const AutofillSettings = () => {
               disabled={!autoFillEnabled}
             />
           </Field>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium">Right-Click Guide Settings</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                Manage the quick tip guide that appears when clicking on form fields
+              </p>
+            </div>
+            
+            <RightClickGuideSettings />
+          </div>
         </FieldGroup>
       </CardContent>
     </Card>

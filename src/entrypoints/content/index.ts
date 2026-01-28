@@ -10,6 +10,7 @@ import {
   getCaptureSettings,
   isSiteBlocked,
 } from "@/lib/storage/capture-settings";
+import { RightClickGuideManager } from "./components/right-click-guide-manager";
 import type { AutofillProgress, PreviewSidebarPayload } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
 import { CaptureService } from "./lib/capture-service";
@@ -279,6 +280,61 @@ export default defineContentScript({
       logger.error("Failed to initialize FillTriggerManager", error);
     }
 
+    const rightClickGuideManager = new RightClickGuideManager();
+    let hasShownGuideThisSession = false;
+
+    const handleInputClick = async (event: Event) => {
+      if (!frameInfo.isMainFrame) return;
+      if (hasShownGuideThisSession) return;
+
+      const target = event.target as HTMLElement;
+      
+      const isFormField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement;
+
+      if (!isFormField) return;
+
+      if (!formDetectionService.hasCachedForms()) {
+        try {
+          await formDetectionService.detectFormsInCurrentFrame();
+        } catch (error) {
+          logger.error("Error detecting forms for guide:", error);
+          return;
+        }
+      }
+
+      if (!formDetectionService.hasCachedForms()) {
+        return;
+      }
+      try {
+        const aiSettings = await storage.aiSettings.getValue();
+        if (!aiSettings.contextMenuEnabled) {
+          return;
+        }
+      } catch (error) {
+        logger.error("Error checking AI settings:", error);
+        return;
+      }
+
+      const domain = window.location.hostname;
+      try {
+        await rightClickGuideManager.show(ctx, domain, target);
+        hasShownGuideThisSession = true;
+      } catch (error) {
+        logger.error("Error showing right-click guide:", error);
+      }
+    };
+
+    document.addEventListener("click", handleInputClick, { capture: true });
+
+    const cleanupGuideListener = () => {
+      document.removeEventListener("click", handleInputClick, { capture: true });
+      rightClickGuideManager.destroy();
+    };
+
+
     contentAutofillMessaging.onMessage(
       "updateProgress",
       async ({ data: progress }: { data: AutofillProgress }) => {
@@ -364,6 +420,10 @@ export default defineContentScript({
       if (captureMemoryManager) {
         captureMemoryManager.hide();
       }
+
+      try {
+        cleanupGuideListener();
+      } catch {}
     });
   },
 });
