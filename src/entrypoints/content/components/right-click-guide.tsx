@@ -26,7 +26,7 @@ export const RightClickGuide = ({
 }: RightClickGuideProps) => {
   return (
     <div
-      className="fixed top-4 right-4 z-9999"
+      className="fixed top-4 right-4 z-[9999]"
       role="dialog"
       aria-modal="false"
       aria-labelledby="right-click-guide-title"

@@ -84,7 +84,6 @@ export class RightClickGuideManager {
             container.append(app);
 
             this.root = createRoot(app);
-            this.render(domain);
             return this.root;
           },
           onRemove: (root) => {
