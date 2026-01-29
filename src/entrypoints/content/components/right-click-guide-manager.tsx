@@ -26,17 +26,8 @@ export class RightClickGuideManager {
     try {
       const uiSettings = await storage.uiSettings.getValue();
 
-      // Check if guide is globally enabled
-      if (uiSettings.rightClickGuideEnabled === false) {
-        return false;
-      }
-
-      // Check if permanently disabled for this domain
-      if (uiSettings.rightClickGuideNeverShow?.includes(domain)) {
-        return false;
-      }
-
-      // Check if snoozed
+      // Only respect per-domain snooze (7-day); no global enable/disable or
+      // permanent per-domain blocking in simplified flow.
       const snoozedUntil = uiSettings.rightClickGuideSnoozed?.[domain];
       if (snoozedUntil) {
         const expiryDate = new Date(snoozedUntil);
@@ -58,7 +49,7 @@ export class RightClickGuideManager {
       return true;
     } catch (error) {
       logger.error("Error checking if guide should show:", error);
-      return false;
+      return true; // be permissive on error so user still sees guide
     }
   }
 
@@ -118,9 +109,7 @@ export class RightClickGuideManager {
 
     this.root.render(
       <RightClickGuide
-        domain={domain}
         onGotIt={() => this.handleGotIt(domain)}
-        onNeverAsk={() => this.handleNeverShow(domain)}
         onClose={() => this.handleClose()}
       />,
     );
@@ -153,27 +142,6 @@ export class RightClickGuideManager {
     // Just close for this session - no persistence
     logger.info("Right-click guide closed for this session");
     this.hide();
-  }
-
-  private async handleNeverShow(domain: string): Promise<void> {
-    try {
-      const uiSettings = await storage.uiSettings.getValue();
-      const neverShow = [...(uiSettings.rightClickGuideNeverShow || [])];
-
-      if (!neverShow.includes(domain)) {
-        neverShow.push(domain);
-      }
-
-      await storage.uiSettings.setValue({
-        ...uiSettings,
-        rightClickGuideNeverShow: neverShow,
-      });
-
-      logger.info("Right-click guide will never be shown on", domain);
-      this.hide();
-    } catch (error) {
-      logger.error("Error handling 'never show' action:", error);
-    }
   }
 
   destroy(): void {
