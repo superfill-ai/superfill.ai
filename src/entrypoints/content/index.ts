@@ -316,6 +316,10 @@ export default defineContentScript({
         return;
       }
 
+      const hostname = window.location.hostname;
+      const pathname = window.location.pathname;
+
+      if (isMessagingSite(hostname, pathname)) return;
       if (rightClickGuideManager.isVisible) return;
 
       try {

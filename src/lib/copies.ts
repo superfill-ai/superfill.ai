@@ -49,6 +49,8 @@ export const MESSAGING_SITE_BLOCKLIST_DOMAINS = [
   "clickup.com",
   "asana.com",
   "monday.com",
+  "github.com",
+  "gitlab.com",
 
   // Other Chat Platforms
   "chat.google.com",
