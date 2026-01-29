@@ -15,13 +15,17 @@ const HOST_ID = "superfill-right-click-guide";
 export class RightClickGuideManager {
   private ui: ShadowRootContentScriptUi<Root> | null = null;
   private root: Root | null = null;
-  private isVisible = false;
-  private targetElement: HTMLElement | null = null;
+  private visible = false;
+
+  // Expose read-only visibility to callers to avoid unnecessary show attempts
+  get isVisible(): boolean {
+    return this.visible;
+  }
 
   async shouldShowGuide(domain: string): Promise<boolean> {
     try {
       const uiSettings = await storage.uiSettings.getValue();
-      
+
       // Check if guide is globally enabled
       if (uiSettings.rightClickGuideEnabled === false) {
         return false;
@@ -37,11 +41,11 @@ export class RightClickGuideManager {
       if (snoozedUntil) {
         const expiryDate = new Date(snoozedUntil);
         const now = new Date();
-        
+
         if (now < expiryDate) {
           return false;
         }
-        
+
         // Snooze expired, clean it up
         const updatedSnoozed = { ...uiSettings.rightClickGuideSnoozed };
         delete updatedSnoozed[domain];
@@ -58,21 +62,18 @@ export class RightClickGuideManager {
     }
   }
 
-  async show(ctx: ContentScriptContext, domain: string, clickedElement: HTMLElement): Promise<void> {
+  async show(ctx: ContentScriptContext, domain: string): Promise<boolean> {
     try {
       const shouldShow = await this.shouldShowGuide(domain);
       if (!shouldShow) {
         logger.info("Guide should not be shown for", domain);
-        return;
+        return false;
       }
 
-      if (this.isVisible) {
+      if (this.visible) {
         logger.info("Guide is already visible");
-        return;
+        return false;
       }
-
-      this.targetElement = clickedElement;
-      this.highlightElement();
 
       if (!this.ui) {
         this.ui = await createShadowRootUi(ctx, {
@@ -93,22 +94,23 @@ export class RightClickGuideManager {
       }
 
       await this.ui.mount();
-      this.isVisible = true;
+      this.visible = true;
       this.render(domain);
 
       logger.info("Right-click guide shown for", domain);
+      return true;
     } catch (error) {
       logger.error("Error showing right-click guide:", error);
+      return false;
     }
   }
 
   hide(): void {
-    if (!this.isVisible) return;
+    if (!this.visible) return;
 
     this.ui?.remove();
-    this.isVisible = false;
-    this.removeHighlight();
-    
+    this.visible = false;
+
     logger.info("Right-click guide hidden");
   }
 
@@ -121,27 +123,8 @@ export class RightClickGuideManager {
         onGotIt={() => this.handleGotIt(domain)}
         onNeverAsk={() => this.handleNeverShow(domain)}
         onClose={() => this.handleClose()}
-      />
+      />,
     );
-  }
-
-  private highlightElement(): void {
-    if (!this.targetElement) return;
-
-    this.targetElement.style.outline = '3px solid #3b82f6';
-    this.targetElement.style.outlineOffset = '2px';
-    this.targetElement.style.position = 'relative';
-    this.targetElement.style.zIndex = '2147483645';
-  }
-
-  private removeHighlight(): void {
-    if (!this.targetElement) return;
-
-    this.targetElement.style.outline = '';
-    this.targetElement.style.outlineOffset = '';
-    this.targetElement.style.position = '';
-    this.targetElement.style.zIndex = '';
-    this.targetElement = null;
   }
 
   private async handleGotIt(domain: string): Promise<void> {
@@ -177,7 +160,7 @@ export class RightClickGuideManager {
     try {
       const uiSettings = await storage.uiSettings.getValue();
       const neverShow = [...(uiSettings.rightClickGuideNeverShow || [])];
-      
+
       if (!neverShow.includes(domain)) {
         neverShow.push(domain);
       }

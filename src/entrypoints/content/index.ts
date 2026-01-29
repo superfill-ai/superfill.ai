@@ -10,9 +10,9 @@ import {
   getCaptureSettings,
   isSiteBlocked,
 } from "@/lib/storage/capture-settings";
-import { RightClickGuideManager } from "./components/right-click-guide-manager";
 import type { AutofillProgress, PreviewSidebarPayload } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
+import { RightClickGuideManager } from "./components/right-click-guide-manager";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
@@ -288,7 +288,7 @@ export default defineContentScript({
       if (hasShownGuideThisSession) return;
 
       const target = event.target as HTMLElement;
-      
+
       const isFormField =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
@@ -319,9 +319,13 @@ export default defineContentScript({
       }
 
       const domain = window.location.hostname;
+      if (rightClickGuideManager.isVisible) return;
+
       try {
-        await rightClickGuideManager.show(ctx, domain, target);
-        hasShownGuideThisSession = true;
+        const shown = await rightClickGuideManager.show(ctx, domain);
+        if (shown) {
+          hasShownGuideThisSession = true;
+        }
       } catch (error) {
         logger.error("Error showing right-click guide:", error);
       }
@@ -330,10 +334,11 @@ export default defineContentScript({
     document.addEventListener("click", handleInputClick, { capture: true });
 
     const cleanupGuideListener = () => {
-      document.removeEventListener("click", handleInputClick, { capture: true });
+      document.removeEventListener("click", handleInputClick, {
+        capture: true,
+      });
       rightClickGuideManager.destroy();
     };
-
 
     contentAutofillMessaging.onMessage(
       "updateProgress",

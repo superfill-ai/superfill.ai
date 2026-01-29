@@ -16,26 +16,37 @@ export const RightClickGuideSettings = () => {
   const guideEnabledId = useId();
   const [guideEnabled, setGuideEnabled] = useState<boolean>(true);
   const [neverShowDomains, setNeverShowDomains] = useState<string[]>([]);
-  const [snoozedDomains, setSnoozedDomains] = useState<
-    Record<string, string>
-  >({});
+  const [snoozedDomains, setSnoozedDomains] = useState<Record<string, string>>(
+    {},
+  );
 
   useEffect(() => {
     const fetchAndWatch = async () => {
-      const settings = await storage.uiSettings.getValue();
+      try {
+        const settings = await storage.uiSettings.getValue();
 
-      setGuideEnabled(settings.rightClickGuideEnabled ?? true);
-      setNeverShowDomains(settings.rightClickGuideNeverShow || []);
-      setSnoozedDomains(settings.rightClickGuideSnoozed || {});
+        setGuideEnabled(settings.rightClickGuideEnabled ?? true);
+        setNeverShowDomains(settings.rightClickGuideNeverShow || []);
+        setSnoozedDomains(settings.rightClickGuideSnoozed || {});
+      } catch (error) {
+        console.error("Failed to load right-click guide settings:", error);
+        setGuideEnabled(true);
+        setNeverShowDomains([]);
+        setSnoozedDomains({});
+      }
     };
 
     fetchAndWatch();
 
     const unsubscribe = storage.uiSettings.watch((newSettings) => {
       if (newSettings) {
-        setGuideEnabled(newSettings.rightClickGuideEnabled ?? true);
-        setNeverShowDomains(newSettings.rightClickGuideNeverShow || []);
-        setSnoozedDomains(newSettings.rightClickGuideSnoozed || {});
+        try {
+          setGuideEnabled(newSettings.rightClickGuideEnabled ?? true);
+          setNeverShowDomains(newSettings.rightClickGuideNeverShow || []);
+          setSnoozedDomains(newSettings.rightClickGuideSnoozed || {});
+        } catch (error) {
+          console.error("Failed to apply updated settings:", error);
+        }
       }
     });
 
@@ -45,32 +56,44 @@ export const RightClickGuideSettings = () => {
   }, []);
 
   const handleSetGuideEnabled = async (enabled: boolean) => {
-    const currentSettings = await storage.uiSettings.getValue();
-    await storage.uiSettings.setValue({
-      ...currentSettings,
-      rightClickGuideEnabled: enabled,
-    });
+    try {
+      const currentSettings = await storage.uiSettings.getValue();
+      await storage.uiSettings.setValue({
+        ...currentSettings,
+        rightClickGuideEnabled: enabled,
+      });
+    } catch (error) {
+      console.error("Failed to update guide enabled setting:", error);
+    }
   };
 
   const handleRemoveNeverShow = async (domain: string) => {
-    const currentSettings = await storage.uiSettings.getValue();
-    const updated = (currentSettings.rightClickGuideNeverShow || []).filter(
-      (d) => d !== domain
-    );
-    await storage.uiSettings.setValue({
-      ...currentSettings,
-      rightClickGuideNeverShow: updated,
-    });
+    try {
+      const currentSettings = await storage.uiSettings.getValue();
+      const updated = (currentSettings.rightClickGuideNeverShow || []).filter(
+        (d) => d !== domain,
+      );
+      await storage.uiSettings.setValue({
+        ...currentSettings,
+        rightClickGuideNeverShow: updated,
+      });
+    } catch (error) {
+      console.error("Failed to remove never-show domain:", error);
+    }
   };
 
   const handleRemoveSnooze = async (domain: string) => {
-    const currentSettings = await storage.uiSettings.getValue();
-    const updated = { ...(currentSettings.rightClickGuideSnoozed || {}) };
-    delete updated[domain];
-    await storage.uiSettings.setValue({
-      ...currentSettings,
-      rightClickGuideSnoozed: updated,
-    });
+    try {
+      const currentSettings = await storage.uiSettings.getValue();
+      const updated = { ...(currentSettings.rightClickGuideSnoozed || {}) };
+      delete updated[domain];
+      await storage.uiSettings.setValue({
+        ...currentSettings,
+        rightClickGuideSnoozed: updated,
+      });
+    } catch (error) {
+      console.error("Failed to remove snooze for domain:", error);
+    }
   };
 
   const hasNeverShow = neverShowDomains.length > 0;
@@ -95,7 +118,6 @@ export const RightClickGuideSettings = () => {
 
       <Separator />
 
-      {/* Never Show Sites */}
       <div>
         <p className="text-sm font-medium mb-2">
           Sites where guide is disabled
@@ -134,10 +156,15 @@ export const RightClickGuideSettings = () => {
           <p className="text-sm font-medium mb-2">Snoozed sites</p>
           <div className="flex flex-wrap gap-2">
             {Object.entries(snoozedDomains).map(([domain, expiryDate]) => {
-              const formattedDate = new Date(expiryDate).toLocaleDateString(
-                undefined,
-                { month: "short", day: "numeric", year: "numeric" }
-              );
+              const parsedDate = new Date(expiryDate);
+              const formattedDate = Number.isNaN(parsedDate.getTime())
+                ? "unknown"
+                : parsedDate.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  });
+
               return (
                 <Badge
                   key={domain}
