@@ -1,9 +1,7 @@
-import { X } from "lucide-react";
 import { browser } from "wxt/browser";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -13,10 +11,9 @@ import {
 
 interface RightClickGuideProps {
   onGotIt: () => void;
-  onClose: () => void;
 }
 
-export const RightClickGuide = ({ onGotIt, onClose }: RightClickGuideProps) => {
+export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
   return (
     <div
       className="fixed top-4 right-4 z-[9999]"
@@ -50,17 +47,6 @@ export const RightClickGuide = ({ onGotIt, onClose }: RightClickGuideProps) => {
             from the context menu to quickly fill all detected form fields with
             your saved data.
           </CardDescription>
-          <CardAction>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              onClick={onClose}
-              aria-label="Close guide"
-            >
-              <X className="size-4" />
-            </Button>
-          </CardAction>
         </CardHeader>
 
         <CardContent className="max-h-80 overflow-y-auto">

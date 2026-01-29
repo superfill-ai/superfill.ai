@@ -101,12 +101,7 @@ export class RightClickGuideManager {
   private render(): void {
     if (!this.root) return;
 
-    this.root.render(
-      <RightClickGuide
-        onGotIt={() => this.handleGotIt()}
-        onClose={() => this.handleClose()}
-      />,
-    );
+    this.root.render(<RightClickGuide onGotIt={() => this.handleGotIt()} />);
   }
 
   private async handleGotIt(): Promise<void> {
@@ -125,11 +120,6 @@ export class RightClickGuideManager {
     } catch (error) {
       logger.error("Error handling 'Got it' action:", error);
     }
-  }
-
-  private handleClose(): void {
-    logger.info("Right-click guide closed");
-    this.hide();
   }
 
   destroy(): void {
