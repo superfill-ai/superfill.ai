@@ -1,315 +1,165 @@
-import {
-  BrainCircuitIcon,
-  GithubIcon,
-  GlobeIcon,
-  LinkedinIcon,
-  Loader2Icon,
-  TwitterIcon,
-} from "lucide-react";
+import { ExternalLinkIcon, FileTextIcon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
-import {
-  ImportDialogFooter,
-  ImportDialogShell,
-  ImportErrorState,
-  ImportItemsList,
-  ImportLoadingState,
-} from "@/components/features/import/import-dialog-shared";
+import { DocumentImportDialog } from "@/components/features/document/document-import-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useImportDialog } from "@/hooks/use-import-dialog";
-import { createLogger } from "@/lib/logger";
-import { getProfileService } from "@/lib/profile/profile-service";
-import type { ProfileImportItem, ProfileScraperStatus } from "@/types/profile";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const logger = createLogger("component:profile-import-dialog");
-
-interface ProfileImportDialogProps {
+type ProfileImportDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
-}
-
-const STATUS_MESSAGES: Record<ProfileScraperStatus, string> = {
-  idle: "Ready to import",
-  "opening-tab": "Opening page...",
-  scraping: "Extracting page content...",
-  parsing: "AI is analyzing your profile...",
-  success: "Profile data extracted!",
-  error: "Failed to extract profile",
 };
-
-const PROGRESS_BY_STATUS: Record<ProfileScraperStatus, number> = {
-  idle: 0,
-  "opening-tab": 20,
-  scraping: 40,
-  parsing: 70,
-  success: 100,
-  error: 0,
-};
-
-const QUICK_SHORTCUTS = [
-  {
-    id: "linkedin",
-    name: "LinkedIn",
-    icon: LinkedinIcon,
-    url: "https://www.linkedin.com/in/me",
-    color: "text-[#0A66C2] hover:bg-[#0A66C2]/10",
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    icon: GithubIcon,
-    url: "",
-    color:
-      "text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-    placeholder: "github.com/username",
-  },
-  {
-    id: "twitter",
-    name: "X",
-    icon: TwitterIcon,
-    url: "",
-    color:
-      "text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-    placeholder: "x.com/username",
-  },
-];
-
-function getDescription(status: ProfileScraperStatus): string {
-  switch (status) {
-    case "idle":
-      return "Import your information from any profile page.";
-    case "success":
-      return "Select the information you want to import.";
-    case "opening-tab":
-    case "scraping":
-      return "Extracting profile content...";
-    case "parsing":
-      return "AI is analyzing your profile...";
-    case "error":
-      return "Something went wrong. Please try again.";
-  }
-}
 
 export function ProfileImportDialog({
   open,
   onOpenChange,
   onSuccess,
 }: ProfileImportDialogProps) {
-  const [urlInput, setUrlInput] = useState("");
+  const [showDocumentImport, setShowDocumentImport] = useState(false);
 
-  const {
-    status,
-    setStatus,
-    error,
-    setError,
-    importItems,
-    setImportItems,
-    isSaving,
-    selectedCount,
-    requestIdRef,
-    handleToggleItem,
-    handleToggleAll,
-    handleSaveSelected,
-    handleClose,
-  } = useImportDialog<ProfileImportItem, ProfileScraperStatus>(
-    {
-      importTag: "profile-import",
-      successMessage: "Imported {count} memories from profile!",
-      successDescription: "Your profile data has been saved as memories.",
-      onSuccess,
-      onOpenChange,
-    },
-    "idle",
-  );
-
-  const progress = PROGRESS_BY_STATUS[status];
-
-  const handleStartImport = async (url?: string) => {
-    const targetUrl = url || urlInput;
-
-    if (!targetUrl.trim()) {
-      toast.error("Please enter a profile URL");
-      return;
-    }
-
-    setStatus("opening-tab");
-    setError(null);
-    setImportItems([]);
-
-    const currentRequestId = ++requestIdRef.current;
-
-    try {
-      const profileService = getProfileService();
-      setStatus("scraping");
-
-      const result = await profileService.scrapeProfileUrl(
-        targetUrl,
-        (newStatus) => {
-          if (requestIdRef.current !== currentRequestId) return;
-          if (newStatus === "parsing") {
-            setStatus("parsing");
-          }
-        },
-      );
-
-      if (requestIdRef.current !== currentRequestId) return;
-
-      if (!result.success || !result.items) {
-        setStatus("error");
-        setError(result.error || "Failed to extract profile data");
-        return;
-      }
-
-      if (result.items.length === 0) {
-        setStatus("error");
-        setError(
-          "No profile information found. Make sure you're logged in and the page contains profile data.",
-        );
-        return;
-      }
-
-      setImportItems(result.items);
-      setStatus("success");
-
-      logger.debug("Successfully extracted profile data:", result.items.length);
-    } catch (err) {
-      if (requestIdRef.current !== currentRequestId) return;
-
-      logger.error("Import error:", err);
-      setStatus("error");
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
-    }
+  const handleOpenDocumentImport = () => {
+    setShowDocumentImport(true);
+    onOpenChange(false);
   };
 
-  const handleShortcutClick = (shortcut: (typeof QUICK_SHORTCUTS)[0]) => {
-    if (shortcut.url) {
-      handleStartImport(shortcut.url);
-    } else if (shortcut.placeholder) {
-      setUrlInput(shortcut.placeholder);
-    }
-  };
-
-  const handleCloseWrapper = (open: boolean) => {
+  const handleDocumentImportClose = (open: boolean) => {
+    setShowDocumentImport(open);
     if (!open) {
-      setUrlInput("");
-    }
-    handleClose(open);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && urlInput.trim()) {
-      handleStartImport();
+      onOpenChange(true);
     }
   };
-
-  const showFooter = status === "success" && importItems.length > 0;
 
   return (
-    <ImportDialogShell
-      open={open}
-      onOpenChange={handleCloseWrapper}
-      title={
-        <>
-          <GlobeIcon className="size-5 text-primary" />
-          Import from Profile
-        </>
-      }
-      description={getDescription(status)}
-      footer={
-        showFooter ? (
-          <ImportDialogFooter
-            selectedCount={selectedCount}
-            isSaving={isSaving}
-            onCancel={() => handleCloseWrapper(false)}
-            onSave={handleSaveSelected}
-          />
-        ) : undefined
-      }
-    >
-      {status === "idle" && (
-        <div className="flex flex-col gap-6 py-4">
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Quick import:</p>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_SHORTCUTS.map((shortcut) => (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="overflow-y-auto max-h-[90vh] max-w-1/2">
+          <DialogHeader>
+            <DialogTitle>Import from LinkedIn</DialogTitle>
+            <DialogDescription>
+              Follow these steps to export your LinkedIn profile and import it
+              into Superfill.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Steps */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">
+                  Step 1: Open Your Profile
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Go to your LinkedIn profile page. You can click "Me" in the
+                  top navigation bar, then "View profile".
+                </p>
                 <Button
-                  key={shortcut.id}
                   variant="outline"
                   size="sm"
-                  className={`gap-2 ${shortcut.color}`}
-                  onClick={() => handleShortcutClick(shortcut)}
+                  className="gap-2"
+                  onClick={() =>
+                    window.open("https://www.linkedin.com/in/me", "_blank")
+                  }
                 >
-                  <shortcut.icon className="size-4" />
-                  {shortcut.name}
+                  <ExternalLinkIcon className="size-3" />
+                  Open LinkedIn Profile
                 </Button>
-              ))}
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">
+                  Step 2: Access More Menu
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Click the "Resources" (prev "More" or "...") button in your
+                  profile's intro section.
+                </p>
+                {/* Placeholder for screenshot */}
+                <div className="bg-muted/50 rounded-md border-2 border-dashed p-0.5 w-fit mx-auto">
+                  <img
+                    src="/linkedin-resources.webp"
+                    alt="LinkedIn More Menu"
+                    className="rounded-sm max-w-108"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">Step 3: Save to PDF</h3>
+                <p className="text-sm text-muted-foreground">
+                  Select "Save to PDF" from the dropdown menu. LinkedIn will
+                  generate a PDF version of your profile.
+                </p>
+                {/* Placeholder for screenshot */}
+                <div className="bg-muted/50 rounded-md border-2 border-dashed p-0.5 w-fit mx-auto">
+                  <img
+                    src="/linkedin-save-to-pdf.webp"
+                    alt="LinkedIn Save to PDF"
+                    className="rounded-sm max-h-60"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">
+                  Step 4: Download the PDF
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Your browser will download a PDF file named something like
+                  "Profile.pdf" or "YourName.pdf". Save it to your computer.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">
+                  Step 5: Import to Superfill
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Click the button below to open the document import dialog and
+                  upload your LinkedIn PDF. Superfill will extract all your
+                  professional information automatically.
+                </p>
+                <Button className="gap-2" onClick={handleOpenDocumentImport}>
+                  <FileTextIcon className="size-4" />
+                  Import PDF Document
+                </Button>
+              </div>
+            </div>
+
+            {/* Why this method */}
+            <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-md border border-blue-200 dark:border-blue-800 space-y-2">
+              <p className="font-medium text-sm text-blue-900 dark:text-blue-100">
+                Why we use this method
+              </p>
+              <p className="text-xs text-blue-800 dark:text-blue-200">
+                LinkedIn's Terms of Service prohibit automated scraping. By
+                using their official "Save to PDF" feature, you're exporting
+                your own data in a way that respects their policies and keeps
+                your account safe.
+              </p>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Or enter any profile URL:
-            </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="https://linkedin.com/in/username"
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="flex-1"
-              />
-              <Button
-                onClick={() => handleStartImport()}
-                disabled={!urlInput.trim()}
-              >
-                Import
-              </Button>
-            </div>
-          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          <p className="text-xs text-amber-600">
-            Make sure you're logged in to the site for full profile access. Only
-            use URLs you trust.
-          </p>
-        </div>
-      )}
-
-      {(status === "opening-tab" ||
-        status === "scraping" ||
-        status === "parsing") && (
-        <ImportLoadingState
-          progress={progress}
-          statusMessage={STATUS_MESSAGES[status]}
-          icon={
-            status === "parsing" ? (
-              <BrainCircuitIcon className="size-10 text-primary animate-pulse" />
-            ) : (
-              <Loader2Icon className="size-10 text-primary animate-spin" />
-            )
-          }
-        />
-      )}
-
-      {status === "error" && (
-        <ImportErrorState
-          error={error}
-          defaultError="Failed to extract profile data. Please try again."
-          onRetry={() => setStatus("idle")}
-        />
-      )}
-
-      {status === "success" && importItems.length > 0 && (
-        <ImportItemsList
-          items={importItems}
-          itemIdPrefix="profile-item"
-          onToggleItem={handleToggleItem}
-          onToggleAll={handleToggleAll}
-        />
-      )}
-    </ImportDialogShell>
+      <DocumentImportDialog
+        open={showDocumentImport}
+        onOpenChange={handleDocumentImportClose}
+        onSuccess={onSuccess}
+      />
+    </>
   );
 }

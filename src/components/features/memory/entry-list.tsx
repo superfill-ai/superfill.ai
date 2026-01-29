@@ -2,8 +2,8 @@ import {
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
-  GlobeIcon,
   GridIcon,
+  LinkedinIcon,
   ListIcon,
   SearchIcon,
   UploadIcon,
@@ -373,11 +373,11 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
                   onClick={() => setShowProfileImport(true)}
                   disabled={importing}
                 >
-                  <GlobeIcon className="size-4" />
+                  <LinkedinIcon className="size-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Import from Profile URL</p>
+                <p>Import from LinkedIn</p>
               </TooltipContent>
             </Tooltip>
 

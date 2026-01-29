@@ -20,12 +20,6 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("component:document-import-dialog");
 
-interface DocumentImportDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
-}
-
 const STATUS_MESSAGES: Record<DocumentParserStatus, string> = {
   idle: "Ready to import",
   reading: "Reading document...",
@@ -55,6 +49,12 @@ function getDescription(status: DocumentParserStatus): string {
       return "Something went wrong. Please try again.";
   }
 }
+
+type DocumentImportDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+};
 
 export function DocumentImportDialog({
   open,

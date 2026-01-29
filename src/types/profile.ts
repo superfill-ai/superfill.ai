@@ -9,25 +9,3 @@ export interface ProfileImportItem {
   tags: string[];
   selected: boolean;
 }
-
-export type ProfileScraperStatus =
-  | "idle"
-  | "opening-tab"
-  | "scraping"
-  | "parsing"
-  | "success"
-  | "error";
-
-export interface ProfileContentResult {
-  success: boolean;
-  rawContent?: string;
-  pageUrl?: string;
-  pageTitle?: string;
-  error?: string;
-}
-
-export interface ProfileScraperResult {
-  success: boolean;
-  items?: ProfileImportItem[];
-  error?: string;
-}

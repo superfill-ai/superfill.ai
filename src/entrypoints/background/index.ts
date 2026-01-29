@@ -14,7 +14,6 @@ import {
 } from "@/lib/autofill/session-service";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { tracerProvider } from "@/lib/observability/langfuse";
-import { registerProfileService } from "@/lib/profile/profile-service";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
 import {
@@ -41,7 +40,6 @@ export default defineBackground({
     registerModelService();
     registerAutofillService();
     registerSessionService();
-    registerProfileService();
     const sessionService = getSessionService();
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();

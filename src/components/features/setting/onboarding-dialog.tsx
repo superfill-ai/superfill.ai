@@ -5,8 +5,8 @@ import {
   ChevronRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
-  GlobeIcon,
   KeyIcon,
+  LinkedinIcon,
   SparklesIcon,
   UserIcon,
 } from "lucide-react";
@@ -40,6 +40,7 @@ import { APP_NAME } from "@/constants";
 import { useMemoryMutations } from "@/hooks/use-memories";
 import { useSaveApiKeyWithModel } from "@/hooks/use-provider-keys";
 import { getDefaultModel } from "@/lib/ai/model-factory";
+import { cn } from "@/lib/cn";
 import { createLogger } from "@/lib/logger";
 import {
   type AIProvider,
@@ -63,11 +64,16 @@ const onboardingSchema = z.object({
   country: z.string().min(1, "Country is required"),
 });
 
-interface OnboardingDialogProps {
-  open: boolean;
-}
+const RECOMMENDED_PROVIDERS: AIProvider[] = [
+  "groq",
+  "openai",
+  "anthropic",
+  "gemini",
+];
 
-const RECOMMENDED_PROVIDERS: AIProvider[] = ["openai", "anthropic", "gemini"];
+type OnboardingDialogProps = {
+  open: boolean;
+};
 
 export function OnboardingDialog({ open }: OnboardingDialogProps) {
   const { addEntries } = useMemoryMutations();
@@ -327,23 +333,24 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
 
                     <div className="grid gap-3">
                       {recommendedConfigs.map((config) => (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
                           key={config.id}
                           onClick={() => {
                             setSelectedProvider(config.id as AIProvider);
                             setApiKey("");
                           }}
-                          className={`flex items-center gap-3 p-4 rounded-lg border text-left transition-colors ${
+                          className={cn(
+                            `flex items-center gap-3 p-4 py-6 rounded-lg border text-left transition-colors`,
                             selectedProvider === config.id
                               ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          }`}
+                              : "border-border hover:border-primary/50",
+                          )}
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{config.name}</span>
-                              {config.id === "openai" && (
+                              {config.id === "groq" && (
                                 <Badge variant="secondary" size="sm">
                                   Recommended
                                 </Badge>
@@ -353,7 +360,7 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
                               {config.description}
                             </p>
                           </div>
-                        </button>
+                        </Button>
                       ))}
                     </div>
 
@@ -742,37 +749,35 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
               <div className="space-y-4 py-4">
                 {keyValidated ? (
                   <div className="grid gap-3">
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
                       onClick={() => setShowProfileImport(true)}
-                      className="flex items-center gap-4 p-4 rounded-lg border hover:border-primary hover:bg-primary/5 text-left transition-colors"
+                      className="flex items-center gap-4 p-4 py-6 rounded-lg border hover:border-primary hover:bg-primary/5 text-left transition-colors"
                     >
-                      <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <GlobeIcon className="size-6 text-primary" />
-                      </div>
+                      <LinkedinIcon className="size-4 text-primary" />
                       <div className="flex-1">
-                        <p className="font-medium">Import from Profile URL</p>
+                        <p className="font-medium">Import from LinkedIn</p>
                         <p className="text-sm text-muted-foreground">
-                          Import from LinkedIn, GitHub, Twitter, or any profile
+                          Export your LinkedIn profile as PDF and import it
                         </p>
                       </div>
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
                       onClick={() => setShowDocumentImport(true)}
-                      className="flex items-center gap-4 p-4 rounded-lg border hover:border-primary hover:bg-primary/5 text-left transition-colors"
+                      className="flex items-center gap-4 p-4 py-6 rounded-lg border hover:border-primary hover:bg-primary/5 text-left transition-colors"
                     >
-                      <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <FileTextIcon className="size-6 text-primary" />
-                      </div>
+                      <FileTextIcon className="size-4 text-primary" />
                       <div className="flex-1">
                         <p className="font-medium">Import from Document</p>
                         <p className="text-sm text-muted-foreground">
                           Upload a resume, CV, or any document with your info
                         </p>
                       </div>
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <p className="text-sm text-amber-600 text-center">
