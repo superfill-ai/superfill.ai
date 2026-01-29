@@ -281,11 +281,9 @@ export default defineContentScript({
     }
 
     const rightClickGuideManager = new RightClickGuideManager();
-    let hasShownGuideThisSession = false;
 
     const handleInputClick = async (event: Event) => {
       if (!frameInfo.isMainFrame) return;
-      if (hasShownGuideThisSession) return;
 
       const target = event.target as HTMLElement;
 
@@ -318,14 +316,10 @@ export default defineContentScript({
         return;
       }
 
-      const domain = window.location.hostname;
       if (rightClickGuideManager.isVisible) return;
 
       try {
-        const shown = await rightClickGuideManager.show(ctx, domain);
-        if (shown) {
-          hasShownGuideThisSession = true;
-        }
+        await rightClickGuideManager.show(ctx);
       } catch (error) {
         logger.error("Error showing right-click guide:", error);
       }

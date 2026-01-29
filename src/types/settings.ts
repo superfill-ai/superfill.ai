@@ -22,7 +22,7 @@ export interface UISettings {
   extensionVersion?: string;
   completedTours?: string[];
   lastTourCompletedAt?: string;
-  rightClickGuideSnoozed?: Record<string, string>;
+  rightClickGuideSnoozedUntil?: string;
 }
 
 export interface ProviderOption {

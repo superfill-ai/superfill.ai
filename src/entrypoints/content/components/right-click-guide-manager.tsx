@@ -17,18 +17,15 @@ export class RightClickGuideManager {
   private root: Root | null = null;
   private visible = false;
 
-  // Expose read-only visibility to callers to avoid unnecessary show attempts
   get isVisible(): boolean {
     return this.visible;
   }
 
-  async shouldShowGuide(domain: string): Promise<boolean> {
+  async shouldShowGuide(): Promise<boolean> {
     try {
       const uiSettings = await storage.uiSettings.getValue();
 
-      // Only respect per-domain snooze (7-day); no global enable/disable or
-      // permanent per-domain blocking in simplified flow.
-      const snoozedUntil = uiSettings.rightClickGuideSnoozed?.[domain];
+      const snoozedUntil = uiSettings.rightClickGuideSnoozedUntil;
       if (snoozedUntil) {
         const expiryDate = new Date(snoozedUntil);
         const now = new Date();
@@ -37,27 +34,24 @@ export class RightClickGuideManager {
           return false;
         }
 
-        // Snooze expired, clean it up
-        const updatedSnoozed = { ...uiSettings.rightClickGuideSnoozed };
-        delete updatedSnoozed[domain];
         await storage.uiSettings.setValue({
           ...uiSettings,
-          rightClickGuideSnoozed: updatedSnoozed,
+          rightClickGuideSnoozedUntil: undefined,
         });
       }
 
       return true;
     } catch (error) {
       logger.error("Error checking if guide should show:", error);
-      return true; // be permissive on error so user still sees guide
+      return true;
     }
   }
 
-  async show(ctx: ContentScriptContext, domain: string): Promise<boolean> {
+  async show(ctx: ContentScriptContext): Promise<boolean> {
     try {
-      const shouldShow = await this.shouldShowGuide(domain);
+      const shouldShow = await this.shouldShowGuide();
       if (!shouldShow) {
-        logger.info("Guide should not be shown for", domain);
+        logger.info("Guide should not be shown");
         return false;
       }
 
@@ -85,9 +79,9 @@ export class RightClickGuideManager {
 
       await this.ui.mount();
       this.visible = true;
-      this.render(domain);
+      this.render();
 
-      logger.info("Right-click guide shown for", domain);
+      logger.info("Right-click guide shown");
       return true;
     } catch (error) {
       logger.error("Error showing right-click guide:", error);
@@ -104,34 +98,29 @@ export class RightClickGuideManager {
     logger.info("Right-click guide hidden");
   }
 
-  private render(domain: string): void {
+  private render(): void {
     if (!this.root) return;
 
     this.root.render(
       <RightClickGuide
-        onGotIt={() => this.handleGotIt(domain)}
+        onGotIt={() => this.handleGotIt()}
         onClose={() => this.handleClose()}
       />,
     );
   }
 
-  private async handleGotIt(domain: string): Promise<void> {
+  private async handleGotIt(): Promise<void> {
     try {
       const uiSettings = await storage.uiSettings.getValue();
       const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 7); // Snooze for 7 days
-
-      const snoozed = {
-        ...(uiSettings.rightClickGuideSnoozed || {}),
-        [domain]: expiryDate.toISOString(),
-      };
+      expiryDate.setDate(expiryDate.getDate() + 15);
 
       await storage.uiSettings.setValue({
         ...uiSettings,
-        rightClickGuideSnoozed: snoozed,
+        rightClickGuideSnoozedUntil: expiryDate.toISOString(),
       });
 
-      logger.info(`Right-click guide snoozed for 7 days on`, domain);
+      logger.info(`Right-click guide snoozed for 15 days`);
       this.hide();
     } catch (error) {
       logger.error("Error handling 'Got it' action:", error);
@@ -139,8 +128,7 @@ export class RightClickGuideManager {
   }
 
   private handleClose(): void {
-    // Just close for this session - no persistence
-    logger.info("Right-click guide closed for this session");
+    logger.info("Right-click guide closed");
     this.hide();
   }
 
