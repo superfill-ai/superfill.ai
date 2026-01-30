@@ -1,6 +1,7 @@
 import { CircleHelp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { browser } from "wxt/browser";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";

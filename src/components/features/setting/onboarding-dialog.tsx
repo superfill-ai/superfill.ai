@@ -2,6 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { SparklesIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { browser } from "wxt/browser";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import type { Country } from "@/components/ui/country-dropdown";

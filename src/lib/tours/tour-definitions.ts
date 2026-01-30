@@ -1,4 +1,5 @@
 import type { DriveStep } from "driver.js";
+import { browser } from "wxt/browser";
 
 export interface TourDefinition {
   id: string;

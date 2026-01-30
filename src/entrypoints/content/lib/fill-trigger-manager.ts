@@ -91,9 +91,14 @@ export class FillTriggerManager {
         return;
       }
     } catch (err) {
-      logger.info(
+      logger.error(
         "Error while checking login/small form heuristic for inline trigger",
-        err,
+        {
+          error: err,
+          tag: target?.tagName,
+          id: target?.id,
+          name: target?.getAttribute("name"),
+        },
       );
     }
 

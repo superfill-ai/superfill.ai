@@ -113,9 +113,13 @@ export function isElementPartOfForm(element: HTMLElement): boolean {
 }
 
 export function isLoginOrSmallForm(element: HTMLElement): boolean {
-  const container = (element.closest(
+  const formContainer = element.closest(
     'form, [role="form"], [data-form], .form',
-  ) || element.closest("div, section, main, aside")) as ParentNode | null;
+  ) as HTMLElement | null;
+  const genericContainer = element.closest(
+    "div, section, main, aside",
+  ) as HTMLElement | null;
+  const container = (formContainer ?? genericContainer) as ParentNode | null;
 
   if (!container) return false;
 
@@ -128,12 +132,7 @@ export function isLoginOrSmallForm(element: HTMLElement): boolean {
 
   if (inputsCount <= 2 && hasPassword) return true;
 
-  const formElem = element.closest(
-    'form, [role="form"], [data-form], .form',
-  ) as HTMLElement | null;
-  const candidate =
-    formElem ??
-    (element.closest("div, section, main, aside") as HTMLElement | null);
+  const candidate = formContainer ?? genericContainer;
 
   if (candidate) {
     const attrs =
