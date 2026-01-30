@@ -130,6 +130,8 @@ export function isLoginOrSmallForm(element: HTMLElement): boolean {
   const inputsCount = inputs.length;
   const hasPassword = !!container.querySelector('input[type="password"]');
 
+  if (inputsCount === 0) return false;
+
   if (inputsCount < 2) return true;
 
   if (inputsCount <= 2 && hasPassword) return true;
