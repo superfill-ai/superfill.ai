@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
+import { browser } from "wxt/browser";
 import { EntryCard } from "@/components/features/memory/entry-card";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { Badge } from "@/components/ui/badge";
@@ -265,7 +266,11 @@ export const App = () => {
         aria-label="Loading"
       >
         <div className="flex flex-col items-center gap-4">
-          <img src="/favicon.svg" alt="" className="size-6" />
+          <img
+            src={browser.runtime.getURL("/favicon.svg")}
+            alt=""
+            className="size-6"
+          />
           <p className="text-sm text-muted-foreground">Loading memories...</p>
         </div>
       </section>
@@ -310,7 +315,11 @@ export const App = () => {
     >
       <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b bg-background">
         <div className="flex items-center gap-2">
-          <img src="/favicon.svg" alt="" className="size-6" />
+          <img
+            src={browser.runtime.getURL("/favicon.svg")}
+            alt=""
+            className="size-6"
+          />
           <h1 className="text-lg font-bold text-primary">{APP_NAME}</h1>
         </div>
         <div className="flex gap-1 items-center">

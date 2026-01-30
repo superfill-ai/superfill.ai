@@ -28,7 +28,7 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
             id="right-click-guide-title"
           >
             <img
-              src={browser.runtime.getURL("/icon-128.png")}
+              src={browser.runtime.getURL("/icon-128.webp")}
               alt=""
               className="w-4 h-4"
             />
@@ -38,7 +38,7 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
             You can <strong>right-click</strong> on this page and select{" "}
             <span className="inline-flex items-center gap-1">
               <img
-                src={browser.runtime.getURL("/icon-128.png")}
+                src={browser.runtime.getURL("/icon-128.webp")}
                 alt=""
                 className="w-3 h-3 inline"
               />

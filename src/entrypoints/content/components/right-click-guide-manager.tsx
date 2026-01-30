@@ -9,7 +9,6 @@ import { storage } from "@/lib/storage";
 import { RightClickGuide } from "./right-click-guide";
 
 const logger = createLogger("right-click-guide-manager");
-
 const HOST_ID = "superfill-right-click-guide";
 
 export class RightClickGuideManager {
@@ -24,8 +23,8 @@ export class RightClickGuideManager {
   async shouldShowGuide(): Promise<boolean> {
     try {
       const uiSettings = await storage.uiSettings.getValue();
-
       const snoozedUntil = uiSettings.rightClickGuideSnoozedUntil;
+
       if (snoozedUntil) {
         const expiryDate = new Date(snoozedUntil);
         const now = new Date();
@@ -50,6 +49,7 @@ export class RightClickGuideManager {
   async show(ctx: ContentScriptContext): Promise<boolean> {
     try {
       const shouldShow = await this.shouldShowGuide();
+
       if (!shouldShow) {
         logger.info("Guide should not be shown");
         return false;
@@ -67,7 +67,6 @@ export class RightClickGuideManager {
           onMount: (container) => {
             const app = document.createElement("div");
             container.append(app);
-
             this.root = createRoot(app);
             return this.root;
           },
@@ -80,7 +79,6 @@ export class RightClickGuideManager {
       await this.ui.mount();
       this.visible = true;
       this.render();
-
       logger.info("Right-click guide shown");
       return true;
     } catch (error) {

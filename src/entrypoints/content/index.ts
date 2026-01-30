@@ -3,7 +3,13 @@ import "./content.css";
 import { getFrameInfo } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
-import { isElementPartOfForm, isMessagingSite } from "@/lib/copies";
+import {
+  isElementPartOfForm,
+  isLoginOrSmallForm,
+  isMessagingSite,
+} from "@/lib/copies";
+
+import { isFormInteractionEligible } from "@/lib/tours/form-interaction-utils";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import {
@@ -283,44 +289,20 @@ export default defineContentScript({
     const rightClickGuideManager = new RightClickGuideManager();
 
     const handleInputClick = async (event: Event) => {
-      if (!frameInfo.isMainFrame) return;
-
       const target = event.target as HTMLElement;
 
-      const isFormField =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement;
+      const eligible = await isFormInteractionEligible({
+        frameIsMainFrame: frameInfo.isMainFrame,
+        target,
+        formDetectionService,
+        isElementPartOfForm,
+        isLoginOrSmallForm,
+        isMessagingSite,
+        managerVisible: rightClickGuideManager.isVisible,
+        logger,
+      });
 
-      if (!isFormField) return;
-
-      if (!formDetectionService.hasCachedForms()) {
-        try {
-          await formDetectionService.detectFormsInCurrentFrame();
-        } catch (error) {
-          logger.error("Error detecting forms for guide:", error);
-          return;
-        }
-      }
-
-      if (!formDetectionService.hasCachedForms()) {
-        return;
-      }
-      try {
-        const aiSettings = await storage.aiSettings.getValue();
-        if (!aiSettings.contextMenuEnabled) {
-          return;
-        }
-      } catch (error) {
-        logger.error("Error checking AI settings:", error);
-        return;
-      }
-
-      const hostname = window.location.hostname;
-      const pathname = window.location.pathname;
-
-      if (isMessagingSite(hostname, pathname)) return;
-      if (rightClickGuideManager.isVisible) return;
+      if (!eligible) return;
 
       try {
         await rightClickGuideManager.show(ctx);

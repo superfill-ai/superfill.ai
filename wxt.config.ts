@@ -63,7 +63,13 @@ export default defineConfig({
         ...baseManifest,
         web_accessible_resources: [
           {
-            resources: ["icon-128.png", "right-click-context.webp"],
+            resources: [
+              "icon-128.png",
+              "icon-128.webp",
+              "favicon.svg",
+              "right-click-context.webp",
+              "inline-autofill.webp",
+            ],
             matches: ["<all_urls>"],
           },
         ],

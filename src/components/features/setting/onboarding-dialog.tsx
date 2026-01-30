@@ -136,7 +136,11 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
       <DialogContent showCloseButton={false} className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="" className="size-5" />
+            <img
+              src={browser.runtime.getURL("/favicon.svg")}
+              alt=""
+              className="size-5"
+            />
             Welcome to {APP_NAME}
           </DialogTitle>
           <DialogDescription>

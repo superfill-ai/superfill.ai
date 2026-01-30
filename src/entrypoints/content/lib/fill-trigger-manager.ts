@@ -1,5 +1,5 @@
 import { getAutofillService } from "@/lib/autofill/autofill-service";
-import { isMessagingSite } from "@/lib/copies";
+import { isLoginOrSmallForm, isMessagingSite } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
@@ -79,6 +79,22 @@ export class FillTriggerManager {
         name: target.getAttribute("name"),
       });
       return;
+    }
+
+    try {
+      if (isLoginOrSmallForm(target)) {
+        logger.info("Skipping inline trigger - likely login/small auth form", {
+          tag: target.tagName,
+          id: target.id,
+          name: target.getAttribute("name"),
+        });
+        return;
+      }
+    } catch (err) {
+      logger.info(
+        "Error while checking login/small form heuristic for inline trigger",
+        err,
+      );
     }
 
     if (this.hideTimeout) {
