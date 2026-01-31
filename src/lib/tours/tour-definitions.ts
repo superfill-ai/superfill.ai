@@ -1,5 +1,4 @@
 import type { DriveStep } from "driver.js";
-import { browser } from "wxt/browser";
 
 export interface TourDefinition {
   id: string;
@@ -55,7 +54,7 @@ export function getCurrentAppTour(version: string): TourDefinition {
         element: '[data-tour="inline-trigger"]',
         popover: {
           title: "🔘 Inline Fill Trigger",
-          description: `Enable this to show a fill button when you focus on input fields. Note: This may conflict with password manager extensions like Bitwarden.<br/><br/><img src="${browser.runtime.getURL("/inline-autofill.webp")}" alt="Inline trigger example" style="width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #e5e7eb;" />`,
+          description: `Enable this to show a fill button when you focus on input fields. Note: This may conflict with password manager extensions like Bitwarden.<br/><br/><img src="/inline-autofill.webp" alt="Inline trigger example" style="width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #e5e7eb;" />`,
           side: "left",
           align: "start",
         },
@@ -64,7 +63,7 @@ export function getCurrentAppTour(version: string): TourDefinition {
         element: '[data-tour="context-menu"]',
         popover: {
           title: "🖱️ Right-Click Context Menu",
-          description: `When enabled, you can right-click on any page and select "Fill with superfill.ai" to trigger autofill manually.<br/><br/><img src="${browser.runtime.getURL("/right-click-context.webp")}" alt="Context menu example" style="width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #e5e7eb;" />`,
+          description: `When enabled, you can right-click on any page and select "Fill with superfill.ai" to trigger autofill manually.<br/><br/><img src="/right-click-context.webp" alt="Context menu example" style="width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #e5e7eb;" />`,
           side: "left",
           align: "start",
         },
