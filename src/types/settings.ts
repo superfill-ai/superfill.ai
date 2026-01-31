@@ -22,6 +22,7 @@ export interface UISettings {
   completedTours?: string[];
   lastTourCompletedAt?: string;
   rightClickGuideSnoozedUntil?: string;
+  rightClickGuideDismissed?: boolean;
 }
 
 export interface ProviderOption {

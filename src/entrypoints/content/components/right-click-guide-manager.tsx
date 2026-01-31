@@ -24,6 +24,11 @@ export class RightClickGuideManager {
   async shouldShowGuide(): Promise<boolean> {
     try {
       const uiSettings = await storage.uiSettings.getValue();
+
+      if (uiSettings.rightClickGuideDismissed) {
+        return false;
+      }
+
       const snoozedUntil = uiSettings.rightClickGuideSnoozedUntil;
 
       if (snoozedUntil) {
@@ -128,10 +133,15 @@ export class RightClickGuideManager {
   private render(): void {
     if (!this.root) return;
 
-    this.root.render(<RightClickGuide onGotIt={() => this.handleGotIt()} />);
+    this.root.render(
+      <RightClickGuide
+        onSnooze={() => this.handleSnooze()}
+        onDismiss={() => this.handleDismiss()}
+      />,
+    );
   }
 
-  private async handleGotIt(): Promise<void> {
+  private async handleSnooze(): Promise<void> {
     try {
       const uiSettings = await storage.uiSettings.getValue();
       const expiryDate = new Date();
@@ -142,10 +152,27 @@ export class RightClickGuideManager {
         rightClickGuideSnoozedUntil: expiryDate.toISOString(),
       });
 
-      logger.info(`Right-click guide snoozed for 15 days`);
+      logger.info("Right-click guide snoozed for 15 days");
       this.hide();
     } catch (error) {
-      logger.error("Error handling 'Got it' action:", error);
+      logger.error("Error handling snooze action:", error);
+    }
+  }
+
+  private async handleDismiss(): Promise<void> {
+    try {
+      const uiSettings = await storage.uiSettings.getValue();
+
+      await storage.uiSettings.setValue({
+        ...uiSettings,
+        rightClickGuideDismissed: true,
+        rightClickGuideSnoozedUntil: undefined,
+      });
+
+      logger.info("Right-click guide permanently dismissed");
+      this.hide();
+    } catch (error) {
+      logger.error("Error handling dismiss action:", error);
     }
   }
 

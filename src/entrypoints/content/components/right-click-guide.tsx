@@ -8,10 +8,14 @@ import {
 } from "@/components/ui/card";
 
 interface RightClickGuideProps {
-  onGotIt: () => void;
+  onSnooze: () => void;
+  onDismiss: () => void;
 }
 
-export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
+export const RightClickGuide = ({
+  onSnooze,
+  onDismiss,
+}: RightClickGuideProps) => {
   return (
     <div
       className="fixed top-4 right-4 z-9999"
@@ -19,7 +23,7 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
       aria-modal="false"
       aria-labelledby="right-click-guide-title"
     >
-      <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-3">
+      <Card className="w-96 shadow-2xl border border-border/50 backdrop-blur-sm bg-background/95 pointer-events-auto gap-2">
         <CardHeader>
           <CardDescription className="text-xs text-wrap">
             You can <strong>right-click</strong> on this page and select{" "}
@@ -28,7 +32,7 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="py-0">
           <img
             src={browser.runtime.getURL("/right-click-context.gif")}
             alt="Context menu example"
@@ -36,9 +40,17 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
           />
         </CardContent>
 
-        <CardFooter className="px-3 py-2 flex-row items-center gap-2">
-          <Button onClick={onGotIt} className="flex-1" size="sm">
-            Got it
+        <CardFooter className="flex-row items-center gap-2">
+          <Button onClick={onSnooze} className="flex-1" size="sm">
+            Remind me later
+          </Button>
+          <Button
+            onClick={onDismiss}
+            variant="outline"
+            className="flex-1"
+            size="sm"
+          >
+            Don't show again
           </Button>
         </CardFooter>
       </Card>

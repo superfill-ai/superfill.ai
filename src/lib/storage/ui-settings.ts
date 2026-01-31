@@ -11,6 +11,7 @@ export const uiSettings = storage.defineItem<UISettings>(
       completedTours: [],
       lastTourCompletedAt: undefined,
       rightClickGuideSnoozedUntil: undefined,
+      rightClickGuideDismissed: false,
     },
     version: 4,
   },
