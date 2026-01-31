@@ -47,7 +47,6 @@ export default defineContentScript({
 
     const fieldAnalyzer = new FieldAnalyzer();
     const contextExtractor = new WebsiteContextExtractor();
-    // const fillTriggerManager = new FillTriggerManager();
 
     formDetectionService = new FormDetectionService(
       fieldAnalyzer,
@@ -278,12 +277,6 @@ export default defineContentScript({
       })();
     });
 
-    // try {
-    //   await fillTriggerManager.initialize(isElementPartOfForm);
-    // } catch (error) {
-    //   logger.error("Failed to initialize FillTriggerManager", error);
-    // }
-
     const rightClickGuideManager = new RightClickGuideManager();
 
     const handleInputClick = async (event: Event) => {
@@ -368,10 +361,6 @@ export default defineContentScript({
       }
 
       destroyUIManagers();
-
-      // if (fillTriggerManager) {
-      //   fillTriggerManager.destroy();
-      // }
 
       return true;
     });

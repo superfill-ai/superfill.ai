@@ -12,7 +12,6 @@ export interface AISettings {
   autoFillEnabled: boolean;
   autopilotMode: boolean;
   confidenceThreshold: number;
-  inlineTriggerEnabled: boolean;
   contextMenuEnabled: boolean;
 }
 
