@@ -39,9 +39,9 @@ import { Separator } from "@/components/ui/separator";
 import { APP_NAME } from "@/constants";
 import { useMemoryMutations } from "@/hooks/use-memories";
 import { useSaveApiKeyWithModel } from "@/hooks/use-provider-keys";
-import { getDefaultModel } from "@/lib/ai/model-factory";
 import { cn } from "@/lib/cn";
 import { createLogger } from "@/lib/logger";
+import { getDefaultModel } from "@/lib/providers/model-factory";
 import {
   type AIProvider,
   getAllProviderConfigs,

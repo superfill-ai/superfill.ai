@@ -8,6 +8,18 @@ import type {
 } from "@/types/autofill";
 import type { FillSession, FormMapping } from "@/types/memory";
 
+export type ToastType = "info" | "success" | "warning" | "error";
+
+export interface ShowToastData {
+  message: string;
+  type?: ToastType;
+  duration?: number;
+  action?: {
+    label: string;
+    url: string;
+  };
+}
+
 interface ContentAutofillProtocolMap {
   detectForms: () => Promise<DetectFormsResult>;
   collectAllFrameForms: (data: { requestId: string }) => void;
@@ -36,6 +48,8 @@ interface ContentAutofillProtocolMap {
   saveCapturedMemories: (data: {
     capturedFields: CapturedFieldData[];
   }) => Promise<{ success: boolean; savedCount: number }>;
+
+  showToast: (data: ShowToastData) => boolean;
 }
 
 export const contentAutofillMessaging =

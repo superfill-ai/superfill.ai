@@ -1,4 +1,5 @@
 import { defineProxyService } from "@webext-core/proxy-service";
+import { AIMatcher } from "@/lib/ai/matcher";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
 import { createLogger } from "@/lib/logger";
@@ -19,7 +20,6 @@ import type { MemoryEntry } from "@/types/memory";
 import type { AISettings } from "@/types/settings";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
 import { aiSettings } from "../storage/ai-settings";
-import { AIMatcher } from "./ai-matcher";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
 import { isCrypticString } from "./field-quality";
@@ -357,8 +357,17 @@ class AutofillService {
     const compressedFields = fields.map((f) => this.compressField(f));
     const compressedMemories = memories.map((m) => this.compressMemory(m));
 
+    const settings = this.currentAiSettings;
+
+    if (!settings) {
+      throw new Error("AI settings not loaded");
+    }
+
+    const useCloudMode = settings.cloudModelsEnabled;
+
     try {
       const settings = this.currentAiSettings;
+
       if (!settings) {
         throw new Error("AI settings not loaded");
       }
@@ -393,9 +402,10 @@ class AutofillService {
         compressedFields,
         compressedMemories,
         websiteContext,
-        provider,
+        useCloudMode,
+        settings.selectedProvider,
         apiKey,
-        selectedModel,
+        settings.selectedModels?.[settings.selectedProvider || "openai"],
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);

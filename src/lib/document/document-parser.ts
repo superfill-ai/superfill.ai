@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger } from "@/lib/logger";
+import { getAIModel } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AllowedCategory } from "@/types/memory";

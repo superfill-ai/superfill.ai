@@ -1,5 +1,8 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import type { AIProvider } from "@/lib/providers/registry";
+import { createLogger } from "../logger";
+
+const logger = createLogger("key-validation-service");
 
 class KeyValidationService {
   async validateKey(provider: AIProvider, key: string): Promise<boolean> {
@@ -30,8 +33,14 @@ class KeyValidationService {
       const response = await fetch("https://api.openai.com/v1/models", {
         headers: { Authorization: `Bearer ${key}` },
       });
+      logger.debug("OpenAI connection response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
       return response.ok;
-    } catch {
+    } catch (error) {
+      logger.error("OpenAI connection test failed with exception:", error);
       return false;
     }
   }
@@ -52,8 +61,14 @@ class KeyValidationService {
           messages: [{ role: "user", content: "test" }],
         }),
       });
+      logger.debug("Anthropic connection response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
       return response.ok || response.status === 400; // 400 means auth passed, just invalid request params or credit balance too low or something similar
-    } catch {
+    } catch (error) {
+      logger.error("Anthropic connection test failed with exception:", error);
       return false;
     }
   }
@@ -63,8 +78,14 @@ class KeyValidationService {
       const response = await fetch("https://api.groq.com/openai/v1/models", {
         headers: { Authorization: `Bearer ${key}` },
       });
+      logger.debug("Groq connection response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
       return response.ok;
-    } catch {
+    } catch (error) {
+      logger.error("Groq connection test failed with exception:", error);
       return false;
     }
   }
@@ -74,8 +95,14 @@ class KeyValidationService {
       const response = await fetch("https://api.deepseek.com/v1/models", {
         headers: { Authorization: `Bearer ${key}` },
       });
+      logger.debug("DeepSeek connection response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
       return response.ok;
-    } catch {
+    } catch (error) {
+      logger.error("DeepSeek connection test failed with exception:", error);
       return false;
     }
   }
@@ -90,19 +117,32 @@ class KeyValidationService {
           },
         },
       );
+      logger.debug("Gemini connection response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
       return response.ok;
-    } catch {
+    } catch (error) {
+      logger.error("Gemini connection test failed with exception:", error);
       return false;
     }
   }
 
   private async testOllamaConnection(): Promise<boolean> {
+    logger.debug("Testing Ollama connection...");
     try {
       const response = await fetch("http://localhost:11434/api/tags", {
         method: "GET",
       });
+      logger.debug("Ollama connection response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
       return response.ok;
-    } catch {
+    } catch (error) {
+      logger.error("Ollama connection test failed with exception:", error);
       return false;
     }
   }

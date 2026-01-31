@@ -38,6 +38,17 @@
   bottom: auto !important;
 }
 
+:host([data-ui-type="toast"]) {
+  top: 16px !important;
+  right: 16px !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  height: fit-content !important;
+  max-height: fit-content !important;
+  pointer-events: none !important;
+}
+
 html,
 body {
   position: static !important;

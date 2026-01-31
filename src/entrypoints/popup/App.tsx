@@ -81,7 +81,7 @@ export const App = () => {
   >("autofill");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
-
+  const [cloudModelsEnabled, setCloudModelsEnabled] = useState(false);
   const hasMemories = entries.length > 0;
 
   useEffect(() => {
@@ -125,6 +125,7 @@ export const App = () => {
       const settings = await storage.aiSettings.getValue();
       setSelectedProvider(settings.selectedProvider);
       setSelectedModels(settings.selectedModels || {});
+      setCloudModelsEnabled(settings.cloudModelsEnabled);
     };
 
     fetchAndWatch();
@@ -133,6 +134,7 @@ export const App = () => {
       if (newSettings) {
         setSelectedProvider(newSettings.selectedProvider);
         setSelectedModels(newSettings.selectedModels || {});
+        setCloudModelsEnabled(newSettings.cloudModelsEnabled);
       }
     });
 
@@ -386,14 +388,15 @@ export const App = () => {
                     : "Create your first memory entry to start using AI-powered autofill on web forms."}
                 </CardDescription>
               </CardHeader>
-              {selectedProvider && (
-                <CardFooter>
-                  <span className="text-muted-foreground text-xs underline">
-                    Selected model: {selectedModels[selectedProvider] || "N/A"}{" "}
-                    of {selectedProvider}
-                  </span>
-                </CardFooter>
-              )}
+              <CardFooter>
+                <span className="text-muted-foreground text-xs underline">
+                  {cloudModelsEnabled
+                    ? "Using Superfill Cloud Models"
+                    : selectedProvider
+                      ? `Selected model: ${selectedModels[selectedProvider] || "N/A"} of ${selectedProvider}`
+                      : "No AI provider selected"}
+                </span>
+              </CardFooter>
             </Card>
 
             <Card>

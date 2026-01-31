@@ -63,6 +63,7 @@ class KeyVaultService {
 
   async validateKey(provider: AIProvider, key: string): Promise<boolean> {
     const cached = this.validationCache.get(provider);
+
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return cached.isValid;
     }
