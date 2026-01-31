@@ -281,17 +281,23 @@ export default defineContentScript({
 
     const handleInputClick = async (event: Event) => {
       const target = event.target as HTMLElement;
+      let eligible = false;
 
-      const eligible = await isFormInteractionEligible({
-        frameIsMainFrame: frameInfo.isMainFrame,
-        target,
-        formDetectionService,
-        isElementPartOfForm,
-        isLoginOrSmallForm,
-        isMessagingSite,
-        managerVisible: rightClickGuideManager.isVisible,
-        logger,
-      });
+      try {
+        eligible = await isFormInteractionEligible({
+          frameIsMainFrame: frameInfo.isMainFrame,
+          target,
+          formDetectionService,
+          isElementPartOfForm,
+          isLoginOrSmallForm,
+          isMessagingSite,
+          managerVisible: rightClickGuideManager.isVisible,
+          logger,
+        });
+      } catch (error) {
+        logger.error("Error checking right-click guide eligibility:", error);
+        return;
+      }
 
       if (!eligible) return;
 
