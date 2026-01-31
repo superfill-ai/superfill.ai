@@ -12,9 +12,7 @@ export const migrateAISettings = async () => {
       await storage.aiSettings.setValue(aiSettingsFallback);
       return aiSettingsFallback;
     }
-    const needsMigration =
-      currentSettings.contextMenuEnabled === undefined ||
-      currentSettings.inlineTriggerEnabled === undefined;
+    const needsMigration = currentSettings.contextMenuEnabled === undefined;
 
     if (needsMigration) {
       const migratedSettings = {
@@ -22,14 +20,10 @@ export const migrateAISettings = async () => {
         contextMenuEnabled:
           currentSettings.contextMenuEnabled ??
           aiSettingsFallback.contextMenuEnabled,
-        inlineTriggerEnabled:
-          currentSettings.inlineTriggerEnabled ??
-          aiSettingsFallback.inlineTriggerEnabled,
       };
       await storage.aiSettings.setValue(migratedSettings);
       logger.info("AI settings migrated", {
         contextMenuEnabled: migratedSettings.contextMenuEnabled,
-        inlineTriggerEnabled: migratedSettings.inlineTriggerEnabled,
       });
       return migratedSettings;
     }

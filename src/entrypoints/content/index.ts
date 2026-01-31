@@ -3,21 +3,25 @@ import "./content.css";
 import { getFrameInfo } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { WebsiteContextExtractor } from "@/lib/context/website-context-extractor";
-import { isElementPartOfForm, isMessagingSite } from "@/lib/copies";
+import {
+  isElementPartOfForm,
+  isLoginOrSmallForm,
+  isMessagingSite,
+} from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import {
   getCaptureSettings,
   isSiteBlocked,
 } from "@/lib/storage/capture-settings";
+import { isFormInteractionEligible } from "@/lib/tours/form-interaction-utils";
 import type { AutofillProgress, PreviewSidebarPayload } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
-import "./content.css";
+import { RightClickGuideManager } from "./components/right-click-guide-manager";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
 import { handleFill } from "./lib/fill-handler";
-import { FillTriggerManager } from "./lib/fill-trigger-manager";
 import { FormDetectionService } from "./lib/form-detection-service";
 import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 import {
@@ -76,7 +80,6 @@ export default defineContentScript({
 
     const fieldAnalyzer = new FieldAnalyzer();
     const contextExtractor = new WebsiteContextExtractor();
-    const fillTriggerManager = new FillTriggerManager();
 
     formDetectionService = new FormDetectionService(
       fieldAnalyzer,
@@ -307,11 +310,45 @@ export default defineContentScript({
       })();
     });
 
-    try {
-      await fillTriggerManager.initialize(isElementPartOfForm);
-    } catch (error) {
-      logger.error("Failed to initialize FillTriggerManager", error);
-    }
+    const rightClickGuideManager = new RightClickGuideManager();
+
+    const handleInputClick = async (event: Event) => {
+      const target = event.target as HTMLElement;
+      let eligible = false;
+
+      try {
+        eligible = await isFormInteractionEligible({
+          frameIsMainFrame: frameInfo.isMainFrame,
+          target,
+          formDetectionService,
+          isElementPartOfForm,
+          isLoginOrSmallForm,
+          isMessagingSite,
+          managerVisible: rightClickGuideManager.isVisible,
+          logger,
+        });
+      } catch (error) {
+        logger.error("Error checking right-click guide eligibility:", error);
+        return;
+      }
+
+      if (!eligible) return;
+
+      try {
+        await rightClickGuideManager.show(ctx);
+      } catch (error) {
+        logger.error("Error showing right-click guide:", error);
+      }
+    };
+
+    document.addEventListener("click", handleInputClick, { capture: true });
+
+    const cleanupGuideListener = () => {
+      document.removeEventListener("click", handleInputClick, {
+        capture: true,
+      });
+      rightClickGuideManager.destroy();
+    };
 
     contentAutofillMessaging.onMessage(
       "updateProgress",
@@ -364,10 +401,6 @@ export default defineContentScript({
 
       destroyUIManagers();
 
-      if (fillTriggerManager) {
-        fillTriggerManager.destroy();
-      }
-
       return true;
     });
 
@@ -398,6 +431,10 @@ export default defineContentScript({
       if (captureMemoryManager) {
         captureMemoryManager.hide();
       }
+
+      try {
+        cleanupGuideListener();
+      } catch {}
     });
   },
 });

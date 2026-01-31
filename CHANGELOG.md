@@ -1,5 +1,13 @@
 # superfill.ai
 
+## 0.2.3
+
+### Patch Changes
+
+- [#91](https://github.com/superfill-ai/superfill.ai/pull/91) [`203c22a`](https://github.com/superfill-ai/superfill.ai/commit/203c22a570925a957085bd953f45fe7a188d3e6c) Thanks [@arjun-veer](https://github.com/arjun-veer)! - feat: added ability to turn off inline fill trigger from form itself
+
+- [#69](https://github.com/superfill-ai/superfill.ai/pull/69) [`c7415ee`](https://github.com/superfill-ai/superfill.ai/commit/c7415eef90625b66d5a05bce59cd07f74898a1f7) Thanks [@Andro-human](https://github.com/Andro-human) & [@mikr13](https://github.com/mikr13)! - feat(SUP-5): scraping of linkedin & PDF
+
 ## 0.2.2
 
 ### Patch Changes

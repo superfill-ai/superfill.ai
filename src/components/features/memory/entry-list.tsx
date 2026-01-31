@@ -1,14 +1,18 @@
 import {
   DownloadIcon,
   FileSpreadsheetIcon,
+  FileTextIcon,
   GridIcon,
+  LinkedinIcon,
   ListIcon,
   SearchIcon,
   UploadIcon,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { DocumentImportDialog } from "@/components/features/document/document-import-dialog";
 import { EntryCard } from "@/components/features/memory/entry-card";
+import { ProfileImportDialog } from "@/components/features/profile/profile-import-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -62,6 +66,8 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [showProfileImport, setShowProfileImport] = useState(false);
+  const [showDocumentImport, setShowDocumentImport] = useState(false);
 
   const categories = useMemo(
     () => [...new Set(entries.map((e) => e.category))],
@@ -358,9 +364,51 @@ export function EntryList({ onEdit, onDelete, onDuplicate }: EntryListProps) {
                 <p>Download blank CSV template</p>
               </TooltipContent>
             </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowProfileImport(true)}
+                  disabled={importing}
+                >
+                  <LinkedinIcon className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Import from LinkedIn</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowDocumentImport(true)}
+                  disabled={importing}
+                >
+                  <FileTextIcon className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Import from Document</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </TooltipProvider>
       </div>
+
+      <ProfileImportDialog
+        open={showProfileImport}
+        onOpenChange={setShowProfileImport}
+      />
+
+      <DocumentImportDialog
+        open={showDocumentImport}
+        onOpenChange={setShowDocumentImport}
+      />
     </div>
   );
 }

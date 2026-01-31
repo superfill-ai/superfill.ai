@@ -13,7 +13,6 @@ export interface AISettings {
   autopilotMode: boolean;
   confidenceThreshold: number;
   cloudModelsEnabled: boolean;
-  inlineTriggerEnabled: boolean;
   contextMenuEnabled: boolean;
 }
 
@@ -23,6 +22,8 @@ export interface UISettings {
   extensionVersion?: string;
   completedTours?: string[];
   lastTourCompletedAt?: string;
+  rightClickGuideSnoozedUntil?: string;
+  rightClickGuideDismissed?: boolean;
 }
 
 export interface ProviderOption {

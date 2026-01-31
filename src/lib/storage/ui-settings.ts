@@ -10,6 +10,8 @@ export const uiSettings = storage.defineItem<UISettings>(
       extensionVersion: "0.0.0",
       completedTours: [],
       lastTourCompletedAt: undefined,
+      rightClickGuideSnoozedUntil: undefined,
+      rightClickGuideDismissed: false,
     },
     version: 4,
   },

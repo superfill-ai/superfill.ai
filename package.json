@@ -2,7 +2,7 @@
   "name": "superfill.ai",
   "description": "AI-powered form filling browser extension",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "author": {
     "email": "mihirpandey.13@gmail.com",
@@ -81,6 +81,7 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.561.0",
+    "pdfjs-dist": "^5.4.530",
     "react": "^19.2.3",
     "react-circle-flags": "^0.0.25",
     "react-day-picker": "^9.13.0",

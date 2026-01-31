@@ -24,16 +24,9 @@ export default defineConfig({
 
     const baseManifest = {
       name: APP_NAME,
-      version: "0.2.2",
+      version: "0.2.3",
       description: "AI-powered form filling browser extension",
-      permissions: [
-        "activeTab",
-        "storage",
-        "offscreen",
-        "contextMenus",
-        // TODO: Enable webRequest-based form submission detection with proper scoping
-        // "webRequest",
-      ],
+      permissions: ["activeTab", "storage", "offscreen", "contextMenus"],
       host_permissions: [
         "https://api.openai.com/*",
         "https://api.anthropic.com/*",
@@ -64,6 +57,16 @@ export default defineConfig({
     if (manifestVersion === 3) {
       return {
         ...baseManifest,
+        web_accessible_resources: [
+          {
+            resources: [
+              "icon-128.webp",
+              "favicon.svg",
+              "right-click-context.gif",
+            ],
+            matches: ["<all_urls>"],
+          },
+        ],
         content_security_policy: {
           extension_pages: `script-src 'self' 'wasm-unsafe-eval'${allowLocalhost}; object-src 'self';`,
           sandbox: `script-src 'self' 'unsafe-inline' 'unsafe-eval'${allowLocalhost}; sandbox allow-scripts allow-forms allow-popups allow-modals; child-src 'self';`,

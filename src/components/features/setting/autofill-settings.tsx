@@ -23,13 +23,11 @@ export const AutofillSettings = () => {
   const autofillEnabledId = useId();
   const autopilotModeId = useId();
   const confidenceThresholdId = useId();
-  const inlineTriggerEnabledId = useId();
   const contextMenuEnabledId = useId();
 
   const [autoFillEnabled, setAutoFillEnabled] = useState(true);
   const [autopilotMode, setAutopilotMode] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
-  const [inlineTriggerEnabled, setInlineTriggerEnabled] = useState(false);
   const [contextMenuEnabled, setContextMenuEnabled] = useState(true);
 
   useEffect(() => {
@@ -39,7 +37,6 @@ export const AutofillSettings = () => {
       setAutoFillEnabled(settings.autoFillEnabled);
       setAutopilotMode(settings.autopilotMode);
       setConfidenceThreshold(settings.confidenceThreshold);
-      setInlineTriggerEnabled(settings.inlineTriggerEnabled);
       setContextMenuEnabled(settings.contextMenuEnabled);
     };
 
@@ -50,7 +47,6 @@ export const AutofillSettings = () => {
         setAutoFillEnabled(newSettings.autoFillEnabled);
         setAutopilotMode(newSettings.autopilotMode);
         setConfidenceThreshold(newSettings.confidenceThreshold);
-        setInlineTriggerEnabled(newSettings.inlineTriggerEnabled);
         setContextMenuEnabled(newSettings.contextMenuEnabled);
       }
     });
@@ -87,15 +83,6 @@ export const AutofillSettings = () => {
     await storage.aiSettings.setValue(updatedSettings);
   };
 
-  const handleSetInlineTriggerEnabled = async (enabled: boolean) => {
-    const currentSettings = await storage.aiSettings.getValue();
-    const updatedSettings: AISettings = {
-      ...currentSettings,
-      inlineTriggerEnabled: enabled,
-    };
-    await storage.aiSettings.setValue(updatedSettings);
-  };
-
   const handleSetContextMenuEnabled = async (enabled: boolean) => {
     const currentSettings = await storage.aiSettings.getValue();
     const updatedSettings: AISettings = {
@@ -125,7 +112,7 @@ export const AutofillSettings = () => {
                 Enable Autofill
               </FieldLabel>
               <FieldDescription>
-                Automatically suggest or fill (in autopilot mode) forms with
+                Automatically suggest (or fill in autopilot mode) forms with
                 your stored memories
               </FieldDescription>
             </FieldContent>
@@ -173,29 +160,6 @@ export const AutofillSettings = () => {
           </Field>
 
           <Separator />
-
-          <Field
-            orientation="horizontal"
-            data-invalid={false}
-            data-tour="inline-trigger"
-          >
-            <FieldContent>
-              <FieldLabel htmlFor={inlineTriggerEnabledId}>
-                Inline Fill Trigger Button
-              </FieldLabel>
-              <FieldDescription>
-                Show fill button when focusing on input fields. Note: This can
-                conflict with similar buttons from third-party extensions like
-                Bitwarden.
-              </FieldDescription>
-            </FieldContent>
-            <Switch
-              id={inlineTriggerEnabledId}
-              checked={inlineTriggerEnabled}
-              onCheckedChange={handleSetInlineTriggerEnabled}
-              disabled={!autoFillEnabled}
-            />
-          </Field>
 
           <Field
             orientation="horizontal"

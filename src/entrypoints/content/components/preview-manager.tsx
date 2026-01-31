@@ -276,13 +276,11 @@ export class PreviewSidebarManager {
     try {
       const frameInfo = getFrameInfo();
 
-      // Only broadcast from main frame - all frames (including main) will receive the fillFields message
       if (frameInfo.isMainFrame) {
         await contentAutofillMessaging.sendMessage("broadcastFillToAllFrames", {
           fieldsToFill,
         });
       } else {
-        // For iframes, fill directly since broadcast won't reach us
         await fillFields(fieldsToFill, frameInfo, {
           getCachedField: this.options.getFieldMetadata,
         });
