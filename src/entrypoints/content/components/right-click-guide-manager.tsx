@@ -6,6 +6,7 @@ import {
 } from "wxt/utils/content-script-ui/shadow-root";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
+import { Theme } from "@/types/theme";
 import { RightClickGuide } from "./right-click-guide";
 
 const logger = createLogger("right-click-guide-manager");
@@ -64,10 +65,15 @@ export class RightClickGuideManager {
         this.ui = await createShadowRootUi(ctx, {
           name: HOST_ID,
           position: "inline",
-          onMount: (container) => {
-            const app = document.createElement("div");
-            container.append(app);
-            this.root = createRoot(app);
+          anchor: "body",
+          append: "last",
+          onMount: (container, shadow, host) => {
+            host.id = HOST_ID;
+            host.setAttribute("data-ui-type", "right-click-guide");
+
+            void this.applyTheme(shadow);
+            this.root = createRoot(container);
+            this.render();
             return this.root;
           },
           onRemove: (root) => {
@@ -94,6 +100,29 @@ export class RightClickGuideManager {
     this.visible = false;
 
     logger.info("Right-click guide hidden");
+  }
+
+  private async applyTheme(shadow: ShadowRoot): Promise<void> {
+    try {
+      const settings = await storage.uiSettings.getValue();
+      const theme = settings.theme;
+
+      const host = shadow.host as HTMLElement;
+      host.classList.remove("light", "dark");
+
+      if (theme === Theme.LIGHT) {
+        host.classList.add("light");
+      } else if (theme === Theme.DARK) {
+        host.classList.add("dark");
+      } else {
+        const isDarkMode =
+          document.documentElement.classList.contains("dark") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        host.classList.add(isDarkMode ? "dark" : "light");
+      }
+    } catch (error) {
+      logger.warn("Failed to apply theme to capture memory:", error);
+    }
   }
 
   private render(): void {

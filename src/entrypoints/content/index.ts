@@ -22,7 +22,6 @@ import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
 import { handleFill } from "./lib/fill-handler";
-import { FillTriggerManager } from "./lib/fill-trigger-manager";
 import { FormDetectionService } from "./lib/form-detection-service";
 import { getFormSubmissionMonitor } from "./lib/form-submission-monitor";
 import {
@@ -48,7 +47,7 @@ export default defineContentScript({
 
     const fieldAnalyzer = new FieldAnalyzer();
     const contextExtractor = new WebsiteContextExtractor();
-    const fillTriggerManager = new FillTriggerManager();
+    // const fillTriggerManager = new FillTriggerManager();
 
     formDetectionService = new FormDetectionService(
       fieldAnalyzer,
@@ -279,11 +278,11 @@ export default defineContentScript({
       })();
     });
 
-    try {
-      await fillTriggerManager.initialize(isElementPartOfForm);
-    } catch (error) {
-      logger.error("Failed to initialize FillTriggerManager", error);
-    }
+    // try {
+    //   await fillTriggerManager.initialize(isElementPartOfForm);
+    // } catch (error) {
+    //   logger.error("Failed to initialize FillTriggerManager", error);
+    // }
 
     const rightClickGuideManager = new RightClickGuideManager();
 
@@ -370,9 +369,9 @@ export default defineContentScript({
 
       destroyUIManagers();
 
-      if (fillTriggerManager) {
-        fillTriggerManager.destroy();
-      }
+      // if (fillTriggerManager) {
+      //   fillTriggerManager.destroy();
+      // }
 
       return true;
     });
