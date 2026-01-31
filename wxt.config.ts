@@ -57,11 +57,9 @@ export default defineConfig({
         web_accessible_resources: [
           {
             resources: [
-              "icon-128.png",
               "icon-128.webp",
               "favicon.svg",
-              "right-click-context.webp",
-              "inline-autofill.webp",
+              "right-click-context.gif",
             ],
             matches: ["<all_urls>"],
           },

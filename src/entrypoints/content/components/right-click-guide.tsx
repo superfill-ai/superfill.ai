@@ -23,22 +23,14 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
         <CardHeader>
           <CardDescription className="text-xs text-wrap">
             You can <strong>right-click</strong> on this page and select{" "}
-            <span className="inline-flex items-center gap-1">
-              <img
-                src={browser.runtime.getURL("/icon-128.webp")}
-                alt=""
-                className="w-3 h-3 inline"
-              />
-              <strong>Fill with superfill.ai</strong>
-            </span>{" "}
-            from the context menu to quickly fill all detected form fields with
-            your saved data.
+            <strong>Fill with superfill.ai</strong> from the context menu to
+            quickly fill all detected form fields with your saved data.
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="max-h-80 overflow-y-auto">
+        <CardContent>
           <img
-            src={browser.runtime.getURL("/right-click-context.webp")}
+            src={browser.runtime.getURL("/right-click-context.gif")}
             alt="Context menu example"
             className="w-full rounded-lg border border-border"
           />
