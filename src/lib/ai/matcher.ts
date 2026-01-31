@@ -12,9 +12,9 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
+import { FallbackMatcher } from "../autofill/fallback-matcher";
+import { createEmptyMapping, roundConfidence } from "../autofill/mapping-utils";
 import { langfuseSpanProcessor } from "../observability/langfuse";
-import { FallbackMatcher } from "./fallback-matcher";
-import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 
 const logger = createLogger("ai-matcher");
 

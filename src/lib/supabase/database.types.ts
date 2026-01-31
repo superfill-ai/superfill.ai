@@ -451,18 +451,18 @@ export type Database = {
       upsert_memory:
         | {
             Args: {
-              p_answer: string;
-              p_category: string;
-              p_confidence: number;
-              p_created_at: string;
+              p_answer?: string;
+              p_category?: string;
+              p_confidence?: number;
+              p_created_at?: string;
               p_deleted_at?: string;
-              p_embedding: string;
+              p_embedding?: string;
               p_is_deleted?: boolean;
               p_local_id: string;
-              p_question: string;
-              p_source: string;
-              p_tags: string[];
-              p_updated_at: string;
+              p_question?: string;
+              p_source?: string;
+              p_tags?: string[];
+              p_updated_at?: string;
             };
             Returns: string;
           }
