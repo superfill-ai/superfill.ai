@@ -294,7 +294,7 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
   return (
     <>
       <Dialog open={open && !showProfileImport && !showDocumentImport}>
-        <DialogContent showCloseButton={false} className="sm:max-w-2xl">
+        <DialogContent showCloseButton={false} className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
           {renderStepIndicator()}
 
           {/* Step 1: AI Setup */}
