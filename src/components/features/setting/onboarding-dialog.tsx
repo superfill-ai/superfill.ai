@@ -10,7 +10,7 @@ import {
   SparklesIcon,
   UserIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { DocumentImportDialog } from "@/components/features/document/document-import-dialog";
@@ -294,7 +294,10 @@ export function OnboardingDialog({ open }: OnboardingDialogProps) {
   return (
     <>
       <Dialog open={open && !showProfileImport && !showDocumentImport}>
-        <DialogContent showCloseButton={false} className="sm:max-w-2xl">
+        <DialogContent
+          showCloseButton={false}
+          className="sm:max-w-2xl overflow-y-auto max-h-[90vh]"
+        >
           {renderStepIndicator()}
 
           {/* Step 1: AI Setup */}
