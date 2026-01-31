@@ -126,7 +126,7 @@ export class RightClickGuideManager {
         host.classList.add(isDarkMode ? "dark" : "light");
       }
     } catch (error) {
-      logger.warn("Failed to apply theme to capture memory:", error);
+      logger.warn("Failed to apply theme to right-click guide:", error);
     }
   }
 
