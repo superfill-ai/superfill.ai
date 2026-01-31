@@ -49,6 +49,8 @@ export const MESSAGING_SITE_BLOCKLIST_DOMAINS = [
   "clickup.com",
   "asana.com",
   "monday.com",
+  "github.com",
+  "gitlab.com",
 
   // Other Chat Platforms
   "chat.google.com",
@@ -105,6 +107,47 @@ export function isElementPartOfForm(element: HTMLElement): boolean {
   const container = element.closest("div, section, main, aside");
   if (container) {
     return countInputs(container) >= 2;
+  }
+
+  return false;
+}
+
+export function isLoginOrSmallForm(element: HTMLElement): boolean {
+  const formContainer = element.closest(
+    'form, [role="form"], [data-form], .form',
+  ) as HTMLElement | null;
+  const genericContainer = element.closest(
+    "div, section, main, aside",
+  ) as HTMLElement | null;
+  const container = (formContainer ?? genericContainer) as ParentNode | null;
+
+  if (!container) return false;
+
+  const inputs = container.querySelectorAll(
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]):not([type="image"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable]:not([contenteditable="false"])',
+  );
+
+  const inputsCount = inputs.length;
+  const hasPassword = !!container.querySelector('input[type="password"]');
+
+  if (inputsCount === 0) return false;
+
+  if (inputsCount < 2) return true;
+
+  if (inputsCount <= 2 && hasPassword) return true;
+
+  const candidate = formContainer ?? genericContainer;
+
+  if (candidate) {
+    const attrs =
+      `${candidate.getAttribute("id") || ""} ${candidate.getAttribute("name") || ""} ${candidate.getAttribute("aria-label") || ""} ${candidate.className || ""}`.toLowerCase();
+    if (
+      /(login|sign[- ]?in|sign[- ]?up|signup|auth|authenticate|register)/.test(
+        attrs,
+      )
+    ) {
+      return true;
+    }
   }
 
   return false;

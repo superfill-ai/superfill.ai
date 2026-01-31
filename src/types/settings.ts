@@ -12,7 +12,6 @@ export interface AISettings {
   autoFillEnabled: boolean;
   autopilotMode: boolean;
   confidenceThreshold: number;
-  inlineTriggerEnabled: boolean;
   contextMenuEnabled: boolean;
 }
 
@@ -22,6 +21,8 @@ export interface UISettings {
   extensionVersion?: string;
   completedTours?: string[];
   lastTourCompletedAt?: string;
+  rightClickGuideSnoozedUntil?: string;
+  rightClickGuideDismissed?: boolean;
 }
 
 export interface ProviderOption {

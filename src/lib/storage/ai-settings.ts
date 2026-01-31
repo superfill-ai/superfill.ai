@@ -4,7 +4,6 @@ export const aiSettingsFallback: AISettings = {
   autoFillEnabled: true,
   autopilotMode: false,
   confidenceThreshold: 0.6,
-  inlineTriggerEnabled: false,
   contextMenuEnabled: true,
 };
 

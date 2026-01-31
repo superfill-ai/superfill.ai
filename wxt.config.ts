@@ -54,6 +54,16 @@ export default defineConfig({
     if (manifestVersion === 3) {
       return {
         ...baseManifest,
+        web_accessible_resources: [
+          {
+            resources: [
+              "icon-128.webp",
+              "favicon.svg",
+              "right-click-context.gif",
+            ],
+            matches: ["<all_urls>"],
+          },
+        ],
         content_security_policy: {
           extension_pages: `script-src 'self' 'wasm-unsafe-eval'${allowLocalhost}; object-src 'self';`,
           sandbox: `script-src 'self' 'unsafe-inline' 'unsafe-eval'${allowLocalhost}; sandbox allow-scripts allow-forms allow-popups allow-modals; child-src 'self';`,
