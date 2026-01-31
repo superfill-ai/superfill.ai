@@ -10,7 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import {
   getCloudUsageStatus,
@@ -18,7 +24,11 @@ import {
 } from "@/lib/ai/cloud-client";
 import type { UsageStatus } from "@/types/cloud";
 
-export function CloudUsageDisplay() {
+interface CloudUsageDisplayProps {
+  compact?: boolean;
+}
+
+export function CloudUsageDisplay({ compact = false }: CloudUsageDisplayProps) {
   const { isAuthenticated } = useAuth();
   const [usage, setUsage] = useState<UsageStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +66,10 @@ export function CloudUsageDisplay() {
   }
 
   if (loading) {
+    if (compact) {
+      return <Skeleton className="h-8 w-48" />;
+    }
+
     return (
       <Card>
         <CardHeader>
@@ -93,6 +107,75 @@ export function CloudUsageDisplay() {
       day: "numeric",
     });
   };
+
+  if (compact) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-card hover:bg-accent transition-colors cursor-default">
+            <Cloud className="size-3.5 text-muted-foreground" />
+            <Badge
+              variant={planBadge.variant}
+              className="gap-1 h-5 px-1.5 text-xs"
+            >
+              {planBadge.icon && <planBadge.icon className="size-3" />}
+              {planBadge.label}
+            </Badge>
+            {usage.plan !== "free" && !isUnlimited && (
+              <>
+                <div className="h-1.5 w-20 bg-secondary rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${isAtLimit ? "bg-destructive" : isNearLimit ? "bg-amber-500" : "bg-primary"}`}
+                    style={{ width: `${usagePercent}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {remaining.toLocaleString()}
+                </span>
+              </>
+            )}
+            {usage.plan !== "free" && isUnlimited && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {usage.used.toLocaleString()}
+              </span>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          <div className="space-y-1.5">
+            <p className="font-medium">Cloud AI Usage</p>
+            <Separator />
+            {usage.plan === "free" && (
+              <p className="text-xs text-muted">
+                Upgrade to Pro or Max for cloud AI access
+              </p>
+            )}
+            {usage.plan !== "free" && isUnlimited && (
+              <p className="text-xs text-muted">
+                {usage.used.toLocaleString()} operations this month • Unlimited
+              </p>
+            )}
+            {usage.plan !== "free" && !isUnlimited && (
+              <>
+                <p className="text-xs text-muted">
+                  {usage.used.toLocaleString()} / {limit.toLocaleString()}{" "}
+                  operations
+                </p>
+                <p className="text-xs text-muted">
+                  Resets on {formatResetDate(usage.resetAt)}
+                </p>
+                {isAtLimit && (
+                  <p className="text-xs text-destructive">
+                    Limit reached. Using local AI.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <Card>

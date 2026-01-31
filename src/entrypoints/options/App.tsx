@@ -251,26 +251,31 @@ export const App = () => {
       className="relative w-full h-screen flex flex-col overflow-hidden"
       aria-label="Options page"
     >
-      <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-background">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 px-4 sm:px-6 py-3 border-b bg-background">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <div className="flex items-center gap-2">
             <img
               src={browser.runtime.getURL("/favicon.svg")}
               alt=""
-              className="size-6"
+              className="size-5 sm:size-6"
             />
-            <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
+            <h1 className="text-base sm:text-xl font-bold text-primary truncate">
+              {APP_NAME}
+            </h1>
           </div>
           <Badge
             size="sm"
             variant="outline"
-            className="text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors"
+            className="text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors shrink-0"
             onClick={handleVersionBadgeClick}
           >
             v{browser.runtime.getManifest().version}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden lg:flex flex-1 justify-center px-4 max-w-sm">
+          <CloudUsageDisplay compact />
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {!isAuthenticated ? (
             <Button
               onClick={() => setLoginDialogOpen(true)}
@@ -339,7 +344,6 @@ export const App = () => {
               <AutofillSettings />
               <CaptureSettings />
               <AiProviderSettings />
-              <CloudUsageDisplay />
             </div>
           </TabsContent>
 
