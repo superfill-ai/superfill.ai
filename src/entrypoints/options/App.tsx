@@ -273,7 +273,7 @@ export const App = () => {
           </Badge>
         </div>
         <div className="hidden lg:flex flex-1 justify-center px-4 max-w-sm">
-          <CloudUsageDisplay compact />
+          <CloudUsageDisplay />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {!isAuthenticated ? (
