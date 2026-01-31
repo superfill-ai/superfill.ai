@@ -72,7 +72,7 @@ export const OllamaCorsDialog = () => {
               <p className="font-medium">For specific domains:</p>
               <pre className="bg-muted p-3 rounded-md overflow-x-auto">
                 <code>
-                  launchctl setenv OLLAMA_ORIGINS "google.com,linkedin.com"
+                  launchctl setenv OLLAMA_ORIGINS "google.com,greenhouse.io"
                 </code>
               </pre>
             </div>
@@ -113,7 +113,7 @@ Environment="OLLAMA_ORIGINS=*"`}
                   <pre className="bg-muted p-3 rounded-md overflow-x-auto">
                     <code>
                       {`[Service]
-Environment="OLLAMA_ORIGINS=google.com,linkedin.com"`}
+Environment="OLLAMA_ORIGINS=google.com,greenhouse.io"`}
                     </code>
                   </pre>
                 </div>
@@ -152,7 +152,7 @@ systemctl restart ollama`}
                   </pre>
                   <p className="font-medium">Or for specific domains:</p>
                   <pre className="bg-muted p-3 rounded-md overflow-x-auto">
-                    <code>OLLAMA_ORIGINS=google.com,linkedin.com</code>
+                    <code>OLLAMA_ORIGINS=google.com,greenhouse.io</code>
                   </pre>
                 </div>
               </li>
