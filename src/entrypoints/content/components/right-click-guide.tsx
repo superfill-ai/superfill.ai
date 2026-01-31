@@ -1,4 +1,3 @@
-import { browser } from "wxt/browser";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,21 +26,13 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
             className="text-sm flex items-center gap-2"
             id="right-click-guide-title"
           >
-            <img
-              src={browser.runtime.getURL("/icon-128.webp")}
-              alt=""
-              className="w-4 h-4"
-            />
+            <img src="/icon-128.webp" alt="" className="w-4 h-4" />
             Right-Click to Fill
           </CardTitle>
           <CardDescription className="text-xs text-wrap">
             You can <strong>right-click</strong> on this page and select{" "}
             <span className="inline-flex items-center gap-1">
-              <img
-                src={browser.runtime.getURL("/icon-128.webp")}
-                alt=""
-                className="w-3 h-3 inline"
-              />
+              <img src="/icon-128.webp" alt="" className="w-3 h-3 inline" />
               <strong>"Fill with superfill.ai"</strong>
             </span>{" "}
             from the context menu to quickly fill all detected form fields with
@@ -51,7 +42,7 @@ export const RightClickGuide = ({ onGotIt }: RightClickGuideProps) => {
 
         <CardContent className="max-h-80 overflow-y-auto">
           <img
-            src={browser.runtime.getURL("/right-click-context.webp")}
+            src="/right-click-context.webp"
             alt="Context menu example"
             className="w-full rounded-lg border border-border"
           />

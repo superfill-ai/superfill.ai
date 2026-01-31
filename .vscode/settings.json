@@ -9,7 +9,7 @@
   "files.associations": {
     "*.css": "tailwindcss"
   },
-  "typescript.experimental.useTsgo": true,
+  "typescript.experimental.useTsgo": false,
   "cSpell.words": ["Superfill", "autofills", "Autofills", "Opid", "ollama"],
   "[svg]": {
     "editor.defaultFormatter": "jock.svg"

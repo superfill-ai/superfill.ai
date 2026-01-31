@@ -8,14 +8,13 @@ import {
   isLoginOrSmallForm,
   isMessagingSite,
 } from "@/lib/copies";
-
-import { isFormInteractionEligible } from "@/lib/tours/form-interaction-utils";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import {
   getCaptureSettings,
   isSiteBlocked,
 } from "@/lib/storage/capture-settings";
+import { isFormInteractionEligible } from "@/lib/tours/form-interaction-utils";
 import type { AutofillProgress, PreviewSidebarPayload } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
 import { RightClickGuideManager } from "./components/right-click-guide-manager";

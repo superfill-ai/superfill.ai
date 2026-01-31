@@ -161,7 +161,7 @@ src/
 
 ```bash
 # Type checking
-bun run typecheck
+bun run type-check
 
 # Lint code
 bun run lint
@@ -356,7 +356,7 @@ bun build:firefox    # Build for Firefox only
 bun zip              # Create distribution zips
 
 # Quality
-bun run typecheck    # Type checking
+bun run type-check    # Type checking
 bun run lint         # Lint code
 
 # Versioning
