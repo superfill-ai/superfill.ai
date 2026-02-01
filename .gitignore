@@ -47,6 +47,9 @@ tsconfig.tsbuildinfo
 # Build outputs
 *.zip
 
+# Generated files (auto-copied during postinstall)
+public/pdf.worker.mjs
+
 # Safari xcode project
 Superfill.ai
 

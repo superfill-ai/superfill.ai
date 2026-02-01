@@ -7,7 +7,8 @@
     "defaultBranch": "main"
   },
   "files": {
-    "ignoreUnknown": true
+    "ignoreUnknown": true,
+    "includes": ["src/**", "scripts/**", "!public/pdf.worker.mjs"]
   },
   "formatter": {
     "enabled": true,
