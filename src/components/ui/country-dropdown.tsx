@@ -127,9 +127,7 @@ const CountryDropdownComponent = (
           onWheel={(e) => e.stopPropagation()}
         >
           <CommandList>
-            <div className="sticky top-0 z-10 bg-popover">
-              <CommandInput placeholder="Search country..." />
-            </div>
+            <CommandInput placeholder="Search country..." />
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
               {filteredCountries
