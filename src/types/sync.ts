@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+export const pendingDeletionSchema = z.object({
+  localId: z.string(),
+  deletedAt: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
+    message: "Invalid ISO timestamp",
+  }),
+});
+
+export type PendingDeletion = z.infer<typeof pendingDeletionSchema>;
+
 export const syncedUserSettingsSchema = z.object({
   autoFillEnabled: z.boolean(),
   confidenceThreshold: z.number(),

@@ -377,6 +377,11 @@ class SyncService {
         }
       }
 
+      const deletionResult = await this.processPendingDeletions();
+
+      itemsSynced += deletionResult.synced;
+      errors.push(...deletionResult.errors);
+
       await supabase.from("sync_logs").insert({
         user_id: user.id,
         operation: "push",
@@ -424,6 +429,63 @@ class SyncService {
         timestamp: new Date().toISOString(),
       };
     }
+  }
+
+  private async processPendingDeletions(): Promise<{
+    synced: number;
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    let synced = 0;
+
+    const pendingDeletions = await storage.pendingDeletions.getValue();
+
+    if (pendingDeletions.length === 0) {
+      return { synced, errors };
+    }
+
+    logger.debug("Processing pending deletions", {
+      count: pendingDeletions.length,
+    });
+
+    const successfulDeletions: string[] = [];
+
+    for (const deletion of pendingDeletions) {
+      try {
+        const { error } = await supabase.rpc("upsert_memory", {
+          p_local_id: deletion.localId,
+          p_is_deleted: true,
+          p_deleted_at: deletion.deletedAt,
+        });
+
+        if (error) {
+          logger.error(
+            `Failed to sync deletion ${deletion.localId}: ${error.message}`,
+          );
+          errors.push(`Failed to delete ${deletion.localId}: ${error.message}`);
+        } else {
+          successfulDeletions.push(deletion.localId);
+          synced++;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        errors.push(`Failed to delete ${deletion.localId}: ${msg}`);
+      }
+    }
+
+    if (successfulDeletions.length > 0) {
+      const remaining = pendingDeletions.filter(
+        (d) => !successfulDeletions.includes(d.localId),
+      );
+      await storage.pendingDeletions.setValue(remaining);
+    }
+
+    logger.debug("Pending deletions processed", {
+      synced,
+      remaining: pendingDeletions.length - synced,
+    });
+
+    return { synced, errors };
   }
 
   async syncAISettings(): Promise<void> {

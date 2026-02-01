@@ -92,9 +92,19 @@ export const updateEntry = async (id: string, updates: UpdateMemoryEntry) => {
 export const deleteEntry = async (id: string): Promise<void> => {
   try {
     const currentEntries = await storage.memories.getValue();
+    const entry = currentEntries.find((e) => e.id === id);
     const updatedEntries = currentEntries.filter((e) => e.id !== id);
 
     await storage.memories.setValue(updatedEntries);
+
+    if (entry) {
+      const pendingDeletions = await storage.pendingDeletions.getValue();
+      pendingDeletions.push({
+        localId: entry.syncId || entry.id,
+        deletedAt: new Date().toISOString(),
+      });
+      await storage.pendingDeletions.setValue(pendingDeletions);
+    }
   } catch (error) {
     logger.error("Failed to delete entry:", error);
     throw error;

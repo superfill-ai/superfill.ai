@@ -1,4 +1,5 @@
 import type { FillSession, MemoryEntry } from "@/types/memory";
+import type { PendingDeletion } from "@/types/sync";
 
 export interface CaptureSettings {
   enabled: boolean;
@@ -37,8 +38,19 @@ const captureSettings = storage.defineItem<CaptureSettings>(
   },
 );
 
+export const pendingDeletionsFallback: PendingDeletion[] = [];
+
+const pendingDeletions = storage.defineItem<PendingDeletion[]>(
+  "local:data:pending-deletions",
+  {
+    fallback: pendingDeletionsFallback,
+    version: 1,
+  },
+);
+
 export const dataStorage = {
   memories,
   fillSessions,
   captureSettings,
+  pendingDeletions,
 };
