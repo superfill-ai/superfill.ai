@@ -8,7 +8,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["src/**", "scripts/**", "!public/pdf.worker.mjs"]
+    "includes": ["**", "!public/pdf.worker.mjs"]
   },
   "formatter": {
     "enabled": true,
