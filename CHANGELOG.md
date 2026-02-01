@@ -1,5 +1,13 @@
 # superfill.ai
 
+## 0.2.4
+
+### Patch Changes
+
+- [#100](https://github.com/superfill-ai/superfill.ai/pull/100) [`708feda`](https://github.com/superfill-ai/superfill.ai/commit/708fedaacda58dc9df97181967e9a75103aaac68) Thanks [@mikr13](https://github.com/mikr13)! - fix: search bar in country dropdown
+
+- [#101](https://github.com/superfill-ai/superfill.ai/pull/101) [`90df469`](https://github.com/superfill-ai/superfill.ai/commit/90df4698979103fa29b79979da584e3689c9f90a3) Thanks [@mikr13](https://github.com/mikr13)! - fix: add PDF.js worker file handling and update document parser to use browser runtime URL
+
 ## 0.2.3
 
 ### Patch Changes

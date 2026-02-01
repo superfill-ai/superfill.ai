@@ -10,7 +10,7 @@ import {
   SparklesIcon,
   UserIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { DocumentImportDialog } from "@/components/features/document/document-import-dialog";
