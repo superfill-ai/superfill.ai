@@ -150,8 +150,15 @@ const CaptureMemory = ({
             <Button onClick={onSave} className="flex-1" size="sm">
               Save All
             </Button>
-            <Button onClick={onNeverAsk} variant="destructive" size="sm">
-              Never ask for {siteDomain}
+            <Button
+              onClick={onNeverAsk}
+              variant="destructive"
+              size="sm"
+              className="flex-1 min-w-0"
+            >
+              <span className="truncate" title={`Never ask for ${siteDomain}`}>
+                Never ask for {siteDomain}
+              </span>
             </Button>
           </CardFooter>
         </Card>

@@ -1,4 +1,8 @@
-import { isTrackableFieldType } from "@/lib/copies";
+import {
+  isElementPartOfForm,
+  isLoginOrSmallForm,
+  isTrackableFieldType,
+} from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type {
   CapturedFieldData,
@@ -83,7 +87,22 @@ export class CaptureService {
     const emptyMappings = new Map<FieldOpId, FieldMapping>();
     const allSerializedFields = serializedFormCache.flatMap((f) => f.fields);
 
-    logger.info(`Attaching listeners to ${allSerializedFields.length} fields`);
+    const eligibleFields = allSerializedFields.filter((field) => {
+      if (!this.formDetectionService) return true;
+      const cached = this.formDetectionService.getCachedField(field.opid);
+      if (!cached?.element) return true;
+
+      const element = cached.element as HTMLElement;
+
+      if (isLoginOrSmallForm(element)) return false;
+      if (!isElementPartOfForm(element)) return false;
+
+      return true;
+    });
+
+    logger.info(
+      `Attaching listeners to ${eligibleFields.length} fields (filtered from ${allSerializedFields.length})`,
+    );
 
     if (!this.formDetectionService) {
       logger.error("Form detection service not initialized");
@@ -91,7 +110,7 @@ export class CaptureService {
     }
 
     this.fieldTracker.attachFieldListeners(
-      allSerializedFields,
+      eligibleFields,
       emptyMappings,
       // biome-ignore lint/style/noNonNullAssertion: its aight
       (opid) => this.formDetectionService!.getCachedField(opid),

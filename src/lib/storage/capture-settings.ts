@@ -2,7 +2,7 @@ import { storage } from "@/lib/storage";
 import type { CaptureSettings } from "./data";
 
 const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
-  enabled: true,
+  enabled: false,
   blockedDomains: [],
   neverAskSites: [],
 };
