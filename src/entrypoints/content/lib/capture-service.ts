@@ -99,13 +99,14 @@ export class CaptureService {
 
       const element = cached.element as HTMLElement;
       const form = (element as HTMLInputElement).form;
-      const container = (form as unknown as HTMLElement) || element;
+      const eligibilityTarget = (form as unknown as HTMLElement) || element;
+      const container = eligibilityTarget;
 
       let eligibility = formEligibilityCache.get(container);
       if (!eligibility) {
         eligibility = {
-          isLoginOrSmallForm: isLoginOrSmallForm(element),
-          isElementPartOfForm: isElementPartOfForm(element),
+          isLoginOrSmallForm: isLoginOrSmallForm(eligibilityTarget),
+          isElementPartOfForm: isElementPartOfForm(eligibilityTarget),
         };
         formEligibilityCache.set(container, eligibility);
       }
