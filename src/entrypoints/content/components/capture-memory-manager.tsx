@@ -156,7 +156,10 @@ const CaptureMemory = ({
               size="sm"
               className="flex-1 min-w-0"
             >
-              <span className="truncate" title={`Never ask for ${siteDomain}`}>
+              <span
+                className="truncate inline-block max-w-full"
+                title={`Never ask for ${siteDomain}`}
+              >
                 Never ask for {siteDomain}
               </span>
             </Button>

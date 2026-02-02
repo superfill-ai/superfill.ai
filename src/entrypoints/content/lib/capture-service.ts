@@ -87,15 +87,31 @@ export class CaptureService {
     const emptyMappings = new Map<FieldOpId, FieldMapping>();
     const allSerializedFields = serializedFormCache.flatMap((f) => f.fields);
 
+    const formEligibilityCache = new Map<
+      HTMLElement,
+      { isLoginOrSmallForm: boolean; isElementPartOfForm: boolean }
+    >();
+
     const eligibleFields = allSerializedFields.filter((field) => {
       if (!this.formDetectionService) return true;
       const cached = this.formDetectionService.getCachedField(field.opid);
       if (!cached?.element) return true;
 
       const element = cached.element as HTMLElement;
+      const form = (element as HTMLInputElement).form;
+      const container = (form as unknown as HTMLElement) || element;
 
-      if (isLoginOrSmallForm(element)) return false;
-      if (!isElementPartOfForm(element)) return false;
+      let eligibility = formEligibilityCache.get(container);
+      if (!eligibility) {
+        eligibility = {
+          isLoginOrSmallForm: isLoginOrSmallForm(element),
+          isElementPartOfForm: isElementPartOfForm(element),
+        };
+        formEligibilityCache.set(container, eligibility);
+      }
+
+      if (eligibility.isLoginOrSmallForm) return false;
+      if (!eligibility.isElementPartOfForm) return false;
 
       return true;
     });
@@ -117,8 +133,11 @@ export class CaptureService {
     );
 
     if (this.submissionMonitor) {
+      const eligibleOpids = new Set(eligibleFields.map((f) => f.opid));
+
       const fieldsToRegister = this.formDetectionService
         .getAllCachedFieldEntries()
+        .filter(([opid]) => eligibleOpids.has(opid))
         .map(([opid, field]) => ({
           opid,
           element: field.element,
