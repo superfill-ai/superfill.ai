@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import {
   contentAutofillMessaging,
   type ShowToastData,
@@ -31,17 +32,19 @@ export async function showToast(
 
 export async function showCloudLimitReachedToast(
   tabId: number,
+  hasBYOK: boolean,
 ): Promise<boolean> {
-  return showToast(
-    tabId,
-    "Cloud AI limit reached. Using your local AI model.",
-    "warning",
-    {
-      duration: 6000,
-      action: {
-        label: "Upgrade Plan",
-        url: `${import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai"}/settings/subscription`,
-      },
+  const message = hasBYOK
+    ? "Cloud AI limit reached. Switched to your local AI provider."
+    : "Cloud AI limit reached. Configure an API key or upgrade your plan.";
+
+  return showToast(tabId, message, "warning", {
+    duration: 6000,
+    action: {
+      label: hasBYOK ? "Upgrade Plan" : "Configure API Key",
+      url: hasBYOK
+        ? `${import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai"}/settings/subscription`
+        : browser.runtime.getURL("/options.html"),
     },
-  );
+  });
 }

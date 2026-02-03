@@ -1,5 +1,4 @@
 import { Cloud, RefreshCwIcon, Sparkles, Zap } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,51 +8,18 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
-import {
-  getCloudUsageStatus,
-  invalidateUsageCache,
-} from "@/lib/ai/cloud-client";
+import { useCloudUsage } from "@/hooks/use-cloud-usage";
 import { cn } from "@/lib/cn";
-import type { UsageStatus } from "@/types/cloud";
 
 export function CloudUsageDisplay() {
   const { isAuthenticated } = useAuth();
-  const [usage, setUsage] = useState<UsageStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchUsage = useCallback(
-    async (forceRefresh = false) => {
-      if (!isAuthenticated) {
-        setLoading(false);
-        return;
-      }
-
-      if (forceRefresh) {
-        invalidateUsageCache();
-        setRefreshing(true);
-      }
-
-      try {
-        const status = await getCloudUsageStatus(forceRefresh);
-        setUsage(status);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [isAuthenticated],
-  );
-
-  useEffect(() => {
-    fetchUsage();
-  }, [fetchUsage]);
+  const { data: usage, isLoading, isFetching, refetch } = useCloudUsage();
 
   if (!isAuthenticated) {
     return null;
   }
 
-  if (loading) {
+  if (isLoading) {
     return <Skeleton className="h-8 w-48" />;
   }
 
@@ -121,11 +87,11 @@ export function CloudUsageDisplay() {
             <Button
               size="icon"
               variant="ghost"
-              onClick={() => fetchUsage(true)}
-              disabled={refreshing}
+              onClick={() => refetch()}
+              disabled={isFetching}
             >
               <RefreshCwIcon
-                className={cn(`size-4`, refreshing && "animate-spin")}
+                className={cn(`size-4`, isFetching && "animate-spin")}
               />
             </Button>
           </div>

@@ -1,5 +1,6 @@
-import { CheckCircle2, Cloud } from "lucide-react";
+import { CheckCircle2, Cloud, Info } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -18,6 +19,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/use-auth";
+import { useCloudUsageStatus } from "@/hooks/use-cloud-usage";
 import {
   useDeleteApiKey,
   useProviderKeyStatuses,
@@ -50,6 +52,7 @@ export const AiProviderSettings = () => {
   const deleteKeyMutation = useDeleteApiKey();
   const allConfigs = getAllProviderConfigs();
   const { isAuthenticated } = useAuth();
+  const cloudUsage = useCloudUsageStatus();
 
   useEffect(() => {
     const fetchAndWatch = async () => {
@@ -111,6 +114,16 @@ export const AiProviderSettings = () => {
   };
 
   const handleCloudModelsToggle = async (enabled: boolean) => {
+    if (enabled) {
+      if (
+        cloudUsage &&
+        cloudUsage.remaining !== null &&
+        cloudUsage.remaining === 0
+      ) {
+        return;
+      }
+    }
+
     const currentSettings = await storage.aiSettings.getValue();
     const updatedSettings: AISettings = {
       ...currentSettings,
@@ -154,19 +167,19 @@ export const AiProviderSettings = () => {
           </Field>
           <Separator className="my-4" />
 
-          <div className="relative space-y-4">
-            {cloudModelsEnabled && (
-              <div className="absolute -inset-0.5 bottom-1 rounded-sm bg-background/40 backdrop-opacity-80 backdrop-blur-xs z-10 flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <Cloud className="size-8 mx-auto text-primary" />
-                  <p className="text-sm font-medium">Using cloud models</p>
-                  <p className="text-xs text-muted-foreground">
-                    API Key & Provider changes disabled
-                  </p>
-                </div>
-              </div>
-            )}
+          {cloudModelsEnabled && cloudUsage?.plan !== "max" && (
+            <Alert variant="secondary">
+              <Info className="size-4" />
+              <AlertTitle>Cloud Models Active</AlertTitle>
+              <AlertDescription>
+                Cloud models will be used until your quota is exhausted. After
+                that, your configured local AI provider will be used
+                automatically if available.
+              </AlertDescription>
+            </Alert>
+          )}
 
+          <div className="space-y-4">
             {allConfigs.map((config) => (
               <div key={config.id} className="flex gap-2">
                 <ProviderKeyInput
@@ -226,15 +239,14 @@ export const AiProviderSettings = () => {
                 searchPlaceholder="Search provider..."
                 emptyText="No provider found."
                 disabled={
-                  cloudModelsEnabled ||
                   providerOptions.filter((p) => p.available).length === 0
                 }
               />
               <FieldDescription>
-                {cloudModelsEnabled
-                  ? "Using cloud models - provider selection disabled"
-                  : providerOptions.filter((p) => p.available).length === 0
-                    ? "Please add at least one API key to select a provider"
+                {providerOptions.filter((p) => p.available).length === 0
+                  ? "Please add at least one API key to select a provider"
+                  : cloudModelsEnabled
+                    ? "This provider will be used when cloud quota is exhausted"
                     : "Choose which AI provider to use for form filling"}
               </FieldDescription>
             </Field>

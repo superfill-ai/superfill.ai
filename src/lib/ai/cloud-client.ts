@@ -1,6 +1,9 @@
+import { browser } from "wxt/browser";
 import type { z } from "zod";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
+import { getKeyVaultService } from "@/lib/security/key-vault-service";
+import { storage } from "@/lib/storage";
 import type {
   AnalysisResult,
   BulkCategorizationResult,
@@ -18,13 +21,69 @@ import {
   RephraseResultSchema,
   UsageStatusSchema,
 } from "./schemas";
+import { showCloudLimitReachedToast } from "./toast-utils";
 
 const logger = createLogger("cloud-client");
 
 const API_URL = import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
-const CACHE_TTL = 5 * 60 * 1000;
+
+export const CLOUD_USAGE_CACHE_TTL = 5 * 60 * 1000;
+export const CLOUD_USAGE_GC_TIME = 10 * 60 * 1000;
 
 let cachedUsageStatus: { data: UsageStatus; timestamp: number } | null = null;
+let disableCloudPending = false;
+
+async function validateBYOKConfigured(): Promise<boolean> {
+  const settings = await storage.aiSettings.getValue();
+
+  if (!settings.selectedProvider) {
+    return false;
+  }
+
+  const keyVaultService = getKeyVaultService();
+  const hasKey = await keyVaultService.hasKey(settings.selectedProvider);
+
+  return hasKey;
+}
+
+async function disableCloudModelsAndFallback(): Promise<void> {
+  if (disableCloudPending) return;
+  disableCloudPending = true;
+
+  try {
+    const hasBYOK = await validateBYOKConfigured();
+
+    const currentSettings = await storage.aiSettings.getValue();
+    await storage.aiSettings.setValue({
+      ...currentSettings,
+      cloudModelsEnabled: false,
+    });
+
+    invalidateUsageCache();
+
+    const [tab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (tab?.id) {
+      await showCloudLimitReachedToast(tab.id, hasBYOK);
+    }
+
+    if (!hasBYOK) {
+      logger.warn(
+        "Cloud quota exceeded and no BYOK configured - user needs to add API key or upgrade plan",
+      );
+    } else {
+      logger.info(
+        "Cloud quota exceeded - automatically disabled cloud models, using BYOK",
+      );
+    }
+  } finally {
+    setTimeout(() => {
+      disableCloudPending = false;
+    }, 1000);
+  }
+}
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -80,6 +139,8 @@ async function cloudRequest<T>(
     if (response.status === 429) {
       const errorData = await response.json();
       cachedUsageStatus = null;
+
+      await disableCloudModelsAndFallback();
 
       return {
         success: false,
@@ -201,7 +262,7 @@ export async function getCloudUsageStatus(
   if (
     !forceRefresh &&
     cachedUsageStatus &&
-    Date.now() - cachedUsageStatus.timestamp < CACHE_TTL
+    Date.now() - cachedUsageStatus.timestamp < CLOUD_USAGE_CACHE_TTL
   ) {
     return cachedUsageStatus.data;
   }
@@ -252,4 +313,8 @@ export async function shouldUseCloudAI(): Promise<boolean> {
 
 export function invalidateUsageCache(): void {
   cachedUsageStatus = null;
+}
+
+export async function isBYOKConfigured(): Promise<boolean> {
+  return validateBYOKConfigured();
 }
