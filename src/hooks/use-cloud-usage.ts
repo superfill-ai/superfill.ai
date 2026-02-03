@@ -4,12 +4,11 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   CLOUD_USAGE_CACHE_TTL,
   CLOUD_USAGE_GC_TIME,
+  CLOUD_USAGE_QUERY_KEY,
   getCloudUsageStatus,
 } from "@/lib/ai/cloud-client";
 import { storage } from "@/lib/storage";
 import type { UsageStatus } from "@/types/cloud";
-
-export const CLOUD_USAGE_QUERY_KEY = ["cloud-usage"] as const;
 
 export function useCloudUsage() {
   const { isAuthenticated } = useAuth();

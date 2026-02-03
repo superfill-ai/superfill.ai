@@ -2,6 +2,7 @@ import { browser } from "wxt/browser";
 import type { z } from "zod";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
+import { queryClient } from "@/lib/query";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type {
@@ -29,9 +30,15 @@ const API_URL = import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
 
 export const CLOUD_USAGE_CACHE_TTL = 5 * 60 * 1000;
 export const CLOUD_USAGE_GC_TIME = 10 * 60 * 1000;
+export const CLOUD_USAGE_QUERY_KEY = ["cloud-usage"] as const;
 
 let cachedUsageStatus: { data: UsageStatus; timestamp: number } | null = null;
 let disableCloudPending = false;
+
+function invalidateCloudUsageCache(): void {
+  cachedUsageStatus = null;
+  queryClient.invalidateQueries({ queryKey: CLOUD_USAGE_QUERY_KEY });
+}
 
 async function validateBYOKConfigured(): Promise<boolean> {
   const settings = await storage.aiSettings.getValue();
@@ -59,7 +66,7 @@ async function disableCloudModelsAndFallback(): Promise<void> {
       cloudModelsEnabled: false,
     });
 
-    invalidateUsageCache();
+    invalidateCloudUsageCache();
 
     const [tab] = await browser.tabs.query({
       active: true,
@@ -138,7 +145,7 @@ async function cloudRequest<T>(
 
     if (response.status === 429) {
       const errorData = await response.json();
-      cachedUsageStatus = null;
+      invalidateCloudUsageCache();
 
       await disableCloudModelsAndFallback();
 
@@ -175,6 +182,8 @@ async function cloudRequest<T>(
     }
 
     const remaining = response.headers.get("X-Cloud-Usage-Remaining");
+
+    invalidateCloudUsageCache();
 
     return {
       success: true,
@@ -312,7 +321,7 @@ export async function shouldUseCloudAI(): Promise<boolean> {
 }
 
 export function invalidateUsageCache(): void {
-  cachedUsageStatus = null;
+  invalidateCloudUsageCache();
 }
 
 export async function isBYOKConfigured(): Promise<boolean> {
