@@ -1,10 +1,8 @@
 import { storage } from "@/lib/storage";
-import type { CaptureSettings } from "./data";
+import { type CaptureSettings, captureSettingsFallback } from "./data";
 
 const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
-  enabled: true,
-  blockedDomains: [],
-  neverAskSites: [],
+  ...captureSettingsFallback,
 };
 
 function normalizeDomain(input: string): string {

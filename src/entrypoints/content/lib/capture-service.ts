@@ -1,4 +1,8 @@
-import { isTrackableFieldType } from "@/lib/copies";
+import {
+  isElementPartOfForm,
+  isLoginOrSmallForm,
+  isTrackableFieldType,
+} from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import type {
   CapturedFieldData,
@@ -83,7 +87,39 @@ export class CaptureService {
     const emptyMappings = new Map<FieldOpId, FieldMapping>();
     const allSerializedFields = serializedFormCache.flatMap((f) => f.fields);
 
-    logger.info(`Attaching listeners to ${allSerializedFields.length} fields`);
+    const formEligibilityCache = new Map<
+      HTMLElement,
+      { isLoginOrSmallForm: boolean; isElementPartOfForm: boolean }
+    >();
+
+    const eligibleFields = allSerializedFields.filter((field) => {
+      if (!this.formDetectionService) return true;
+      const cached = this.formDetectionService.getCachedField(field.opid);
+      if (!cached?.element) return true;
+
+      const element = cached.element as HTMLElement;
+      const form = (element as HTMLInputElement).form;
+      const eligibilityTarget = (form as unknown as HTMLElement) || element;
+      const container = eligibilityTarget;
+
+      let eligibility = formEligibilityCache.get(container);
+      if (!eligibility) {
+        eligibility = {
+          isLoginOrSmallForm: isLoginOrSmallForm(eligibilityTarget),
+          isElementPartOfForm: isElementPartOfForm(eligibilityTarget),
+        };
+        formEligibilityCache.set(container, eligibility);
+      }
+
+      if (eligibility.isLoginOrSmallForm) return false;
+      if (!eligibility.isElementPartOfForm) return false;
+
+      return true;
+    });
+
+    logger.info(
+      `Attaching listeners to ${eligibleFields.length} fields (filtered from ${allSerializedFields.length})`,
+    );
 
     if (!this.formDetectionService) {
       logger.error("Form detection service not initialized");
@@ -91,15 +127,18 @@ export class CaptureService {
     }
 
     this.fieldTracker.attachFieldListeners(
-      allSerializedFields,
+      eligibleFields,
       emptyMappings,
       // biome-ignore lint/style/noNonNullAssertion: its aight
       (opid) => this.formDetectionService!.getCachedField(opid),
     );
 
     if (this.submissionMonitor) {
+      const eligibleOpids = new Set(eligibleFields.map((f) => f.opid));
+
       const fieldsToRegister = this.formDetectionService
         .getAllCachedFieldEntries()
+        .filter(([opid]) => eligibleOpids.has(opid))
         .map(([opid, field]) => ({
           opid,
           element: field.element,
