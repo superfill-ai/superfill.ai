@@ -177,20 +177,28 @@ export class AIMatcher {
       logger.error("AI matching failed:", error);
 
       if (DEBUG) {
-        await updateObservation({
-          output: error,
-          level: "ERROR",
-        });
-        await updateTrace({
-          output: error,
-        });
-        await endActiveSpan();
+        try {
+          await updateObservation({
+            output: error,
+            level: "ERROR",
+          });
+          await updateTrace({
+            output: error,
+          });
+          await endActiveSpan();
+        } catch (telemetryError) {
+          logger.error("Telemetry error in matching catch:", telemetryError);
+        }
       }
 
       throw error;
     } finally {
       if (DEBUG) {
-        await flushSpanProcessor();
+        try {
+          await flushSpanProcessor();
+        } catch (telemetryError) {
+          logger.error("Telemetry flush error in matching:", telemetryError);
+        }
       }
     }
   }

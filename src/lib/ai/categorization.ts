@@ -191,20 +191,34 @@ Be precise and consider context. For example:
     logger.error("AI categorization failed:", error);
 
     if (DEBUG) {
-      await updateObservation({
-        output: error,
-        level: "ERROR",
-      });
-      await updateTrace({
-        output: error,
-      });
-      await endActiveSpan();
+      try {
+        await updateObservation({
+          output: error,
+          level: "ERROR",
+        });
+        await updateTrace({
+          output: error,
+        });
+        await endActiveSpan();
+      } catch (telemetryError) {
+        logger.error(
+          "Telemetry error in categorization catch:",
+          telemetryError,
+        );
+      }
     }
 
     return fallbackCategorization(answer, question);
   } finally {
     if (DEBUG) {
-      await flushSpanProcessor();
+      try {
+        await flushSpanProcessor();
+      } catch (telemetryError) {
+        logger.error(
+          "Telemetry flush error in categorization:",
+          telemetryError,
+        );
+      }
     }
   }
 };
@@ -353,20 +367,28 @@ export const rephraseAgent = async (
     logger.error("AI rephrasing failed:", error);
 
     if (DEBUG) {
-      await updateObservation({
-        output: error,
-        level: "ERROR",
-      });
-      await updateTrace({
-        output: error,
-      });
-      await endActiveSpan();
+      try {
+        await updateObservation({
+          output: error,
+          level: "ERROR",
+        });
+        await updateTrace({
+          output: error,
+        });
+        await endActiveSpan();
+      } catch (telemetryError) {
+        logger.error("Telemetry error in rephrase catch:", telemetryError);
+      }
     }
 
     throw new Error("Failed to rephrase content with AI.");
   } finally {
     if (DEBUG) {
-      await flushSpanProcessor();
+      try {
+        await flushSpanProcessor();
+      } catch (telemetryError) {
+        logger.error("Telemetry flush error in rephrase:", telemetryError);
+      }
     }
   }
 };
