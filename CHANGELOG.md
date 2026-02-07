@@ -1,5 +1,13 @@
 # superfill.ai
 
+## 0.2.5
+
+### Patch Changes
+
+- [#103](https://github.com/superfill-ai/superfill.ai/pull/103) [`6a446f3`](https://github.com/superfill-ai/superfill.ai/commit/6a446f3aab15fcbb88b86f3e2bbbe83db7fa36e2) Thanks [@mikr13](https://github.com/mikr13)! - refactor(SUP-24): migrate to telemetry-helpers for observability and remove langfuse integration
+
+- [#102](https://github.com/superfill-ai/superfill.ai/pull/102) [`3b18c15`](https://github.com/superfill-ai/superfill.ai/commit/3b18c1550905b8d378d2fc7993bfd9d5ce1191f1) Thanks [@arjun-veer](https://github.com/arjun-veer)! - fix: auto capture
+
 ## 0.2.4
 
 ### Patch Changes
