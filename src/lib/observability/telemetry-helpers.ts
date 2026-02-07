@@ -82,15 +82,22 @@ export async function flushSpanProcessor(): Promise<void> {
   await processor.forceFlush();
 }
 
+let providerInitialized = false;
+
 export async function initializeTracerProvider(): Promise<void> {
-  if (!DEBUG) return;
+  if (!DEBUG || providerInitialized) return;
 
-  const { WebTracerProvider } = await import("@opentelemetry/sdk-trace-web");
-  const processor = await getSpanProcessor();
+  try {
+    const { WebTracerProvider } = await import("@opentelemetry/sdk-trace-web");
+    const processor = await getSpanProcessor();
 
-  const tracerProvider = new WebTracerProvider({
-    spanProcessors: [processor as SpanProcessor],
-  });
+    const tracerProvider = new WebTracerProvider({
+      spanProcessors: [processor as SpanProcessor],
+    });
 
-  tracerProvider.register();
+    tracerProvider.register();
+    providerInitialized = true;
+  } catch (error) {
+    logger.warn("initializeTracerProvider failed:", error);
+  }
 }
