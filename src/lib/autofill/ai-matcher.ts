@@ -1,5 +1,3 @@
-import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
-import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
@@ -11,7 +9,12 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
-import { langfuseSpanProcessor } from "../observability/langfuse";
+import {
+  endActiveSpan,
+  flushSpanProcessor,
+  updateObservation,
+  updateTrace,
+} from "../observability/telemetry-helpers";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 
@@ -128,10 +131,10 @@ export class AIMatcher {
       });
 
       if (DEBUG) {
-        updateActiveObservation({
+        await updateObservation({
           input: { fields, memories, provider },
         });
-        updateActiveTrace({
+        await updateTrace({
           name: "superfill:memory-categorization",
           input: { fields, memories, provider },
         });
@@ -160,13 +163,13 @@ export class AIMatcher {
       });
 
       if (DEBUG) {
-        updateActiveObservation({
+        await updateObservation({
           output: result.object,
         });
-        updateActiveTrace({
+        await updateTrace({
           output: result.object,
         });
-        trace.getActiveSpan()?.end();
+        await endActiveSpan();
       }
 
       return result.object;
@@ -174,20 +177,20 @@ export class AIMatcher {
       logger.error("AI matching failed:", error);
 
       if (DEBUG) {
-        updateActiveObservation({
+        await updateObservation({
           output: error,
           level: "ERROR",
         });
-        updateActiveTrace({
+        await updateTrace({
           output: error,
         });
-        trace.getActiveSpan()?.end();
+        await endActiveSpan();
       }
 
       throw error;
     } finally {
       if (DEBUG) {
-        (async () => await langfuseSpanProcessor.forceFlush())();
+        await flushSpanProcessor();
       }
     }
   }
