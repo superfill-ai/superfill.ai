@@ -2,6 +2,12 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger, DEBUG } from "@/lib/logger";
+import {
+  endActiveSpan,
+  flushSpanProcessor,
+  updateObservation,
+  updateTrace,
+} from "@/lib/observability/telemetry-helpers";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CompressedFieldData,
@@ -9,12 +15,6 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
-import {
-  endActiveSpan,
-  flushSpanProcessor,
-  updateObservation,
-  updateTrace,
-} from "../observability/telemetry-helpers";
 import { FallbackMatcher } from "./fallback-matcher";
 import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 

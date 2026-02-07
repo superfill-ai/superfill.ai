@@ -1,23 +1,34 @@
 import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
-import { DEBUG } from "@/lib/logger";
+import { createLogger, DEBUG } from "@/lib/logger";
 
-let spanProcessorInstance: SpanProcessor | null = null;
+let spanProcessorPromise: Promise<SpanProcessor> | null = null;
+
+const logger = createLogger("telemetry-helpers");
 
 async function getSpanProcessor() {
-  if (!spanProcessorInstance) {
-    const { LangfuseSpanProcessor } = await import("@langfuse/otel");
-    const publicKey = import.meta.env.WXT_LANGFUSE_PUBLIC_KEY || "";
-    const secretKey = import.meta.env.WXT_LANGFUSE_SECRET_KEY || "";
-    const baseUrl =
-      import.meta.env.WXT_LANGFUSE_BASEURL || "https://cloud.langfuse.com";
+  if (!spanProcessorPromise) {
+    spanProcessorPromise = (async () => {
+      const { LangfuseSpanProcessor } = await import("@langfuse/otel");
+      const publicKey = import.meta.env.WXT_LANGFUSE_PUBLIC_KEY || "";
+      const secretKey = import.meta.env.WXT_LANGFUSE_SECRET_KEY || "";
+      const baseUrl =
+        import.meta.env.WXT_LANGFUSE_BASEURL || "https://cloud.langfuse.com";
 
-    spanProcessorInstance = new LangfuseSpanProcessor({
-      publicKey,
-      secretKey,
-      baseUrl,
-    });
+      if (!publicKey || !secretKey) {
+        console.warn(
+          "[telemetry] Langfuse keys are missing; spans will not be exported.",
+        );
+      }
+
+      return new LangfuseSpanProcessor({
+        publicKey,
+        secretKey,
+        baseUrl,
+      });
+    })();
   }
-  return spanProcessorInstance as { forceFlush: () => Promise<void> };
+
+  return spanProcessorPromise;
 }
 
 export async function updateObservation(data: {
@@ -27,9 +38,13 @@ export async function updateObservation(data: {
 }): Promise<void> {
   if (!DEBUG) return;
 
-  const { updateActiveObservation } = await import("@langfuse/tracing");
+  try {
+    const { updateActiveObservation } = await import("@langfuse/tracing");
 
-  updateActiveObservation(data);
+    updateActiveObservation(data);
+  } catch (error) {
+    logger.warn("updateObservation failed:", error);
+  }
 }
 
 export async function updateTrace(data: {
@@ -39,17 +54,25 @@ export async function updateTrace(data: {
 }): Promise<void> {
   if (!DEBUG) return;
 
-  const { updateActiveTrace } = await import("@langfuse/tracing");
+  try {
+    const { updateActiveTrace } = await import("@langfuse/tracing");
 
-  updateActiveTrace(data);
+    updateActiveTrace(data);
+  } catch (error) {
+    logger.warn("updateTrace failed:", error);
+  }
 }
 
 export async function endActiveSpan(): Promise<void> {
   if (!DEBUG) return;
 
-  const { trace } = await import("@opentelemetry/api");
+  try {
+    const { trace } = await import("@opentelemetry/api");
 
-  trace.getActiveSpan()?.end();
+    trace.getActiveSpan()?.end();
+  } catch (error) {
+    logger.warn("endActiveSpan failed:", error);
+  }
 }
 
 export async function flushSpanProcessor(): Promise<void> {

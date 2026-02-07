@@ -2,15 +2,15 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger, DEBUG } from "@/lib/logger";
-import type { AIProvider } from "@/lib/providers/registry";
-import type { CompressedFieldData } from "@/types/autofill";
-import type { WebsiteContext } from "@/types/context";
 import {
   endActiveSpan,
   flushSpanProcessor,
   updateObservation,
   updateTrace,
-} from "../observability/telemetry-helpers";
+} from "@/lib/observability/telemetry-helpers";
+import type { AIProvider } from "@/lib/providers/registry";
+import type { CompressedFieldData } from "@/types/autofill";
+import type { WebsiteContext } from "@/types/context";
 
 const logger = createLogger("ai:categorization");
 
