@@ -28,12 +28,14 @@ const CONTEXT_MENU_ID = "superfill-autofill";
 
 export default defineBackground({
   type: "module",
-  main: async () => {
+  main: () => {
     if (DEBUG) {
-      const { initializeTracerProvider } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await initializeTracerProvider();
+      (async () => {
+        const { initializeTracerProvider } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
+        await initializeTracerProvider();
+      })();
     }
     registerCategorizationService();
     registerKeyValidationService();
