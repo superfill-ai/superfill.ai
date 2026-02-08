@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { AIProvider } from "@/lib/providers/registry";
 import {
@@ -6,6 +6,7 @@ import {
   getProviderConfig,
   validateProviderKey,
 } from "@/lib/providers/registry";
+import { queryClient } from "@/lib/query";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AISettings } from "@/types/settings";
@@ -33,8 +34,6 @@ export function useProviderKeyStatuses() {
 }
 
 export function useSaveApiKeyWithModel() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({
       provider,
@@ -92,8 +91,6 @@ export function useSaveApiKeyWithModel() {
 }
 
 export function useDeleteApiKey() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (provider: AIProvider) => {
       const keyVaultService = getKeyVaultService();
