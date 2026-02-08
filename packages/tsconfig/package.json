@@ -1,16 +1,16 @@
 {
-    "name": "@superfill/tsconfig",
-    "version": "0.2.2",
-    "private": true,
-    "description": "Shared TypeScript configurations for Superfill.ai monorepo",
-    "files": [
-        "base.json",
-        "react.json",
-        "node.json"
-    ],
-    "exports": {
-        "./base.json": "./base.json",
-        "./react.json": "./react.json",
-        "./node.json": "./node.json"
-    }
+  "name": "@superfill/tsconfig",
+  "version": "0.2.2",
+  "private": true,
+  "description": "Shared TypeScript configurations for Superfill.ai monorepo",
+  "files": [
+    "base.json",
+    "react.json",
+    "node.json"
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./react.json": "./react.json",
+    "./node.json": "./node.json"
+  }
 }

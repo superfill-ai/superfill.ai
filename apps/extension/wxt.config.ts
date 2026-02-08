@@ -6,7 +6,8 @@ import { APP_NAME } from "./src/constants";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   srcDir: "./src",
-  vite: () => {
+  // @ts-expect-error - Vite version mismatch between WXT and Tailwind (v6 vs v7)
+  vite: (env) => {
     return {
       plugins: [tailwindcss()],
     };

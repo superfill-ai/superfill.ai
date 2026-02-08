@@ -89,10 +89,11 @@ export class CaptureMemoryService {
 
         const totalChanges =
           newMemories.length +
-          fallbackResult.operations.filter((op) => op.action === "update")
-            .length;
+          fallbackResult.operations.filter(
+            (op: DeduplicationOperation) => op.action === "update",
+          ).length;
         logger.debug(
-          `Fallback saved ${newMemories.length} new memories and updated ${fallbackResult.operations.filter((op) => op.action === "update").length} existing`,
+          `Fallback saved ${newMemories.length} new memories and updated ${fallbackResult.operations.filter((op: DeduplicationOperation) => op.action === "update").length} existing`,
         );
 
         return { success: true, savedCount: totalChanges };
@@ -113,7 +114,7 @@ export class CaptureMemoryService {
 
       logger.debug(
         `Deduplication completed:`,
-        deduplicationResult.operations.map((op) => ({
+        deduplicationResult.operations.map((op: DeduplicationOperation) => ({
           action: op.action,
           fieldIndex: op.fieldIndex,
         })),
@@ -129,13 +130,13 @@ export class CaptureMemoryService {
       await storage.memories.setValue(finalMemories);
 
       const createCount = deduplicationResult.operations.filter(
-        (op) => op.action === "create",
+        (op: DeduplicationOperation) => op.action === "create",
       ).length;
       const updateCount = deduplicationResult.operations.filter(
-        (op) => op.action === "update",
+        (op: DeduplicationOperation) => op.action === "update",
       ).length;
       const skipCount = deduplicationResult.operations.filter(
-        (op) => op.action === "skip",
+        (op: DeduplicationOperation) => op.action === "skip",
       ).length;
 
       logger.debug(

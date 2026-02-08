@@ -5,6 +5,7 @@ import { Field, FieldDescription, FieldLabel } from "@superfill/ui/field";
 import { Skeleton } from "@superfill/ui/skeleton";
 import { useEffect, useId, useState } from "react";
 import { useDefaultModel, useProviderModels } from "@/hooks/use-models";
+import type { ModelInfo } from "@/lib/providers/model-service";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 
@@ -59,7 +60,7 @@ export const ModelSelector = ({
     );
   }
 
-  const modelOptions = (models || []).map((model) => ({
+  const modelOptions = (models || []).map((model: ModelInfo) => ({
     value: model.id,
     label: model.name,
     badge: model.contextWindow ? (

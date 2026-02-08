@@ -24,19 +24,19 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.57",
-    "@ai-sdk/google": "^2.0.52",
-    "@ai-sdk/openai": "^2.0.89",
-    "@langfuse/otel": "^4.5.1",
-    "@langfuse/tracing": "^4.5.1",
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-trace-web": "^2.4.0",
-    "@tanstack/react-query": "^5.90.19",
-    "ai": "^5.0.121",
-    "ai-sdk-ollama": "^2.2.0",
+    "@ai-sdk/anthropic": "catalog:default",
+    "@ai-sdk/google": "catalog:default",
+    "@ai-sdk/openai": "catalog:default",
+    "@langfuse/otel": "catalog:default",
+    "@langfuse/tracing": "catalog:default",
+    "@opentelemetry/api": "catalog:default",
+    "@opentelemetry/sdk-trace-web": "catalog:default",
+    "@tanstack/react-query": "catalog:default",
+    "ai": "catalog:default",
+    "ai-sdk-ollama": "catalog:default",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.4.0",
-    "zod": "^4.3.5"
+    "zod": "catalog:default"
   },
   "devDependencies": {
     "@superfill/tsconfig": "workspace:*",
