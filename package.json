@@ -87,6 +87,7 @@
     "react-dom": "^19.2.3",
     "react-hotkeys-hook": "^5.2.3",
     "react-resizable-panels": "^3.0.6",
+    "shadcn": "^3.8.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwind-variants": "^3.2.2",

@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -180,6 +181,7 @@
       transform: translateX(100%);
       opacity: 0;
     }
+
     to {
       transform: translateX(0);
       opacity: 1;
@@ -190,6 +192,7 @@
     from {
       opacity: 0;
     }
+
     to {
       opacity: 1;
     }
@@ -199,6 +202,7 @@
     from {
       opacity: 1;
     }
+
     to {
       opacity: 0;
     }
