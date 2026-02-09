@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/card";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
-import { storage } from "@/lib/storage";
+import { storage as appStorage } from "@/lib/storage";
 import { addNeverAskSite } from "@/lib/storage/capture-settings";
 import type { CapturedFieldData } from "@/types/autofill";
 import { Theme } from "@/types/theme";
@@ -36,6 +36,14 @@ const HOST_ID = "superfill-capture-memory";
 const STORAGE_KEY = "superfill:pendingCaptureModal";
 const STORAGE_VERSION = 1;
 const MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
+
+// Use WXT's storage API with session: prefix for extension-isolated storage
+const pendingCaptureStorage = storage.defineItem<StoredCaptureState | null>(
+  "session:pendingCaptureState",
+  {
+    fallback: null,
+  },
+);
 
 type CaptureResultState = "saving" | "success" | "info" | "error";
 
@@ -214,7 +222,7 @@ export class CaptureMemoryManager {
       this.siteDomain = window.location.hostname;
     }
 
-    this.savePendingState();
+    await this.savePendingState();
 
     logger.info("Showing capture memory", {
       fieldsCount: capturedFields.length,
@@ -250,7 +258,7 @@ export class CaptureMemoryManager {
       this.isVisible = true;
     } catch (error) {
       logger.error("Failed to show capture memory:", error);
-      this.clearPendingState();
+      await this.clearPendingState();
 
       try {
         this.ui?.remove();
@@ -269,7 +277,7 @@ export class CaptureMemoryManager {
 
     logger.info("Hiding capture memory");
 
-    this.clearPendingState();
+    await this.clearPendingState();
 
     if (this.ui) {
       this.ui.remove();
@@ -283,7 +291,7 @@ export class CaptureMemoryManager {
 
   private async applyTheme(shadow: ShadowRoot): Promise<void> {
     try {
-      const settings = await storage.uiSettings.getValue();
+      const settings = await appStorage.uiSettings.getValue();
       const theme = settings.theme;
 
       const host = shadow.host as HTMLElement;
@@ -395,7 +403,7 @@ export class CaptureMemoryManager {
     await this.hide();
   }
 
-  private savePendingState(): void {
+  private async savePendingState(): Promise<void> {
     try {
       const state: StoredCaptureState = {
         version: STORAGE_VERSION,
@@ -405,21 +413,21 @@ export class CaptureMemoryManager {
         siteDomain: this.siteDomain,
         timestamp: Date.now(),
       };
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      logger.info("Saved pending capture modal state to sessionStorage (tab-isolated)");
+      await pendingCaptureStorage.setValue(state);
+      logger.info("Saved pending capture modal state to browser.storage.session (extension-isolated)");
     } catch (error) {
       if (error instanceof Error && error.name === "QuotaExceededError") {
-        logger.error("sessionStorage quota exceeded, cannot persist popup state");
+        logger.error("Storage quota exceeded, cannot persist popup state");
       } else {
         logger.error("Failed to save pending capture state:", error);
       }
     }
   }
 
-  private clearPendingState(): void {
+  private async clearPendingState(): Promise<void> {
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
-      logger.info("Cleared pending capture modal state from sessionStorage");
+      await pendingCaptureStorage.setValue(null);
+      logger.info("Cleared pending capture modal state from browser.storage.session");
     } catch (error) {
       logger.error("Failed to clear pending capture state:", error);
     }
@@ -427,27 +435,23 @@ export class CaptureMemoryManager {
 
   static async restoreIfNeeded(ctx: ContentScriptContext): Promise<CaptureMemoryManager | null> {
     try {
-      const stateStr = sessionStorage.getItem(STORAGE_KEY);
+      const pendingState = await pendingCaptureStorage.getValue();
       
-      if (!stateStr) {
+      if (!pendingState) {
         return null;
       }
 
-      const parsed = JSON.parse(stateStr);
-      
       // Validate data structure
-      if (!CaptureMemoryManager.isValidStoredState(parsed)) {
+      if (!CaptureMemoryManager.isValidStoredState(pendingState)) {
         logger.warn("Invalid stored capture state, clearing");
-        sessionStorage.removeItem(STORAGE_KEY);
+        await pendingCaptureStorage.setValue(null);
         return null;
       }
-
-      const pendingState = parsed as StoredCaptureState;
 
       // Check version compatibility
       if (pendingState.version !== STORAGE_VERSION) {
         logger.info(`Storage version mismatch (${pendingState.version} vs ${STORAGE_VERSION}), clearing`);
-        sessionStorage.removeItem(STORAGE_KEY);
+        await pendingCaptureStorage.setValue(null);
         return null;
       }
 
@@ -457,7 +461,7 @@ export class CaptureMemoryManager {
 
       // Validate same domain
       if (pendingUrl.hostname !== currentUrlObj.hostname) {
-        sessionStorage.removeItem(STORAGE_KEY);
+        await pendingCaptureStorage.setValue(null);
         logger.info("Cleared stale pending capture from different domain");
         return null;
       }
@@ -465,14 +469,14 @@ export class CaptureMemoryManager {
       // Check expiry
       const ageMs = Date.now() - pendingState.timestamp;
       if (ageMs > MAX_AGE_MS) {
-        sessionStorage.removeItem(STORAGE_KEY);
+        await pendingCaptureStorage.setValue(null);
         logger.info("Cleared expired pending capture state");
         return null;
       }
 
-      logger.info("Restoring pending capture modal from sessionStorage (tab-isolated)", {
+      logger.info("Restoring pending capture modal from browser.storage.session (extension-isolated)", {
         fieldsCount: pendingState.capturedFields.length,
-        tabIsolated: true,
+        extensionIsolated: true,
         ageSeconds: Math.floor(ageMs / 1000),
       });
 
@@ -487,7 +491,7 @@ export class CaptureMemoryManager {
       logger.error("Failed to restore pending capture state:", error);
       // Clear potentially corrupted state
       try {
-        sessionStorage.removeItem(STORAGE_KEY);
+        await pendingCaptureStorage.setValue(null);
       } catch (cleanupError) {
         logger.debug("Error clearing corrupted state:", cleanupError);
       }
