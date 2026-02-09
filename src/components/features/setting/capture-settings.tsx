@@ -28,9 +28,7 @@ const logger = createLogger("capture-settings");
 
 export const CaptureSettings = () => {
   const captureEnabledId = useId();
-  const [captureEnabled, setCaptureEnabled] = useState<boolean | undefined>(
-    undefined,
-  );
+  const [captureEnabled, setCaptureEnabled] = useState<boolean>(false);
   const [neverAskSites, setNeverAskSites] = useState<string[]>([]);
 
   useEffect(() => {

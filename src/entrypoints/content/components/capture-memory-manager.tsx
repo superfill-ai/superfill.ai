@@ -207,8 +207,12 @@ export class CaptureMemoryManager {
     capturedFields: CapturedFieldData[],
   ): Promise<void> {
     this.currentFields = capturedFields;
-    this.siteTitle = document.title;
-    this.siteDomain = window.location.hostname;
+    if (!this.siteTitle) {
+      this.siteTitle = document.title;
+    }
+    if (!this.siteDomain) {
+      this.siteDomain = window.location.hostname;
+    }
 
     this.savePendingState();
 
@@ -250,7 +254,9 @@ export class CaptureMemoryManager {
 
       try {
         this.ui?.remove();
-      } catch {}
+      } catch (error) {
+        logger.debug("Error removing UI during cleanup:", error);
+      }
 
       this.ui = null;
       this.root = null;
@@ -482,7 +488,9 @@ export class CaptureMemoryManager {
       // Clear potentially corrupted state
       try {
         sessionStorage.removeItem(STORAGE_KEY);
-      } catch {}
+      } catch (cleanupError) {
+        logger.debug("Error clearing corrupted state:", cleanupError);
+      }
       return null;
     }
   }

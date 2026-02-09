@@ -100,28 +100,38 @@ export default defineContentScript({
 
       try {
         await captureMemoryManager?.hide();
-      } catch {}
+      } catch (error) {
+        logger.debug("Error hiding capture manager during cleanup:", error);
+      }
 
       try {
         unlistenSubmission?.();
-      } catch {}
+      } catch (error) {
+        logger.debug("Error removing submission listener during cleanup:", error);
+      }
       unlistenSubmission = null;
 
       try {
         submissionMonitor?.dispose();
-      } catch {}
+      } catch (error) {
+        logger.debug("Error disposing submission monitor during cleanup:", error);
+      }
       submissionMonitor = null;
 
       if (fieldTracker) {
         try {
           await fieldTracker.clearSession();
-        } catch {}
+        } catch (error) {
+          logger.debug("Error clearing field tracker session during cleanup:", error);
+        }
       }
       fieldTracker = null;
 
       try {
         captureService?.dispose();
-      } catch {}
+      } catch (error) {
+        logger.debug("Error disposing capture service during cleanup:", error);
+      }
       captureService = null;
 
       captureMemoryManager = null;
@@ -162,7 +172,10 @@ export default defineContentScript({
         fieldTracker = await getFieldDataTracker();
         submissionMonitor = getFormSubmissionMonitor();
         captureService = new CaptureService();
-        captureMemoryManager = new CaptureMemoryManager();
+        
+        if (!captureMemoryManager) {
+          captureMemoryManager = new CaptureMemoryManager();
+        }
 
         submissionMonitor.start();
         await captureService.initializeAutoTracking(
