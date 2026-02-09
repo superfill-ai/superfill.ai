@@ -33,8 +33,20 @@ import { CaptureResultLoader } from "./capture-result-loader";
 const logger = createLogger("capture-memory-manager");
 
 const HOST_ID = "superfill-capture-memory";
+const STORAGE_KEY = "superfill:pendingCaptureModal";
+const STORAGE_VERSION = 1;
+const MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 
 type CaptureResultState = "saving" | "success" | "info" | "error";
+
+interface StoredCaptureState {
+  version: number;
+  capturedFields: CapturedFieldData[];
+  siteUrl: string;
+  siteTitle: string;
+  siteDomain: string;
+  timestamp: number;
+}
 
 interface CaptureMemoryProps {
   siteTitle: string;
@@ -187,18 +199,22 @@ export class CaptureMemoryManager {
   private resultState: CaptureResultState | null = null;
   private savedCount = 0;
   private skippedCount = 0;
+  private siteTitle: string = "";
+  private siteDomain: string = "";
 
   async show(
     ctx: ContentScriptContext,
     capturedFields: CapturedFieldData[],
   ): Promise<void> {
     this.currentFields = capturedFields;
-    const siteTitle = document.title;
-    const siteDomain = window.location.hostname;
+    this.siteTitle = document.title;
+    this.siteDomain = window.location.hostname;
+
+    this.savePendingState();
 
     logger.info("Showing capture memory", {
       fieldsCount: capturedFields.length,
-      siteDomain,
+      siteDomain: this.siteDomain,
     });
 
     try {
@@ -214,7 +230,7 @@ export class CaptureMemoryManager {
 
             void this.applyTheme(shadow);
             this.root = createRoot(container);
-            this.render(siteTitle, siteDomain);
+            this.render();
             return this.root;
           },
           onRemove: (root) => {
@@ -223,12 +239,14 @@ export class CaptureMemoryManager {
           },
         });
         this.ui.mount();
+      } else {
+        this.render();
       }
 
-      this.render(siteTitle, siteDomain);
       this.isVisible = true;
     } catch (error) {
       logger.error("Failed to show capture memory:", error);
+      this.clearPendingState();
 
       try {
         this.ui?.remove();
@@ -244,6 +262,8 @@ export class CaptureMemoryManager {
     if (!this.isVisible) return;
 
     logger.info("Hiding capture memory");
+
+    this.clearPendingState();
 
     if (this.ui) {
       this.ui.remove();
@@ -278,17 +298,17 @@ export class CaptureMemoryManager {
     }
   }
 
-  private render(siteTitle: string, siteDomain: string): void {
+  private render(): void {
     if (!this.root) return;
 
     this.root.render(
       <CaptureMemory
-        siteTitle={siteTitle}
-        siteDomain={siteDomain}
+        siteTitle={this.siteTitle}
+        siteDomain={this.siteDomain}
         capturedFields={this.currentFields}
         onSave={() => this.handleSave()}
         onDismiss={() => this.handleDismiss()}
-        onNeverAsk={() => this.handleNeverAsk(siteDomain)}
+        onNeverAsk={() => this.handleNeverAsk(this.siteDomain)}
         resultState={this.resultState}
         savedCount={this.savedCount}
         skippedCount={this.skippedCount}
@@ -301,19 +321,14 @@ export class CaptureMemoryManager {
     this.resultState = null;
     this.savedCount = 0;
     this.skippedCount = 0;
-    const siteTitle = document.title;
-    const siteDomain = window.location.hostname;
-    this.render(siteTitle, siteDomain);
+    this.render();
   }
 
   private async handleSave(): Promise<void> {
     logger.info("Saving captured memories");
 
-    const siteTitle = document.title;
-    const siteDomain = window.location.hostname;
-
     this.resultState = "saving";
-    this.render(siteTitle, siteDomain);
+    this.render();
 
     try {
       const result = await contentAutofillMessaging.sendMessage(
@@ -335,14 +350,14 @@ export class CaptureMemoryManager {
         );
 
         this.resultState = this.savedCount > 0 ? "success" : "info";
-        this.render(siteTitle, siteDomain);
+        this.render();
 
         await new Promise((resolve) => setTimeout(resolve, 3000));
         await this.hide();
       } else {
         logger.error("Failed to save memories");
         this.resultState = "error";
-        this.render(siteTitle, siteDomain);
+        this.render();
 
         await new Promise((resolve) => setTimeout(resolve, 3000));
         await this.hide();
@@ -350,7 +365,7 @@ export class CaptureMemoryManager {
     } catch (error) {
       logger.error("Error saving memories:", error);
       this.resultState = "error";
-      this.render(siteTitle, siteDomain);
+      this.render();
 
       await new Promise((resolve) => setTimeout(resolve, 3000));
       await this.hide();
@@ -372,5 +387,119 @@ export class CaptureMemoryManager {
     }
 
     await this.hide();
+  }
+
+  private savePendingState(): void {
+    try {
+      const state: StoredCaptureState = {
+        version: STORAGE_VERSION,
+        capturedFields: this.currentFields,
+        siteUrl: window.location.href,
+        siteTitle: this.siteTitle,
+        siteDomain: this.siteDomain,
+        timestamp: Date.now(),
+      };
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      logger.info("Saved pending capture modal state to sessionStorage (tab-isolated)");
+    } catch (error) {
+      if (error instanceof Error && error.name === "QuotaExceededError") {
+        logger.error("sessionStorage quota exceeded, cannot persist popup state");
+      } else {
+        logger.error("Failed to save pending capture state:", error);
+      }
+    }
+  }
+
+  private clearPendingState(): void {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+      logger.info("Cleared pending capture modal state from sessionStorage");
+    } catch (error) {
+      logger.error("Failed to clear pending capture state:", error);
+    }
+  }
+
+  static async restoreIfNeeded(ctx: ContentScriptContext): Promise<CaptureMemoryManager | null> {
+    try {
+      const stateStr = sessionStorage.getItem(STORAGE_KEY);
+      
+      if (!stateStr) {
+        return null;
+      }
+
+      const parsed = JSON.parse(stateStr);
+      
+      // Validate data structure
+      if (!CaptureMemoryManager.isValidStoredState(parsed)) {
+        logger.warn("Invalid stored capture state, clearing");
+        sessionStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      const pendingState = parsed as StoredCaptureState;
+
+      // Check version compatibility
+      if (pendingState.version !== STORAGE_VERSION) {
+        logger.info(`Storage version mismatch (${pendingState.version} vs ${STORAGE_VERSION}), clearing`);
+        sessionStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      const currentUrl = window.location.href;
+      const pendingUrl = new URL(pendingState.siteUrl);
+      const currentUrlObj = new URL(currentUrl);
+
+      // Validate same domain
+      if (pendingUrl.hostname !== currentUrlObj.hostname) {
+        sessionStorage.removeItem(STORAGE_KEY);
+        logger.info("Cleared stale pending capture from different domain");
+        return null;
+      }
+
+      // Check expiry
+      const ageMs = Date.now() - pendingState.timestamp;
+      if (ageMs > MAX_AGE_MS) {
+        sessionStorage.removeItem(STORAGE_KEY);
+        logger.info("Cleared expired pending capture state");
+        return null;
+      }
+
+      logger.info("Restoring pending capture modal from sessionStorage (tab-isolated)", {
+        fieldsCount: pendingState.capturedFields.length,
+        tabIsolated: true,
+        ageSeconds: Math.floor(ageMs / 1000),
+      });
+
+      const manager = new CaptureMemoryManager();
+      manager.currentFields = pendingState.capturedFields;
+      manager.siteTitle = pendingState.siteTitle;
+      manager.siteDomain = pendingState.siteDomain;
+      
+      await manager.show(ctx, pendingState.capturedFields);
+      return manager;
+    } catch (error) {
+      logger.error("Failed to restore pending capture state:", error);
+      // Clear potentially corrupted state
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch {}
+      return null;
+    }
+  }
+
+  private static isValidStoredState(data: unknown): data is StoredCaptureState {
+    if (typeof data !== "object" || data === null) return false;
+    
+    const state = data as Record<string, unknown>;
+    
+    return (
+      typeof state.version === "number" &&
+      Array.isArray(state.capturedFields) &&
+      typeof state.siteUrl === "string" &&
+      typeof state.siteTitle === "string" &&
+      typeof state.siteDomain === "string" &&
+      typeof state.timestamp === "number" &&
+      state.capturedFields.length > 0
+    );
   }
 }

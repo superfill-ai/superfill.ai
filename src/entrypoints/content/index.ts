@@ -144,6 +144,14 @@ export default defineContentScript({
         return;
       }
 
+      if (!captureMemoryManager) {
+        const restored = await CaptureMemoryManager.restoreIfNeeded(ctx);
+        if (restored) {
+          captureMemoryManager = restored;
+          logger.info("Restored pending capture modal from storage");
+        }
+      }
+
       logger.info("Initializing memory capture for site:", {
         hostname,
         pathname,
