@@ -94,7 +94,13 @@ export default defineContentScript({
     const stopAutoCapture = async (reason: string): Promise<void> => {
       if (!frameInfo.isMainFrame) return;
 
-      if (!submissionMonitor && !fieldTracker && !captureService) return;
+      if (
+        !submissionMonitor &&
+        !fieldTracker &&
+        !captureService &&
+        !captureMemoryManager
+      )
+        return;
 
       logger.info("Stopping memory capture:", reason);
 
@@ -107,14 +113,20 @@ export default defineContentScript({
       try {
         unlistenSubmission?.();
       } catch (error) {
-        logger.debug("Error removing submission listener during cleanup:", error);
+        logger.debug(
+          "Error removing submission listener during cleanup:",
+          error,
+        );
       }
       unlistenSubmission = null;
 
       try {
         submissionMonitor?.dispose();
       } catch (error) {
-        logger.debug("Error disposing submission monitor during cleanup:", error);
+        logger.debug(
+          "Error disposing submission monitor during cleanup:",
+          error,
+        );
       }
       submissionMonitor = null;
 
@@ -122,7 +134,10 @@ export default defineContentScript({
         try {
           await fieldTracker.clearSession();
         } catch (error) {
-          logger.debug("Error clearing field tracker session during cleanup:", error);
+          logger.debug(
+            "Error clearing field tracker session during cleanup:",
+            error,
+          );
         }
       }
       fieldTracker = null;
@@ -172,7 +187,7 @@ export default defineContentScript({
         fieldTracker = await getFieldDataTracker();
         submissionMonitor = getFormSubmissionMonitor();
         captureService = new CaptureService();
-        
+
         if (!captureMemoryManager) {
           captureMemoryManager = new CaptureMemoryManager();
         }

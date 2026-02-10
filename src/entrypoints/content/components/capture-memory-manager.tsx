@@ -1,10 +1,3 @@
-import { SparklesIcon, X } from "lucide-react";
-import { createRoot, type Root } from "react-dom/client";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import {
-  createShadowRootUi,
-  type ShadowRootContentScriptUi,
-} from "wxt/utils/content-script-ui/shadow-root";
 import {
   Accordion,
   AccordionContent,
@@ -24,31 +17,37 @@ import {
 } from "@/components/ui/card";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
-import { storage as appStorage } from "@/lib/storage";
+import { storage as storageItems } from "@/lib/storage";
 import { addNeverAskSite } from "@/lib/storage/capture-settings";
 import type { CapturedFieldData } from "@/types/autofill";
 import { Theme } from "@/types/theme";
+import { SparklesIcon, X } from "lucide-react";
+import { createRoot, type Root } from "react-dom/client";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import {
+  createShadowRootUi,
+  type ShadowRootContentScriptUi,
+} from "wxt/utils/content-script-ui/shadow-root";
 import { CaptureResultLoader } from "./capture-result-loader";
 
 const logger = createLogger("capture-memory-manager");
 
 const HOST_ID = "superfill-capture-memory";
-const STORAGE_KEY = "superfill:pendingCaptureModal";
+const STORAGE_KEY = "session:pendingCaptureState";
 const STORAGE_VERSION = 1;
-const MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_AGE_MS = 10 * 60 * 1000;
 
-// Use WXT's storage API with session: prefix for extension-isolated storage
 const pendingCaptureStorage = storage.defineItem<StoredCaptureState | null>(
-  "session:pendingCaptureState",
+  STORAGE_KEY,
   {
     fallback: null,
+    version: STORAGE_VERSION,
   },
 );
 
 type CaptureResultState = "saving" | "success" | "info" | "error";
 
 interface StoredCaptureState {
-  version: number;
   capturedFields: CapturedFieldData[];
   siteUrl: string;
   siteTitle: string;
@@ -57,8 +56,8 @@ interface StoredCaptureState {
 }
 
 interface CaptureMemoryProps {
-  siteTitle: string;
-  siteDomain: string;
+  siteTitle: string | undefined;
+  siteDomain: string | undefined;
   capturedFields: CapturedFieldData[];
   onSave: () => void;
   onDismiss: () => void;
@@ -111,7 +110,7 @@ const CaptureMemory = ({
               id="save-memory-title"
             >
               Superfill detected {totalFields} field
-              {totalFields !== 1 ? "s" : ""} you filled on {siteTitle}. Save
+              {totalFields !== 1 ? "s" : ""} you filled on {siteTitle || "this site"}. Save
               them for future use?
             </CardDescription>
             <CardAction>
@@ -178,9 +177,9 @@ const CaptureMemory = ({
             >
               <span
                 className="truncate inline-block max-w-full"
-                title={`Never ask for ${siteDomain}`}
+                title={`Never ask for ${siteDomain || "this site"}`}
               >
-                Never ask for {siteDomain}
+                Never ask for {siteDomain || "this site"}
               </span>
             </Button>
           </CardFooter>
@@ -207,22 +206,25 @@ export class CaptureMemoryManager {
   private resultState: CaptureResultState | null = null;
   private savedCount = 0;
   private skippedCount = 0;
-  private siteTitle: string = "";
-  private siteDomain: string = "";
+  private siteTitle: string | undefined = undefined;
+  private siteDomain: string | undefined = undefined;
 
   async show(
     ctx: ContentScriptContext,
     capturedFields: CapturedFieldData[],
+    options?: { skipPersist?: boolean },
   ): Promise<void> {
     this.currentFields = capturedFields;
-    if (!this.siteTitle) {
+    if (this.siteTitle === undefined) {
       this.siteTitle = document.title;
     }
-    if (!this.siteDomain) {
+    if (this.siteDomain === undefined) {
       this.siteDomain = window.location.hostname;
     }
 
-    await this.savePendingState();
+    if (!options?.skipPersist) {
+      await this.savePendingState();
+    }
 
     logger.info("Showing capture memory", {
       fieldsCount: capturedFields.length,
@@ -291,7 +293,7 @@ export class CaptureMemoryManager {
 
   private async applyTheme(shadow: ShadowRoot): Promise<void> {
     try {
-      const settings = await appStorage.uiSettings.getValue();
+      const settings = await storageItems.uiSettings.getValue();
       const theme = settings.theme;
 
       const host = shadow.host as HTMLElement;
@@ -317,12 +319,15 @@ export class CaptureMemoryManager {
 
     this.root.render(
       <CaptureMemory
-        siteTitle={this.siteTitle}
-        siteDomain={this.siteDomain}
+        siteTitle={this.siteTitle ?? document.title}
+        siteDomain={this.siteDomain ?? window.location.hostname}
         capturedFields={this.currentFields}
         onSave={() => this.handleSave()}
         onDismiss={() => this.handleDismiss()}
-        onNeverAsk={() => this.handleNeverAsk(this.siteDomain)}
+        onNeverAsk={() => {
+          const domain = this.siteDomain ?? window.location.hostname;
+          this.handleNeverAsk(domain);
+        }}
         resultState={this.resultState}
         savedCount={this.savedCount}
         skippedCount={this.skippedCount}
@@ -406,51 +411,44 @@ export class CaptureMemoryManager {
   private async savePendingState(): Promise<void> {
     try {
       const state: StoredCaptureState = {
-        version: STORAGE_VERSION,
         capturedFields: this.currentFields,
         siteUrl: window.location.href,
-        siteTitle: this.siteTitle,
-        siteDomain: this.siteDomain,
+        siteTitle: this.siteTitle ?? document.title,
+        siteDomain: this.siteDomain ?? window.location.hostname,
         timestamp: Date.now(),
       };
       await pendingCaptureStorage.setValue(state);
-      logger.info("Saved pending capture modal state to browser.storage.session (extension-isolated)");
+      logger.debug(
+        "Saved pending capture modal state to browser.storage.session (extension-isolated)",
+      );
     } catch (error) {
-      if (error instanceof Error && error.name === "QuotaExceededError") {
-        logger.error("Storage quota exceeded, cannot persist popup state");
-      } else {
-        logger.error("Failed to save pending capture state:", error);
-      }
+      logger.error("Failed to save pending capture state:", error);
     }
   }
 
   private async clearPendingState(): Promise<void> {
     try {
       await pendingCaptureStorage.setValue(null);
-      logger.info("Cleared pending capture modal state from browser.storage.session");
+      logger.debug(
+        "Cleared pending capture modal state from browser.storage.session",
+      );
     } catch (error) {
       logger.error("Failed to clear pending capture state:", error);
     }
   }
 
-  static async restoreIfNeeded(ctx: ContentScriptContext): Promise<CaptureMemoryManager | null> {
+  static async restoreIfNeeded(
+    ctx: ContentScriptContext,
+  ): Promise<CaptureMemoryManager | null> {
     try {
       const pendingState = await pendingCaptureStorage.getValue();
-      
+
       if (!pendingState) {
         return null;
       }
 
-      // Validate data structure
       if (!CaptureMemoryManager.isValidStoredState(pendingState)) {
         logger.warn("Invalid stored capture state, clearing");
-        await pendingCaptureStorage.setValue(null);
-        return null;
-      }
-
-      // Check version compatibility
-      if (pendingState.version !== STORAGE_VERSION) {
-        logger.info(`Storage version mismatch (${pendingState.version} vs ${STORAGE_VERSION}), clearing`);
         await pendingCaptureStorage.setValue(null);
         return null;
       }
@@ -459,14 +457,12 @@ export class CaptureMemoryManager {
       const pendingUrl = new URL(pendingState.siteUrl);
       const currentUrlObj = new URL(currentUrl);
 
-      // Validate same domain
       if (pendingUrl.hostname !== currentUrlObj.hostname) {
         await pendingCaptureStorage.setValue(null);
         logger.info("Cleared stale pending capture from different domain");
         return null;
       }
 
-      // Check expiry
       const ageMs = Date.now() - pendingState.timestamp;
       if (ageMs > MAX_AGE_MS) {
         await pendingCaptureStorage.setValue(null);
@@ -474,22 +470,26 @@ export class CaptureMemoryManager {
         return null;
       }
 
-      logger.info("Restoring pending capture modal from browser.storage.session (extension-isolated)", {
-        fieldsCount: pendingState.capturedFields.length,
-        extensionIsolated: true,
-        ageSeconds: Math.floor(ageMs / 1000),
-      });
+      logger.info(
+        "Restoring pending capture modal from browser.storage.session (extension-isolated)",
+        {
+          fieldsCount: pendingState.capturedFields.length,
+          extensionIsolated: true,
+          ageSeconds: Math.floor(ageMs / 1000),
+        },
+      );
 
       const manager = new CaptureMemoryManager();
       manager.currentFields = pendingState.capturedFields;
       manager.siteTitle = pendingState.siteTitle;
       manager.siteDomain = pendingState.siteDomain;
-      
-      await manager.show(ctx, pendingState.capturedFields);
+
+      await manager.show(ctx, pendingState.capturedFields, {
+        skipPersist: true,
+      });
       return manager;
     } catch (error) {
       logger.error("Failed to restore pending capture state:", error);
-      // Clear potentially corrupted state
       try {
         await pendingCaptureStorage.setValue(null);
       } catch (cleanupError) {
@@ -501,17 +501,29 @@ export class CaptureMemoryManager {
 
   private static isValidStoredState(data: unknown): data is StoredCaptureState {
     if (typeof data !== "object" || data === null) return false;
-    
+
     const state = data as Record<string, unknown>;
-    
+
     return (
-      typeof state.version === "number" &&
       Array.isArray(state.capturedFields) &&
       typeof state.siteUrl === "string" &&
       typeof state.siteTitle === "string" &&
       typeof state.siteDomain === "string" &&
       typeof state.timestamp === "number" &&
-      state.capturedFields.length > 0
+      state.capturedFields.length > 0 &&
+      state.capturedFields.every(
+        (f: unknown) =>
+          typeof f === "object" &&
+          f !== null &&
+          typeof (f as Record<string, unknown>).fieldOpid === "string" &&
+          typeof (f as Record<string, unknown>).formOpid === "string" &&
+          typeof (f as Record<string, unknown>).question === "string" &&
+          typeof (f as Record<string, unknown>).answer === "string" &&
+          typeof (f as Record<string, unknown>).timestamp === "number" &&
+          typeof (f as Record<string, unknown>).wasAIFilled === "boolean" &&
+          typeof (f as Record<string, unknown>).fieldMetadata === "object" &&
+          (f as Record<string, unknown>).fieldMetadata !== null,
+      )
     );
   }
 }
