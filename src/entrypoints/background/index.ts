@@ -13,7 +13,6 @@ import {
   registerSessionService,
 } from "@/lib/autofill/session-service";
 import { createLogger, DEBUG } from "@/lib/logger";
-import { tracerProvider } from "@/lib/observability/langfuse";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
 import {
@@ -31,7 +30,12 @@ export default defineBackground({
   type: "module",
   main: () => {
     if (DEBUG) {
-      tracerProvider.register();
+      (async () => {
+        const { initializeTracerProvider } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
+        await initializeTracerProvider();
+      })();
     }
     registerCategorizationService();
     registerKeyValidationService();
