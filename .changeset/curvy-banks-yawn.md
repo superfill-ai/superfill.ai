@@ -2,4 +2,4 @@
 "superfill.ai": patch
 ---
 
-feat: supabase auth added
+feat: subscription service added
