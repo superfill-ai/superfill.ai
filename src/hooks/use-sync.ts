@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
+import { SYNC_COOLDOWN_MS } from "@/lib/sync/constants";
 import { getSyncService } from "@/lib/sync/sync-service";
 import type { SyncOperationResult } from "@/types/sync";
 
 const logger = createLogger("hook:sync");
-
-const SYNC_COOLDOWN_MS = 5 * 60 * 1000;
 
 type SyncState = {
   syncing: boolean;

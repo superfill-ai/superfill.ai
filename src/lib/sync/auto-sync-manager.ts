@@ -1,6 +1,8 @@
 import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
 import type { SyncOperationResult } from "@/types/sync";
 import { getAuthService } from "../auth/auth-service";
+import { SYNC_COOLDOWN_MS } from "./constants";
 import { getSyncService } from "./sync-service";
 
 const logger = createLogger("auto-sync-manager");
@@ -10,6 +12,7 @@ type SyncType = "push" | "pull" | "full";
 interface SyncOptions {
   delay?: number;
   silent?: boolean;
+  force?: boolean;
 }
 
 class AutoSyncManager {
@@ -17,14 +20,36 @@ class AutoSyncManager {
   private readonly DEBOUNCE_DELAY = 5000; // 5 seconds
 
   async triggerSync(type: SyncType, options: SyncOptions = {}): Promise<void> {
-    const { delay = 0, silent = true } = options;
+    const { delay = 0, silent = true, force = false } = options;
 
     try {
       const authService = getAuthService();
 
-      if (!authService.isAuthenticated()) {
+      const isAuthenticated = await authService.isAuthenticated();
+
+      if (!isAuthenticated) {
         logger.debug("Skipping auto-sync: Not authenticated");
         return;
+      }
+
+      if (type === "full" && !force) {
+        const syncState = await storage.syncStateAndSettings.getValue();
+        const lastSync = syncState?.lastSync;
+
+        if (lastSync) {
+          const lastSyncTime = new Date(lastSync).getTime();
+
+          if (!Number.isNaN(lastSyncTime)) {
+            const elapsed = Date.now() - lastSyncTime;
+
+            if (elapsed < SYNC_COOLDOWN_MS) {
+              logger.debug("Skipping auto-sync: Cooldown active", {
+                remainingMs: SYNC_COOLDOWN_MS - elapsed,
+              });
+              return;
+            }
+          }
+        }
       }
 
       const syncService = getSyncService();

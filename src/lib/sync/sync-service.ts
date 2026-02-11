@@ -28,7 +28,7 @@ class SyncService {
 
       logger.debug("User authenticated, initializing sync");
 
-      await autoSyncManager.triggerSync("full", { silent: true });
+      await autoSyncManager.triggerSync("full", { silent: true, force: true });
 
       logger.debug("Startup sync initiated successfully");
     } catch (error) {

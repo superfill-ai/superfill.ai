@@ -1,5 +1,6 @@
 import type { Provider, Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef } from "react";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase/client";
@@ -19,30 +20,32 @@ type AuthActions = {
   signIn: (provider?: Provider) => Promise<void>;
   signOut: () => Promise<void>;
   checkAuthStatus: () => Promise<boolean>;
-  loadSession: () => Promise<void>;
 };
 
 export function useAuth(): AuthState & AuthActions {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
+  const queryClient = useQueryClient();
+  const lastSyncedUserId = useRef<string | null>(null);
 
-  const hasInitialized = useRef(false);
-
-  useEffect(() => {
-    const fetchAndWatch = async () => {
+  const {
+    data: session,
+    isLoading: isSessionLoading,
+    error: sessionError,
+    refetch: refetchSession,
+  } = useQuery<Session | null>({
+    queryKey: ["auth", "session"],
+    queryFn: async () => {
       const authService = getAuthService();
       const currentSession = await authService.getSession();
       logger.debug("[useAuth] Initial session loaded:", {
         hasSession: !!currentSession,
         userId: currentSession?.user?.id,
       });
-      setSession(currentSession);
-    };
+      return currentSession;
+    },
+    staleTime: 10000,
+  });
 
-    fetchAndWatch();
-
+  useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -51,30 +54,30 @@ export function useAuth(): AuthState & AuthActions {
         hasSession: !!newSession,
         userId: newSession?.user?.id,
       });
-      setSession(newSession);
+      queryClient.setQueryData(["auth", "session"], newSession);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [queryClient]);
 
-  const isAuthenticated = !!session?.access_token;
+  const sessionValue = session ?? null;
+  const isAuthenticated = !!sessionValue?.access_token;
 
   const checkAuthStatus = useCallback(async () => {
     try {
       logger.debug("[checkAuthStatus] Starting auth status check");
-      const authService = getAuthService();
-      const session = await authService.getSession();
-      const isAuthenticated = session !== null;
+      const { data: refreshedSession } = await refetchSession();
+      const isAuthenticated = refreshedSession !== null;
 
       logger.debug("[checkAuthStatus] Session retrieved:", {
-        hasSession: !!session,
+        hasSession: !!refreshedSession,
         isAuthenticated,
-        hasAccessToken: !!session?.access_token,
+        hasAccessToken: !!refreshedSession?.access_token,
       });
 
-      if (isAuthenticated && session) {
+      if (isAuthenticated && refreshedSession) {
         try {
           await autoSyncManager.triggerSync("full", { silent: true });
         } catch (error) {
@@ -87,13 +90,10 @@ export function useAuth(): AuthState & AuthActions {
       logger.error("Failed to check auth status", { error });
       return false;
     }
-  }, []);
+  }, [refetchSession]);
 
-  const signIn = useCallback(async () => {
-    try {
-      setSigningIn(true);
-      setError(null);
-
+  const signInMutation = useMutation({
+    mutationFn: async () => {
       const authService = getAuthService();
       await authService.initiateOAuth();
 
@@ -103,58 +103,63 @@ export function useAuth(): AuthState & AuthActions {
 
       logger.debug("[signIn] waitForAuth resolved:", { authenticated });
 
-      if (authenticated) {
-        logger.debug("[signIn] Calling checkAuthStatus after successful auth");
-        await checkAuthStatus();
-        logger.debug("[signIn] checkAuthStatus completed");
-      } else {
-        setError("Authentication timeout");
+      if (!authenticated) {
+        throw new Error("Authentication timeout");
       }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to sign in";
-      logger.error("Failed to sign in", { error });
-      setError(errorMessage);
-      throw error;
-    } finally {
-      setSigningIn(false);
-    }
-  }, [checkAuthStatus]);
+    },
+  });
 
-  const signOut = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const signIn = useCallback(async () => {
+    await signInMutation.mutateAsync();
+    logger.debug("[signIn] Calling checkAuthStatus after successful auth");
+    await checkAuthStatus();
+    logger.debug("[signIn] checkAuthStatus completed");
+  }, [checkAuthStatus, signInMutation]);
 
+  const signOutMutation = useMutation({
+    mutationFn: async () => {
       const authService = getAuthService();
       await authService.clearSession();
-
       logger.debug("Signed out successfully");
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to sign out";
-      logger.error("Failed to sign out", { error });
-      setError(errorMessage);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(["auth", "session"], null);
+    },
+  });
 
-  const loadSession = useCallback(async () => {
-    await checkAuthStatus();
-  }, [checkAuthStatus]);
+  const signOut = useCallback(async () => {
+    await signOutMutation.mutateAsync();
+  }, [signOutMutation]);
 
   useEffect(() => {
-    if (!hasInitialized.current && isAuthenticated && session) {
-      hasInitialized.current = true;
-      logger.debug("[useAuth] Initializing sync with stored session");
-      checkAuthStatus();
+    if (!sessionValue?.user?.id) {
+      lastSyncedUserId.current = null;
+      return;
     }
-  }, [isAuthenticated, session, checkAuthStatus]);
+
+    if (lastSyncedUserId.current === sessionValue.user.id) {
+      return;
+    }
+
+    lastSyncedUserId.current = sessionValue.user.id;
+    logger.debug("[useAuth] Initializing sync with stored session");
+    checkAuthStatus();
+  }, [sessionValue, checkAuthStatus]);
+
+  const error =
+    (signInMutation.error instanceof Error
+      ? signInMutation.error.message
+      : null) ||
+    (signOutMutation.error instanceof Error
+      ? signOutMutation.error.message
+      : null) ||
+    (sessionError instanceof Error ? sessionError.message : null);
+
+  const loading = isSessionLoading || signOutMutation.isPending;
+  const signingIn = signInMutation.isPending;
 
   return {
-    session,
+    session: sessionValue,
     isAuthenticated,
     loading,
     error,
@@ -162,6 +167,5 @@ export function useAuth(): AuthState & AuthActions {
     signIn,
     signOut,
     checkAuthStatus,
-    loadSession,
   };
 }

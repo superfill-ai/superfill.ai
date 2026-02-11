@@ -49,7 +49,7 @@ const logger = createLogger("options:App");
 
 export const App = () => {
   const isMobile = useIsMobile();
-  const { isAuthenticated, loading, signOut, checkAuthStatus } = useAuth();
+  const { isAuthenticated, loading, signOut } = useAuth();
   const { syncing, canSync, timeUntilNextSync, syncStatus, performSync } =
     useSync();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
@@ -61,11 +61,6 @@ export const App = () => {
   const [showUpdateTour, setShowUpdateTour] = useState(false);
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateChanges, setUpdateChanges] = useState<string[]>([]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: not needed
-  useEffect(() => {
-    checkAuthStatus().catch(logger.error);
-  }, []);
 
   const handleSignOut = async () => {
     try {
