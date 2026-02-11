@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { defineProxyService } from "@webext-core/proxy-service";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
+import { computeContentHash } from "@/lib/storage/content-hash";
 
 import type { MemoryEntry } from "@/types/memory";
 import type { SyncOperationResult } from "@/types/sync";
@@ -193,10 +194,98 @@ class SyncService {
       const syncState = await storage.syncStateAndSettings.getValue();
       const conflictResolution = syncState?.conflictResolution || "newest";
 
-      const memoryMap = new Map(localMemories.map((m) => [m.id, m]));
+      const memoryMap = new Map(
+        localMemories.map((memory) => [memory.syncId ?? memory.id, memory]),
+      );
+      const contentHashMap = new Map<string, MemoryEntry>();
+
+      for (const memory of localMemories) {
+        if (!memory.contentHash) {
+          memory.contentHash = await computeContentHash(
+            memory.question,
+            memory.answer,
+            memory.category,
+          );
+        }
+
+        if (memory.contentHash) {
+          contentHashMap.set(memory.contentHash, memory);
+        }
+      }
 
       for (const remoteMemory of remoteMemories || []) {
         const localMemory = memoryMap.get(remoteMemory.local_id);
+        const remoteContentHash =
+          "content_hash" in remoteMemory && remoteMemory.content_hash
+            ? remoteMemory.content_hash
+            : await computeContentHash(
+                remoteMemory.question || undefined,
+                remoteMemory.answer,
+                remoteMemory.category,
+              );
+
+        if (remoteMemory.is_deleted) {
+          const index = localMemories.findIndex(
+            (m) => (m.syncId ?? m.id) === remoteMemory.local_id,
+          );
+
+          if (index !== -1) {
+            localMemories.splice(index, 1);
+            itemsSynced++;
+          } else if (remoteContentHash) {
+            const duplicate = contentHashMap.get(remoteContentHash);
+            if (duplicate) {
+              const duplicateIndex = localMemories.findIndex(
+                (m) => m.id === duplicate.id,
+              );
+              if (duplicateIndex !== -1) {
+                localMemories.splice(duplicateIndex, 1);
+                itemsSynced++;
+              }
+            }
+          }
+
+          continue;
+        }
+        const duplicateByHash =
+          !localMemory && remoteContentHash
+            ? contentHashMap.get(remoteContentHash)
+            : undefined;
+
+        if (!localMemory && duplicateByHash) {
+          const localUpdatedAt = new Date(
+            duplicateByHash.metadata.updatedAt,
+          ).getTime();
+          const remoteUpdatedAt = new Date(remoteMemory.updated_at).getTime();
+
+          if (remoteUpdatedAt > localUpdatedAt) {
+            duplicateByHash.question = remoteMemory.question || undefined;
+            duplicateByHash.answer = remoteMemory.answer;
+            duplicateByHash.category =
+              remoteMemory.category as MemoryEntry["category"];
+            duplicateByHash.tags = remoteMemory.tags || [];
+            duplicateByHash.confidence = Number(remoteMemory.confidence);
+            duplicateByHash.embedding = remoteMemory.embedding
+              ? remoteMemory.embedding
+                  .replace(/[[\]]/g, "")
+                  .split(",")
+                  .map(Number)
+              : undefined;
+            duplicateByHash.metadata = {
+              createdAt: remoteMemory.created_at,
+              updatedAt: remoteMemory.updated_at,
+              source: remoteMemory.source as "manual" | "import",
+            };
+            duplicateByHash.contentHash = remoteContentHash;
+            duplicateByHash.syncId = remoteMemory.local_id;
+            itemsSynced++;
+          } else if (!duplicateByHash.syncId) {
+            duplicateByHash.syncId = remoteMemory.local_id;
+          }
+
+          conflictsResolved++;
+          continue;
+        }
 
         if (!localMemory) {
           const newMemory: MemoryEntry = {
@@ -205,7 +294,7 @@ class SyncService {
             question: remoteMemory.question || undefined,
             answer: remoteMemory.answer,
             category: remoteMemory.category as MemoryEntry["category"],
-            tags: remoteMemory.tags,
+            tags: remoteMemory.tags || [],
             confidence: Number(remoteMemory.confidence),
             embedding: remoteMemory.embedding
               ? remoteMemory.embedding
@@ -213,6 +302,7 @@ class SyncService {
                   .split(",")
                   .map(Number)
               : undefined,
+            contentHash: remoteContentHash,
             metadata: {
               createdAt: remoteMemory.created_at,
               updatedAt: remoteMemory.updated_at,
@@ -233,15 +323,15 @@ class SyncService {
               conflictResolution === "remote"
             ) {
               const index = localMemories.findIndex(
-                (m) => m.id === localMemory.id,
+                (m) => (m.syncId ?? m.id) === remoteMemory.local_id,
               );
               localMemories[index] = {
-                id: remoteMemory.local_id,
+                id: localMemory.id,
                 syncId: remoteMemory.local_id,
                 question: remoteMemory.question || undefined,
                 answer: remoteMemory.answer,
                 category: remoteMemory.category as MemoryEntry["category"],
-                tags: remoteMemory.tags,
+                tags: remoteMemory.tags || [],
                 confidence: Number(remoteMemory.confidence),
                 embedding: remoteMemory.embedding
                   ? remoteMemory.embedding
@@ -249,6 +339,7 @@ class SyncService {
                       .split(",")
                       .map(Number)
                   : undefined,
+                contentHash: remoteContentHash,
                 metadata: {
                   createdAt: remoteMemory.created_at,
                   updatedAt: remoteMemory.updated_at,
@@ -261,17 +352,10 @@ class SyncService {
           } else if (remoteUpdatedAt < localUpdatedAt) {
             if (conflictResolution === "local") {
               conflictsResolved++;
+              if (!localMemory.syncId) {
+                localMemory.syncId = remoteMemory.local_id;
+              }
             }
-          }
-        }
-
-        if (remoteMemory.is_deleted) {
-          const index = localMemories.findIndex(
-            (m) => m.id === remoteMemory.local_id,
-          );
-          if (index !== -1) {
-            localMemories.splice(index, 1);
-            itemsSynced++;
           }
         }
       }
@@ -344,9 +428,21 @@ class SyncService {
       const localMemories = (await storage.memories.getValue()) || [];
 
       for (const memory of localMemories) {
+        if (!memory.contentHash) {
+          memory.contentHash = await computeContentHash(
+            memory.question,
+            memory.answer,
+            memory.category,
+          );
+        }
+      }
+
+      await storage.memories.setValue(localMemories);
+
+      for (const memory of localMemories) {
         try {
           const { error } = await supabase.rpc("upsert_memory", {
-            p_local_id: memory.id,
+            p_local_id: memory.syncId ?? memory.id,
             p_question: (memory.question || null) as string,
             p_answer: memory.answer,
             p_category: memory.category,
@@ -358,6 +454,7 @@ class SyncService {
             p_source: memory.metadata.source,
             p_created_at: memory.metadata.createdAt,
             p_updated_at: memory.metadata.updatedAt,
+            p_content_hash: memory.contentHash ?? undefined,
           });
 
           if (error) {

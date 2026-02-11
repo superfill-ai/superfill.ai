@@ -136,6 +136,7 @@ export type Database = {
           answer: string;
           category: string;
           confidence: number;
+          content_hash: string | null;
           created_at: string;
           deleted_at: string | null;
           embedding: string | null;
@@ -152,6 +153,7 @@ export type Database = {
           answer: string;
           category: string;
           confidence: number;
+          content_hash?: string | null;
           created_at?: string;
           deleted_at?: string | null;
           embedding?: string | null;
@@ -168,6 +170,7 @@ export type Database = {
           answer?: string;
           category?: string;
           confidence?: number;
+          content_hash?: string | null;
           created_at?: string;
           deleted_at?: string | null;
           embedding?: string | null;
@@ -421,6 +424,7 @@ export type Database = {
           answer: string;
           category: string;
           confidence: number;
+          content_hash: string | null;
           created_at: string;
           deleted_at: string;
           embedding: string;
@@ -454,6 +458,7 @@ export type Database = {
               p_answer?: string;
               p_category?: string;
               p_confidence?: number;
+              p_content_hash?: string;
               p_created_at?: string;
               p_deleted_at?: string;
               p_embedding?: string;
@@ -471,6 +476,7 @@ export type Database = {
               p_answer: string;
               p_category: string;
               p_confidence: number;
+              p_content_hash?: string;
               p_created_at: string;
               p_deleted_at?: string;
               p_embedding: string;

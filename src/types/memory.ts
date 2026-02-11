@@ -27,6 +27,7 @@ const memoryEntrySchema = z.object({
     source: z.enum(["manual", "import", "autofill"]),
     fieldPurpose: z.string().optional(),
   }),
+  contentHash: z.string().optional(),
   embedding: z.array(z.number()).optional(),
 });
 
