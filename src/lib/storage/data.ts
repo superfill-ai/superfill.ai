@@ -25,7 +25,7 @@ const fillSessions = storage.defineItem<FillSession[]>(
 );
 
 export const captureSettingsFallback: CaptureSettings = {
-  enabled: true,
+  enabled: false,
   blockedDomains: [],
   neverAskSites: [],
 };

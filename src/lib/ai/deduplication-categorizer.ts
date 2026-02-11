@@ -33,7 +33,9 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("update"),
     fieldIndex: z.number().int().min(0),
-    existingMemoryId: z.uuid(),
+    existingMemoryId: z.uuid({
+      version: "v7",
+    }),
     newAnswer: z.string(),
     category: CategoryEnum,
     tags: z
@@ -52,7 +54,9 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("skip"),
     fieldIndex: z.number().int().min(0),
-    existingMemoryId: z.uuid(),
+    existingMemoryId: z.uuid({
+      version: "v7",
+    }),
     reasoning: z.string().optional(),
   }),
 ]);

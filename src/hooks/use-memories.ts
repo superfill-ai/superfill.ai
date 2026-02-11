@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { queryClient } from "@/lib/query";
 import { storage } from "@/lib/storage";
 import {
   addEntries as addEntriesHelper,
@@ -18,8 +19,6 @@ type UpdateMemoryEntry = Partial<Omit<MemoryEntry, "id" | "metadata">>;
 const MEMORIES_QUERY_KEY = ["memories"];
 
 export const useMemories = () => {
-  const queryClient = useQueryClient();
-
   const query = useQuery({
     queryKey: MEMORIES_QUERY_KEY,
     queryFn: async () => {
@@ -36,7 +35,7 @@ export const useMemories = () => {
     });
 
     return () => unwatch();
-  }, [queryClient]);
+  }, []);
 
   return {
     entries: query.data ?? [],
@@ -47,8 +46,6 @@ export const useMemories = () => {
 };
 
 export const useMemoryMutations = () => {
-  const queryClient = useQueryClient();
-
   const addEntry = useMutation({
     mutationFn: async (entry: CreateMemoryEntry) => {
       return await addEntryHelper(entry);

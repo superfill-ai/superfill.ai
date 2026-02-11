@@ -1,13 +1,16 @@
-import { updateActiveObservation, updateActiveTrace } from "@langfuse/tracing";
-import { trace } from "@opentelemetry/api";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { createLogger, DEBUG } from "@/lib/logger";
+import {
+  endActiveSpan,
+  flushSpanProcessor,
+  updateObservation,
+  updateTrace,
+} from "@/lib/observability/telemetry-helpers";
 import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type { CompressedFieldData } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
-import { langfuseSpanProcessor } from "../observability/langfuse";
 
 const logger = createLogger("ai:categorization");
 
@@ -145,10 +148,10 @@ Be precise and consider context. For example:
       : `Information: ${answer}`;
 
     if (DEBUG) {
-      updateActiveObservation({
+      await updateObservation({
         input: { answer, question },
       });
-      updateActiveTrace({
+      await updateTrace({
         name: "superfill:memory-categorization",
         input: { answer, question },
       });
@@ -174,13 +177,13 @@ Be precise and consider context. For example:
     });
 
     if (DEBUG) {
-      updateActiveObservation({
+      await updateObservation({
         output: result.object,
       });
-      updateActiveTrace({
+      await updateTrace({
         output: result.object,
       });
-      trace.getActiveSpan()?.end();
+      await endActiveSpan();
     }
 
     return result.object;
@@ -188,20 +191,34 @@ Be precise and consider context. For example:
     logger.error("AI categorization failed:", error);
 
     if (DEBUG) {
-      updateActiveObservation({
-        output: error,
-        level: "ERROR",
-      });
-      updateActiveTrace({
-        output: error,
-      });
-      trace.getActiveSpan()?.end();
+      try {
+        await updateObservation({
+          output: error,
+          level: "ERROR",
+        });
+        await updateTrace({
+          output: error,
+        });
+        await endActiveSpan();
+      } catch (telemetryError) {
+        logger.error(
+          "Telemetry error in categorization catch:",
+          telemetryError,
+        );
+      }
     }
 
     return fallbackCategorization(answer, question);
   } finally {
     if (DEBUG) {
-      (async () => await langfuseSpanProcessor.forceFlush())();
+      try {
+        await flushSpanProcessor();
+      } catch (telemetryError) {
+        logger.error(
+          "Telemetry flush error in categorization:",
+          telemetryError,
+        );
+      }
     }
   }
 };
@@ -316,10 +333,10 @@ export const rephraseAgent = async (
     const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
 
     if (DEBUG) {
-      updateActiveObservation({
+      await updateObservation({
         input: { answer, question },
       });
-      updateActiveTrace({
+      await updateTrace({
         name: "superfill:memory-rephrase",
         input: { answer, question },
       });
@@ -336,13 +353,13 @@ export const rephraseAgent = async (
     });
 
     if (DEBUG) {
-      updateActiveObservation({
+      await updateObservation({
         output: object,
       });
-      updateActiveTrace({
+      await updateTrace({
         output: object,
       });
-      trace.getActiveSpan()?.end();
+      await endActiveSpan();
     }
 
     return object;
@@ -350,20 +367,28 @@ export const rephraseAgent = async (
     logger.error("AI rephrasing failed:", error);
 
     if (DEBUG) {
-      updateActiveObservation({
-        output: error,
-        level: "ERROR",
-      });
-      updateActiveTrace({
-        output: error,
-      });
-      trace.getActiveSpan()?.end();
+      try {
+        await updateObservation({
+          output: error,
+          level: "ERROR",
+        });
+        await updateTrace({
+          output: error,
+        });
+        await endActiveSpan();
+      } catch (telemetryError) {
+        logger.error("Telemetry error in rephrase catch:", telemetryError);
+      }
     }
 
     throw new Error("Failed to rephrase content with AI.");
   } finally {
-    if (DEBUG && langfuseSpanProcessor) {
-      (async () => await langfuseSpanProcessor.forceFlush())();
+    if (DEBUG) {
+      try {
+        await flushSpanProcessor();
+      } catch (telemetryError) {
+        logger.error("Telemetry flush error in rephrase:", telemetryError);
+      }
     }
   }
 };
