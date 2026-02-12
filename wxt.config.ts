@@ -26,7 +26,13 @@ export default defineConfig({
       name: APP_NAME,
       version: "0.2.5",
       description: "AI-powered form filling browser extension",
-      permissions: ["activeTab", "storage", "offscreen", "contextMenus"],
+      permissions: [
+        "activeTab",
+        "storage",
+        "offscreen",
+        "contextMenus",
+        "sidePanel",
+      ],
       host_permissions: [
         "https://api.openai.com/*",
         "https://api.anthropic.com/*",
@@ -54,6 +60,10 @@ export default defineConfig({
     if (manifestVersion === 3) {
       return {
         ...baseManifest,
+        action: {
+          default_title: APP_NAME,
+          default_icon: baseManifest.icons,
+        },
         web_accessible_resources: [
           {
             resources: [

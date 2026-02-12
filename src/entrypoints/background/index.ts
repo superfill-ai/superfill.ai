@@ -49,6 +49,25 @@ export default defineBackground({
     const keyVault = getKeyVaultService();
     const autofillService = getAutofillService();
 
+    const maybeOpenSidePanel = async (tabId: number) => {
+      if (!browser.sidePanel?.setOptions || !browser.sidePanel?.open) {
+        logger.warn("Side panel API unavailable; skipping side panel open");
+        return;
+      }
+
+      await browser.sidePanel.setOptions({
+        tabId,
+        path: "sidepanel.html",
+        enabled: true,
+      });
+
+      await browser.sidePanel.open({ tabId });
+    };
+
+    if (browser.sidePanel?.setOptions) {
+      browser.sidePanel.setOptions({ enabled: false }).catch(() => {});
+    }
+
     const updateContextMenu = async (enabled: boolean) => {
       try {
         if (enabled) {
@@ -76,6 +95,15 @@ export default defineBackground({
     storage.aiSettings.watch((newSettings) => {
       if (newSettings) {
         updateContextMenu(newSettings.contextMenuEnabled);
+      }
+    });
+
+    browser.action.onClicked.addListener(async (tab) => {
+      if (!tab?.id) return;
+      try {
+        await maybeOpenSidePanel(tab.id);
+      } catch (error) {
+        logger.error("Failed to open side panel", error);
       }
     });
 

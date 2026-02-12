@@ -208,8 +208,11 @@ export const App = () => {
 
       const autofillService = getAutofillService();
       autofillService.startAutofillOnActiveTab();
+      const isSidePanelContext =
+        typeof window !== "undefined" &&
+        window.location.pathname.includes("sidepanel");
 
-      if (!DEBUG) {
+      if (!DEBUG && !isSidePanelContext) {
         setTimeout(() => {
           window.close();
         }, 600);
