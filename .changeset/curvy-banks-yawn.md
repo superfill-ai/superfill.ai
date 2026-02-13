@@ -1,5 +1,5 @@
 ---
-"superfill.ai": patch
+"superfill.ai": minor
 ---
 
 feat: subscription service added
