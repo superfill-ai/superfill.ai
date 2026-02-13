@@ -1,11 +1,11 @@
+import type { Session } from "@supabase/supabase-js";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import { supabase } from "@/lib/supabase/client";
 import { autoSyncManager } from "@/lib/sync/auto-sync-manager";
-import type { Provider, Session } from "@supabase/supabase-js";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
 
 const logger = createLogger("hook:auth");
 
@@ -21,18 +21,29 @@ type AuthState = {
 };
 
 type AuthActions = {
-  signIn: (provider?: Provider) => Promise<void>;
+  signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   checkAuthStatus: () => Promise<boolean>;
 };
 
 const WEBSITE_URL = import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
+const USER_STATUS_ENDPOINT = `${WEBSITE_URL}/routes/api/user/status`;
+
+type UserStatus = {
+  is_active: boolean;
+  plan?: string;
+};
 
 export function useAuth(): AuthState & AuthActions {
   const queryClient = useQueryClient();
   const lastSyncedUserId = useRef<string | null>(null);
   const [pendingApproval, setPendingApproval] = useState(false);
   const [inactiveMessage, setInactiveMessage] = useState<string | null>(null);
+
+  const clearInactiveState = useCallback(() => {
+    setPendingApproval(false);
+    setInactiveMessage(null);
+  }, []);
 
   const handleInactiveAccount = useCallback(
     async (message?: string) => {
@@ -54,6 +65,34 @@ export function useAuth(): AuthState & AuthActions {
       );
     },
     [queryClient],
+  );
+
+  const fetchUserStatus = useCallback(
+    async (accessToken: string): Promise<UserStatus> => {
+      const response = await fetch(USER_STATUS_ENDPOINT, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.status === 403) {
+        const errorData = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        await handleInactiveAccount(errorData.error);
+        return { is_active: false };
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user status: ${response.status}`);
+      }
+
+      clearInactiveState();
+      return response.json() as Promise<UserStatus>;
+    },
+    [clearInactiveState, handleInactiveAccount],
   );
 
   const {
@@ -98,40 +137,16 @@ export function useAuth(): AuthState & AuthActions {
     data: userStatus,
     isLoading: isUserStatusLoading,
     error: userStatusError,
-  } = useQuery<{ is_active: boolean; plan?: string } | null>({
+  } = useQuery<UserStatus | null>({
     queryKey: ["auth", "user-status", sessionValue?.user?.id],
     enabled: !!sessionValue?.access_token,
     queryFn: async () => {
       if (!sessionValue?.access_token) {
-        setPendingApproval(false);
-        setInactiveMessage(null);
+        clearInactiveState();
         return null;
       }
 
-      const response = await fetch(`${WEBSITE_URL}/routes/api/user/status`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${sessionValue.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.status === 403) {
-        const errorData = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        await handleInactiveAccount(errorData.error);
-        return { is_active: false };
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user status: ${response.status}`);
-      }
-
-      setPendingApproval(false);
-      setInactiveMessage(null);
-
-      return response.json() as Promise<{ is_active: boolean; plan?: string }>;
+      return fetchUserStatus(sessionValue.access_token);
     },
     staleTime: 10000,
   });
@@ -151,28 +166,10 @@ export function useAuth(): AuthState & AuthActions {
       });
 
       if (hasSession && refreshedSession) {
-        const response = await fetch(`${WEBSITE_URL}/routes/api/user/status`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${refreshedSession.access_token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.status === 403) {
-          const errorData = (await response.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          await handleInactiveAccount(errorData.error);
+        const status = await fetchUserStatus(refreshedSession.access_token);
+        if (!status.is_active) {
           return false;
         }
-
-        if (!response.ok) {
-          return false;
-        }
-
-        setPendingApproval(false);
-        setInactiveMessage(null);
 
         try {
           await autoSyncManager.triggerSync("full", { silent: true });
@@ -186,7 +183,7 @@ export function useAuth(): AuthState & AuthActions {
       logger.error("Failed to check auth status", { error });
       return false;
     }
-  }, [handleInactiveAccount, refetchSession]);
+  }, [fetchUserStatus, refetchSession]);
 
   const signInMutation = useMutation({
     mutationFn: async () => {
@@ -208,13 +205,12 @@ export function useAuth(): AuthState & AuthActions {
   });
 
   const signIn = useCallback(async () => {
-    setPendingApproval(false);
-    setInactiveMessage(null);
+    clearInactiveState();
     await signInMutation.mutateAsync();
     logger.debug("[signIn] Calling checkAuthStatus after successful auth");
     await checkAuthStatus();
     logger.debug("[signIn] checkAuthStatus completed");
-  }, [checkAuthStatus, signInMutation]);
+  }, [checkAuthStatus, clearInactiveState, signInMutation]);
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
@@ -228,10 +224,9 @@ export function useAuth(): AuthState & AuthActions {
   });
 
   const signOut = useCallback(async () => {
-    setPendingApproval(false);
-    setInactiveMessage(null);
+    clearInactiveState();
     await signOutMutation.mutateAsync();
-  }, [signOutMutation]);
+  }, [clearInactiveState, signOutMutation]);
 
   useEffect(() => {
     if (!sessionValue?.user?.id || !isAuthenticated) {
