@@ -171,7 +171,7 @@ export const AiProviderSettings = () => {
           </Field>
           <Separator />
 
-          {cloudModelsEnabled && cloudUsage?.plan !== "max" && (
+          {cloudModelsEnabled && cloudUsage && cloudUsage.plan !== "max" && (
             <Alert variant="secondary">
               <Info className="size-4" />
               <AlertTitle>Cloud Models Active</AlertTitle>
