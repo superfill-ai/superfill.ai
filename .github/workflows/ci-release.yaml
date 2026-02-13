@@ -9,6 +9,10 @@ permissions:
 jobs:
   submit:
     runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    env:
+      WXT_WEBSITE_URL: ${{ secrets.WXT_WEBSITE_URL }}
+      WXT_SUPABASE_URL: ${{ secrets.WXT_SUPABASE_URL }}
+      WXT_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.WXT_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v6
 
@@ -18,6 +22,12 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Validate required env
+        run: |
+          [[ -n "$WXT_WEBSITE_URL" ]] || { echo "Missing WXT_WEBSITE_URL"; exit 1; }
+          [[ -n "$WXT_SUPABASE_URL" ]] || { echo "Missing WXT_SUPABASE_URL"; exit 1; }
+          [[ -n "$WXT_SUPABASE_PUBLISHABLE_KEY" ]] || { echo "Missing WXT_SUPABASE_PUBLISHABLE_KEY"; exit 1; }
 
       - name: Get version
         id: version
