@@ -30,7 +30,8 @@ export function CloudUsageDisplay() {
   const isUnlimited = usage.limit === null || usage.limit === -1;
   const limit = usage.limit ?? 0;
   const remaining = usage.remaining ?? 0;
-  const usagePercent = isUnlimited ? 0 : (usage.used / limit) * 100;
+  const usagePercent =
+    isUnlimited || limit === 0 ? 0 : (usage.used / limit) * 100;
   const isNearLimit = !isUnlimited && usagePercent >= 80;
   const isAtLimit = !isUnlimited && remaining === 0;
 
