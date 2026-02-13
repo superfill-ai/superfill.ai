@@ -30,6 +30,7 @@ export async function getCaptureSettings(): Promise<CaptureSettings> {
     throw new Error("Failed to read capture settings.");
   }
 }
+
 export async function updateCaptureSettings(
   updates: Partial<CaptureSettings>,
 ): Promise<void> {

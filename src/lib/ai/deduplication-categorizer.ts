@@ -1,10 +1,12 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { CategoryEnum } from "@/lib/ai/categorization";
+import { CategoryEnum, TagSchema } from "@/lib/ai/categorization";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
+import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
-import { getAIModel } from "./model-factory";
+import { getAIModel } from "../providers/model-factory";
+import { cloudDeduplicate, shouldUseCloudAI } from "./cloud-client";
 
 const logger = createLogger("ai:deduplication-categorizer");
 
@@ -15,16 +17,7 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     action: z.literal("create"),
     fieldIndex: z.number().int().min(0),
     category: CategoryEnum,
-    tags: z
-      .array(
-        z
-          .string()
-          .min(2)
-          .max(50)
-          .transform((val) => val.toLowerCase()),
-      )
-      .min(1)
-      .max(5),
+    tags: z.array(TagSchema).min(1).max(5),
     confidence: z.number().min(0).max(1),
     reasoning: z.string().optional(),
   }),
@@ -36,16 +29,7 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     }),
     newAnswer: z.string(),
     category: CategoryEnum,
-    tags: z
-      .array(
-        z
-          .string()
-          .min(2)
-          .max(50)
-          .transform((val) => val.toLowerCase()),
-      )
-      .min(1)
-      .max(5),
+    tags: z.array(TagSchema).min(1).max(5),
     confidence: z.number().min(0).max(1),
     reasoning: z.string().optional(),
   }),
@@ -89,6 +73,50 @@ export class DeduplicationCategorizer {
       return { operations: [] };
     }
 
+    const aiSettings = await storage.aiSettings.getValue();
+
+    if (aiSettings.cloudModelsEnabled) {
+      const canUseCloud = await shouldUseCloudAI();
+      if (canUseCloud) {
+        const cloudResult = await cloudDeduplicate(
+          newFields,
+          existingMemories.map((m) => ({
+            id: m.id,
+            question: m.question || "",
+            answer: m.answer,
+            category: m.category,
+            metadata: m.metadata,
+          })),
+        );
+
+        if (cloudResult.success) {
+          return this.filterLowConfidenceOperations(
+            cloudResult.data as DeduplicationResult,
+          );
+        }
+
+        if (cloudResult.quotaExceeded) {
+          logger.warn("Cloud AI quota exceeded, falling back to local");
+        }
+      }
+    }
+
+    return this.processFieldsLocal(
+      newFields,
+      existingMemories,
+      provider,
+      apiKey,
+      modelName,
+    );
+  }
+
+  private async processFieldsLocal(
+    newFields: FieldToProcess[],
+    existingMemories: MemoryEntry[],
+    provider: AIProvider,
+    apiKey: string,
+    modelName?: string,
+  ): Promise<DeduplicationResult> {
     try {
       const model = getAIModel(provider, apiKey, modelName);
 

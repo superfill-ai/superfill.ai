@@ -1,9 +1,11 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getAIModel } from "@/lib/ai/model-factory";
 import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
+import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
+import { storage } from "@/lib/storage";
+import { cloudBulkCategorize, shouldUseCloudAI } from "./cloud-client";
 
 const logger = createLogger("bulk-categorizer");
 
@@ -44,6 +46,34 @@ export class BulkCategorizer {
       return [];
     }
 
+    const aiSettings = await storage.aiSettings.getValue();
+
+    if (aiSettings.cloudModelsEnabled) {
+      const canUseCloud = await shouldUseCloudAI();
+      if (canUseCloud) {
+        const cloudResult = await cloudBulkCategorize(fields);
+        if (cloudResult.success) {
+          return cloudResult.data.categories.map((c) => ({
+            category: c.category,
+            confidence: c.confidence,
+          }));
+        }
+
+        if (cloudResult.quotaExceeded) {
+          logger.warn("Cloud AI quota exceeded, falling back to local");
+        }
+      }
+    }
+
+    return this.categorizeFieldsLocal(fields, provider, apiKey, modelName);
+  }
+
+  private async categorizeFieldsLocal(
+    fields: Array<{ question: string; answer: string }>,
+    provider: AIProvider,
+    apiKey: string,
+    modelName?: string,
+  ): Promise<CategorizedField[]> {
     try {
       const startTime = performance.now();
 

@@ -1,4 +1,5 @@
 import { registerCategorizationService } from "@/lib/ai/categorization-service";
+import { getAuthService, registerAuthService } from "@/lib/auth/auth-service";
 import {
   getAutofillService,
   registerAutofillService,
@@ -20,6 +21,8 @@ import {
   registerKeyVaultService,
 } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import { getSyncService, registerSyncService } from "@/lib/sync/sync-service";
+import type { AuthSuccessMessage, Message } from "@/types/message";
 import { migrateAISettings } from "./lib/migrate-settings-handler";
 
 const logger = createLogger("background");
@@ -37,17 +40,21 @@ export default defineBackground({
         await initializeTracerProvider();
       })();
     }
+    registerAutofillService();
+    registerAuthService();
+    registerCaptureMemoryService();
     registerCategorizationService();
     registerKeyValidationService();
     registerKeyVaultService();
-    registerCaptureMemoryService();
     registerModelService();
-    registerAutofillService();
     registerSessionService();
-    const sessionService = getSessionService();
+    registerSyncService();
+    const authService = getAuthService();
+    const autofillService = getAutofillService();
     const captureMemoryService = getCaptureMemoryService();
     const keyVault = getKeyVaultService();
-    const autofillService = getAutofillService();
+    const sessionService = getSessionService();
+    const syncService = getSyncService();
 
     const updateContextMenu = async (enabled: boolean) => {
       try {
@@ -81,7 +88,7 @@ export default defineBackground({
 
     browser.contextMenus.onClicked.addListener(async (info, tab) => {
       if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
-        logger.info("Context menu autofill triggered", { tabId: tab.id });
+        logger.debug("Context menu autofill triggered", { tabId: tab.id });
         try {
           await autofillService.startAutofillOnActiveTab();
         } catch (error) {
@@ -90,13 +97,45 @@ export default defineBackground({
       }
     });
 
+    const handleAuthentication = async (
+      message: Message<AuthSuccessMessage>,
+      sender: globalThis.Browser.runtime.MessageSender,
+    ) => {
+      if (
+        message.type === "SUPERFILL_AUTH_SUCCESS" &&
+        sender.id === browser.runtime.id
+      ) {
+        logger.debug("Received auth tokens from webapp", {
+          hasAccessToken: !!message.access_token,
+          hasRefreshToken: !!message.refresh_token,
+          userId: message.user?.id,
+        });
+
+        await authService.setAuthToken(
+          message.access_token,
+          message.refresh_token,
+        );
+        logger.debug("Auth tokens set successfully in background");
+
+        return true;
+      }
+    };
+
+    browser.runtime.onMessage.addListener((message, sender) => {
+      handleAuthentication(message, sender).catch(logger.error);
+
+      return true;
+    });
+
     browser.runtime.onInstalled.addListener(async (details) => {
       const manifest = browser.runtime.getManifest();
       const currentVersion = manifest.version;
       const uiSettings = await storage.uiSettings.getValue();
 
       if (details.reason === "install") {
-        logger.info("Extension installed for the first time, opening settings");
+        logger.debug(
+          "Extension installed for the first time, opening settings",
+        );
 
         const storedMemories = await storage.memories.getValue();
 
@@ -105,12 +144,10 @@ export default defineBackground({
           onboardingCompleted: storedMemories.length !== 0,
           extensionVersion: currentVersion,
         });
-
-        browser.runtime.openOptionsPage();
       } else if (details.reason === "update") {
         const previousVersion = uiSettings.extensionVersion || "0.0.0";
 
-        logger.info("Extension updated", {
+        logger.debug("Extension updated", {
           from: previousVersion,
           to: currentVersion,
         });
@@ -119,9 +156,8 @@ export default defineBackground({
           ...uiSettings,
           extensionVersion: currentVersion,
         });
-
-        browser.runtime.openOptionsPage();
       }
+      browser.runtime.openOptionsPage();
     });
 
     contentAutofillMessaging.onMessage("startSession", async () => {
@@ -142,6 +178,27 @@ export default defineBackground({
     contentAutofillMessaging.onMessage("saveFormMappings", async ({ data }) => {
       return sessionService.saveFormMappings(data.sessionId, data.formMappings);
     });
+
+    contentAutofillMessaging.onMessage(
+      "broadcastFillToAllFrames",
+      async ({ data, sender }) => {
+        const tabId = sender.tab?.id;
+        if (!tabId) {
+          logger.error("No tab ID in sender for broadcastFillToAllFrames");
+          return;
+        }
+
+        logger.info(
+          `Broadcasting fill command to all frames in tab ${tabId} for ${data.fieldsToFill.length} fields`,
+        );
+
+        contentAutofillMessaging
+          .sendMessage("fillFields", { fieldsToFill: data.fieldsToFill }, tabId)
+          .catch((error) => {
+            logger.error("Failed to broadcast fill command:", error);
+          });
+      },
+    );
 
     contentAutofillMessaging.onMessage(
       "saveCapturedMemories",
@@ -180,33 +237,16 @@ export default defineBackground({
       },
     );
 
-    contentAutofillMessaging.onMessage(
-      "broadcastFillToAllFrames",
-      async ({ data, sender }) => {
-        const tabId = sender.tab?.id;
-        if (!tabId) {
-          logger.error("No tab ID in sender for broadcastFillToAllFrames");
-          return;
-        }
+    setTimeout(() => {
+      syncService.performStartupSync();
+    }, 5000);
 
-        logger.info(
-          `Broadcasting fill command to all frames in tab ${tabId} for ${data.fieldsToFill.length} fields`,
-        );
-
-        contentAutofillMessaging
-          .sendMessage("fillFields", { fieldsToFill: data.fieldsToFill }, tabId)
-          .catch((error) => {
-            logger.error("Failed to broadcast fill command:", error);
-          });
-      },
-    );
-
-    logger.info("Background script initialized with all services");
+    logger.debug("Background script initialized with all services");
 
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
         autofillService.dispose();
-        logger.info("Background script HMR cleanup completed");
+        logger.debug("Background script HMR cleanup completed");
       });
     }
   },

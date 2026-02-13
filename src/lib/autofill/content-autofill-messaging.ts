@@ -1,4 +1,5 @@
 import { defineExtensionMessaging } from "@webext-core/messaging";
+import type { ToastType } from "@/components/ui/sonner";
 import type {
   AutofillProgress,
   CapturedFieldData,
@@ -7,6 +8,16 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { FillSession, FormMapping } from "@/types/memory";
+
+export interface ShowToastData {
+  message: string;
+  type?: ToastType;
+  duration?: number;
+  action?: {
+    label: string;
+    url: string;
+  };
+}
 
 interface ContentAutofillProtocolMap {
   detectForms: () => Promise<DetectFormsResult>;
@@ -36,6 +47,8 @@ interface ContentAutofillProtocolMap {
   saveCapturedMemories: (data: {
     capturedFields: CapturedFieldData[];
   }) => Promise<{ success: boolean; savedCount: number }>;
+
+  showToast: (data: ShowToastData) => boolean;
 }
 
 export const contentAutofillMessaging =

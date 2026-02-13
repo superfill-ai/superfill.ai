@@ -10,11 +10,47 @@ import {
   type RephraseResult,
   rephraseAgent,
 } from "./categorization";
+import {
+  cloudCategorize,
+  cloudRephrase,
+  shouldUseCloudAI,
+} from "./cloud-client";
 
 const logger = createLogger("categorization-service");
 
 class CategorizationService {
   async categorize(answer: string, question?: string): Promise<AnalysisResult> {
+    const aiSettings = await storage.aiSettings.getValue();
+
+    if (aiSettings.cloudModelsEnabled) {
+      try {
+        const canUseCloud = await shouldUseCloudAI();
+
+        if (canUseCloud) {
+          const cloudResult = await cloudCategorize(answer, question);
+
+          if (cloudResult.success) {
+            return cloudResult.data;
+          }
+
+          if (cloudResult.quotaExceeded) {
+            logger.warn("Cloud AI quota exceeded, falling back to local");
+          }
+        }
+      } catch (error) {
+        logger.error("Cloud categorization failed, falling back to local", {
+          error,
+        });
+      }
+    }
+
+    return this.categorizeLocal(answer, question);
+  }
+
+  private async categorizeLocal(
+    answer: string,
+    question?: string,
+  ): Promise<AnalysisResult> {
     try {
       const aiSettings = await storage.aiSettings.getValue();
       const { selectedProvider, selectedModels } = aiSettings;
@@ -49,6 +85,35 @@ class CategorizationService {
   }
 
   async rephrase(answer: string, question?: string): Promise<RephraseResult> {
+    const aiSettings = await storage.aiSettings.getValue();
+
+    if (aiSettings.cloudModelsEnabled) {
+      try {
+        const canUseCloud = await shouldUseCloudAI();
+
+        if (canUseCloud) {
+          const cloudResult = await cloudRephrase(answer, question);
+
+          if (cloudResult.success) {
+            return cloudResult.data;
+          }
+
+          if (cloudResult.quotaExceeded) {
+            logger.warn("Cloud AI quota exceeded, falling back to local");
+          }
+        }
+      } catch (error) {
+        logger.error("Cloud rephrase failed, falling back to local", { error });
+      }
+    }
+
+    return this.rephraseLocal(answer, question);
+  }
+
+  private async rephraseLocal(
+    answer: string,
+    question?: string,
+  ): Promise<RephraseResult> {
     try {
       const aiSettings = await storage.aiSettings.getValue();
       const { selectedProvider, selectedModels } = aiSettings;

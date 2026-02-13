@@ -18,6 +18,7 @@ import { isFormInteractionEligible } from "@/lib/tours/form-interaction-utils";
 import type { AutofillProgress, PreviewSidebarPayload } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
 import { RightClickGuideManager } from "./components/right-click-guide-manager";
+import { getToastManager } from "./components/toast-manager";
 import { CaptureService } from "./lib/capture-service";
 import { FieldAnalyzer } from "./lib/field-analyzer";
 import { getFieldDataTracker } from "./lib/field-data-tracker";
@@ -44,6 +45,39 @@ export default defineContentScript({
     const frameInfo = getFrameInfo();
 
     logger.info("Content script loaded:", frameInfo);
+
+    const WEBSITE_URL =
+      import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
+    const isWebappDomain =
+      window.location.origin === WEBSITE_URL ||
+      window.location.origin === new URL(WEBSITE_URL).origin;
+
+    if (isWebappDomain) {
+      window.addEventListener("message", (event) => {
+        if (event.data?.type === "SUPERFILL_AUTH_SUCCESS") {
+          const { access_token, refresh_token, user } = event.data;
+
+          if (access_token && refresh_token) {
+            browser.runtime.sendMessage({
+              type: "SUPERFILL_AUTH_SUCCESS",
+              access_token,
+              refresh_token,
+              user,
+              timestamp: Date.now(),
+            });
+            logger.debug("Auth tokens forwarded to extension", {
+              hasAccessToken: !!access_token,
+              hasRefreshToken: !!refresh_token,
+              userId: user?.id,
+            });
+          } else {
+            logger.error("Auth message missing tokens");
+          }
+        }
+      });
+
+      logger.debug("Auth message listener registered for webapp");
+    }
 
     const fieldAnalyzer = new FieldAnalyzer();
     const contextExtractor = new WebsiteContextExtractor();
@@ -367,6 +401,27 @@ export default defineContentScript({
       }
 
       destroyUIManagers();
+
+      return true;
+    });
+
+    contentAutofillMessaging.onMessage("showToast", async ({ data }) => {
+      if (!frameInfo.isMainFrame) {
+        return true;
+      }
+
+      const toastManager = getToastManager();
+      await toastManager.show(ctx, data.message, data.type ?? "info", {
+        duration: data.duration,
+        action: data.action
+          ? {
+              label: data.action.label,
+              onClick: () => {
+                window.open(data.action?.url, "_blank");
+              },
+            }
+          : undefined,
+      });
 
       return true;
     });

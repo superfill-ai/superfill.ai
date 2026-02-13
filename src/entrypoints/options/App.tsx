@@ -2,14 +2,17 @@ import { CircleHelp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { browser } from "wxt/browser";
+import { LoginDialog } from "@/components/features/auth/login-dialog";
 import { EntryForm } from "@/components/features/memory/entry-form";
 import { EntryList } from "@/components/features/memory/entry-list";
 import { AiProviderSettings } from "@/components/features/setting/ai-provider-settings";
 import { AutofillSettings } from "@/components/features/setting/autofill-settings";
 import { CaptureSettings } from "@/components/features/setting/capture-settings";
+import { CloudUsageDisplay } from "@/components/features/setting/cloud-usage-display";
 import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
 import { UpdateTourDialog } from "@/components/features/setting/update-tour-dialog";
 import { WelcomeTourDialog } from "@/components/features/setting/welcome-tour-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,23 +36,47 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { APP_NAME } from "@/constants";
+import { useAuth } from "@/hooks/use-auth";
 import { useMemories } from "@/hooks/use-memories";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSync } from "@/hooks/use-sync";
+import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import { getCurrentAppTour } from "@/lib/tours/tour-definitions";
 import { tourManager } from "@/lib/tours/tour-manager";
 import { getUpdateForVersion } from "@/lib/tours/version-updates";
 
+const logger = createLogger("options:App");
+
 export const App = () => {
   const isMobile = useIsMobile();
-  const { entries } = useMemories();
+  const {
+    isAuthenticated,
+    loading,
+    signOut,
+    pendingApproval,
+    inactiveMessage,
+  } = useAuth();
+  const { syncing, canSync, timeUntilNextSync, syncStatus, performSync } =
+    useSync();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const { entries } = useMemories();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWelcomeTour, setShowWelcomeTour] = useState(false);
   const [showUpdateTour, setShowUpdateTour] = useState(false);
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateChanges, setUpdateChanges] = useState<string[]>([]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      logger.debug("Signed out successfully");
+    } catch (error) {
+      logger.error("Sign-out failed", error);
+    }
+  };
 
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -147,6 +174,34 @@ export const App = () => {
     setEditingEntryId(null);
   };
 
+  const handleSync = async () => {
+    if (!isAuthenticated) {
+      setLoginDialogOpen(true);
+      return;
+    }
+
+    const result = await performSync();
+    if (result) {
+      logger.debug("Manual sync completed", result);
+    }
+  };
+
+  const formatTimeRemaining = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const getSyncButtonText = () => {
+    if (syncing) return "Syncing...";
+    if (!canSync && timeUntilNextSync > 0) {
+      return `Wait ${formatTimeRemaining(timeUntilNextSync)} for next sync`;
+    }
+    if (syncStatus === "synced") return "Sync";
+    if (syncStatus === "error") return "Retry Sync";
+    return "Sync";
+  };
+
   const handleExploreApp = () => {
     setShowWelcomeTour(false);
   };
@@ -198,26 +253,55 @@ export const App = () => {
       className="relative w-full h-screen flex flex-col overflow-hidden"
       aria-label="Options page"
     >
-      <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-background">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 px-4 sm:px-6 py-3 border-b bg-background">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <div className="flex items-center gap-2">
             <img
               src={browser.runtime.getURL("/favicon.svg")}
               alt=""
-              className="size-6"
+              className="size-5 sm:size-6"
             />
-            <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
+            <h1 className="text-base sm:text-xl font-bold text-primary truncate">
+              {APP_NAME}
+            </h1>
           </div>
           <Badge
             size="sm"
             variant="outline"
-            className="text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors"
+            className="text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors shrink-0"
             onClick={handleVersionBadgeClick}
           >
             v{browser.runtime.getManifest().version}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden lg:flex flex-1 justify-center px-4 max-w-sm">
+          <CloudUsageDisplay />
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!isAuthenticated ? (
+            <Button
+              onClick={() => setLoginDialogOpen(true)}
+              disabled={loading}
+              variant="outline"
+              size="sm"
+            >
+              {loading ? "Loading auth..." : "Sign in"}
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={handleSync}
+                variant={syncStatus === "error" ? "destructive" : "outline"}
+                size="sm"
+                disabled={syncing || !canSync}
+              >
+                {getSyncButtonText()}
+              </Button>
+              <Button onClick={handleSignOut} variant="ghost" size="sm">
+                Sign out
+              </Button>
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -235,7 +319,21 @@ export const App = () => {
         </div>
       </header>
 
+      <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
+
       <main className="flex-1 overflow-hidden">
+        {pendingApproval && (
+          <div className="p-4 sm:p-6 pb-0">
+            <Alert>
+              <AlertTitle>Account pending approval</AlertTitle>
+              <AlertDescription>
+                {inactiveMessage ??
+                  "Cloud and sync features are disabled until your account is approved. Local/BYOK features are still available."}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         <Tabs
           value={activeTab}
           onValueChange={(val) => setActiveTab(val as typeof activeTab)}

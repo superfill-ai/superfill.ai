@@ -1,13 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getAIModel } from "@/lib/ai/model-factory";
 import { createLogger, DEBUG } from "@/lib/logger";
-import {
-  endActiveSpan,
-  flushSpanProcessor,
-  updateObservation,
-  updateTrace,
-} from "@/lib/observability/telemetry-helpers";
+import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type { CompressedFieldData } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
@@ -148,6 +142,9 @@ Be precise and consider context. For example:
       : `Information: ${answer}`;
 
     if (DEBUG) {
+      const { updateObservation, updateTrace } = await import(
+        "@/lib/observability/telemetry-helpers"
+      );
       await updateObservation({
         input: { answer, question },
       });
@@ -177,6 +174,9 @@ Be precise and consider context. For example:
     });
 
     if (DEBUG) {
+      const { updateObservation, updateTrace, endActiveSpan } = await import(
+        "@/lib/observability/telemetry-helpers"
+      );
       await updateObservation({
         output: result.object,
       });
@@ -192,6 +192,9 @@ Be precise and consider context. For example:
 
     if (DEBUG) {
       try {
+        const { updateObservation, updateTrace, endActiveSpan } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await updateObservation({
           output: error,
           level: "ERROR",
@@ -212,6 +215,9 @@ Be precise and consider context. For example:
   } finally {
     if (DEBUG) {
       try {
+        const { flushSpanProcessor } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await flushSpanProcessor();
       } catch (telemetryError) {
         logger.error(
@@ -333,6 +339,9 @@ export const rephraseAgent = async (
     const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
 
     if (DEBUG) {
+      const { updateObservation, updateTrace } = await import(
+        "@/lib/observability/telemetry-helpers"
+      );
       await updateObservation({
         input: { answer, question },
       });
@@ -353,6 +362,9 @@ export const rephraseAgent = async (
     });
 
     if (DEBUG) {
+      const { updateObservation, updateTrace, endActiveSpan } = await import(
+        "@/lib/observability/telemetry-helpers"
+      );
       await updateObservation({
         output: object,
       });
@@ -368,6 +380,9 @@ export const rephraseAgent = async (
 
     if (DEBUG) {
       try {
+        const { updateObservation, updateTrace, endActiveSpan } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await updateObservation({
           output: error,
           level: "ERROR",
@@ -385,6 +400,9 @@ export const rephraseAgent = async (
   } finally {
     if (DEBUG) {
       try {
+        const { flushSpanProcessor } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await flushSpanProcessor();
       } catch (telemetryError) {
         logger.error("Telemetry flush error in rephrase:", telemetryError);

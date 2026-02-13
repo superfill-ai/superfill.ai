@@ -1,3 +1,4 @@
+/* biome-ignore-all lint: all G here */
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -267,6 +268,5 @@
 }
 
 .toaster.group [data-description] {
-  /* biome-ignore lint/complexity/noImportantStyles: it's fine here */
   color: var(--color-popover-foreground) !important;
 }

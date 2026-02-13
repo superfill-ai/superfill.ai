@@ -33,6 +33,9 @@ export default defineConfig({
         "https://api.groq.com/*",
         "https://api.deepseek.com/*",
         "https://generativelanguage.googleapis.com/*",
+        "https://superfill.ai/*",
+        "https://*.superfill.ai/*",
+        ...(isDev ? ["http://localhost:3002/*"] : []),
       ],
       icons: {
         16: "/icon-16.png",

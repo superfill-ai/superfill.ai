@@ -11,7 +11,7 @@ const memoryEntrySchema = z.object({
     .uuid({
       version: "v7",
     })
-    .optional(), // Phase 2: Syncing across devices
+    .optional(),
   question: z.string().optional(),
   answer: z.string(),
   category: z.enum(allowedCategories),
@@ -27,7 +27,8 @@ const memoryEntrySchema = z.object({
     source: z.enum(["manual", "import", "autofill"]),
     fieldPurpose: z.string().optional(),
   }),
-  embedding: z.array(z.number()).optional(), // Phase 2: Vector embedding
+  contentHash: z.string().optional(),
+  embedding: z.array(z.number()).optional(),
 });
 
 export type MemoryEntry = z.infer<typeof memoryEntrySchema>;
@@ -82,8 +83,6 @@ const fillSessionSchema = z.object({
 export type FillSession = z.infer<typeof fillSessionSchema>;
 
 export const syncStateSchema = z.object({
-  syncUrl: z.string(), // Phase 2: Unique sync URL
-  syncToken: z.string(), // Phase 2: Auth token
   lastSync: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
     message: "Invalid ISO timestamp",
   }),

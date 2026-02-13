@@ -1,13 +1,13 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getAIModel } from "@/lib/ai/model-factory";
-import { createLogger, DEBUG } from "@/lib/logger";
+import { getAuthService } from "@/lib/auth/auth-service";
+import { FallbackMatcher } from "@/lib/autofill/fallback-matcher";
 import {
-  endActiveSpan,
-  flushSpanProcessor,
-  updateObservation,
-  updateTrace,
-} from "@/lib/observability/telemetry-helpers";
+  createEmptyMapping,
+  roundConfidence,
+} from "@/lib/autofill/mapping-utils";
+import { createLogger, DEBUG } from "@/lib/logger";
+import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CompressedFieldData,
@@ -15,8 +15,6 @@ import type {
   FieldMapping,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
-import { FallbackMatcher } from "./fallback-matcher";
-import { createEmptyMapping, roundConfidence } from "./mapping-utils";
 
 const logger = createLogger("ai-matcher");
 
@@ -52,6 +50,8 @@ type AIBatchMatchResult = z.infer<typeof AIBatchMatchSchema>;
 
 export class AIMatcher {
   private fallbackMatcher: FallbackMatcher;
+  private readonly API_URL =
+    import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
 
   constructor() {
     this.fallbackMatcher = new FallbackMatcher();
@@ -61,8 +61,9 @@ export class AIMatcher {
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
     websiteContext: WebsiteContext,
-    provider: AIProvider,
-    apiKey: string,
+    useCloudMode: boolean,
+    provider?: AIProvider,
+    apiKey?: string,
     modelName?: string,
     domContext?: string,
   ): Promise<FieldMapping[]> {
@@ -83,6 +84,26 @@ export class AIMatcher {
 
     try {
       const startTime = performance.now();
+
+      if (useCloudMode) {
+        logger.debug("Using cloud AI models for matching");
+        const cloudResults = await this.performCloudMatching(
+          fields,
+          memories,
+          websiteContext,
+        );
+        const mappings = this.convertAIResultsToMappings(cloudResults, fields);
+        const elapsed = performance.now() - startTime;
+        logger.debug(
+          `Cloud AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
+        );
+        return mappings;
+      }
+
+      if (!provider || !apiKey) {
+        throw new Error("Provider and API key required for BYOK mode");
+      }
+
       const aiResults = await this.performAIMatching(
         fields,
         memories,
@@ -103,6 +124,59 @@ export class AIMatcher {
     } catch (error) {
       logger.error("AI matching failed, falling back to rule-based:", error);
       return await this.fallbackMatcher.matchFields(fields, memories);
+    }
+  }
+
+  private async performCloudMatching(
+    fields: CompressedFieldData[],
+    memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
+  ): Promise<AIBatchMatchResult> {
+    try {
+      const authService = getAuthService();
+      const session = await authService.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Not authenticated - cannot use cloud models");
+      }
+
+      const url = `${this.API_URL}/routes/api/autofill/match`;
+
+      logger.debug(`Calling cloud API: ${url}`, {
+        fieldsCount: fields.length,
+        memoriesCount: memories.length,
+      });
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          fields,
+          memories,
+          websiteContext,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error("Cloud API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+        throw new Error(
+          `Cloud API request failed: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const data = await response.json();
+      return AIBatchMatchSchema.parse(data);
+    } catch (error) {
+      logger.error("Cloud matching failed:", error);
+      throw error;
     }
   }
 
@@ -131,6 +205,9 @@ export class AIMatcher {
       });
 
       if (DEBUG) {
+        const { updateObservation, updateTrace } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await updateObservation({
           input: { fields, memories, provider },
         });
@@ -163,6 +240,9 @@ export class AIMatcher {
       });
 
       if (DEBUG) {
+        const { updateObservation, updateTrace, endActiveSpan } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await updateObservation({
           output: result.object,
         });
@@ -178,6 +258,8 @@ export class AIMatcher {
 
       if (DEBUG) {
         try {
+          const { updateObservation, updateTrace, endActiveSpan } =
+            await import("@/lib/observability/telemetry-helpers");
           await updateObservation({
             output: error,
             level: "ERROR",
@@ -195,6 +277,9 @@ export class AIMatcher {
     } finally {
       if (DEBUG) {
         try {
+          const { flushSpanProcessor } = await import(
+            "@/lib/observability/telemetry-helpers"
+          );
           await flushSpanProcessor();
         } catch (telemetryError) {
           logger.error("Telemetry flush error in matching:", telemetryError);
@@ -339,10 +424,10 @@ export class AIMatcher {
       .join("\n");
 
     const contextMarkdown = `
-                **Website Type**: ${websiteContext.websiteType}
-                **Inferred Form Purpose**: ${websiteContext.formPurpose}
-                **Page Title**: ${websiteContext.metadata.title}
-                `;
+**Website Type**: ${websiteContext.websiteType}
+**Inferred Form Purpose**: ${websiteContext.formPurpose}
+**Page Title**: ${websiteContext.metadata.title}
+`;
 
     const domContextSection = domContext
       ? `
@@ -356,16 +441,16 @@ export class AIMatcher {
 
     return `Based on the following website context, match the form fields to the best stored memories.
 
-          ## Website Context
-          ${contextMarkdown}
+## Website Context
+${contextMarkdown}
 
           ${domContextSection}
 
-          ## Form Fields
-          ${fieldsMarkdown}
+## Form Fields
+${fieldsMarkdown}
 
-          ## Available Memories
-          ${memoriesMarkdown}
+## Available Memories
+${memoriesMarkdown}
 
           For each field, determine:
           1. Which memory (if any) is the best match
