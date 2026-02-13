@@ -51,7 +51,7 @@ export const AiProviderSettings = () => {
   const saveKeyWithModelMutation = useSaveApiKeyWithModel();
   const deleteKeyMutation = useDeleteApiKey();
   const allConfigs = getAllProviderConfigs();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, pendingApproval } = useAuth();
   const cloudUsage = useCloudUsageStatus();
 
   useEffect(() => {
@@ -155,13 +155,17 @@ export const AiProviderSettings = () => {
                 </FieldLabel>
                 <FieldDescription>
                   Use Superfill's cloud-hosted AI models. No API keys required.{" "}
-                  {!isAuthenticated && " (Requires sign-in)"}
+                  {pendingApproval
+                    ? " (Pending approval)"
+                    : !isAuthenticated
+                      ? " (Requires sign-in)"
+                      : ""}
                 </FieldDescription>
               </div>
               <Switch
                 checked={cloudModelsEnabled}
                 onCheckedChange={handleCloudModelsToggle}
-                disabled={!isAuthenticated}
+                disabled={!isAuthenticated || pendingApproval}
               />
             </div>
           </Field>

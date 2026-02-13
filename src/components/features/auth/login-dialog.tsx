@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +20,7 @@ interface LoginDialogProps {
 const logger = createLogger("login-dialog");
 
 export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
-  const { signIn, signingIn } = useAuth();
+  const { signIn, signingIn, pendingApproval, inactiveMessage } = useAuth();
 
   const handleLogin = async () => {
     try {
@@ -41,6 +42,16 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {pendingApproval && (
+            <Alert>
+              <AlertTitle>Account pending approval</AlertTitle>
+              <AlertDescription>
+                {inactiveMessage ??
+                  "Cloud and sync features are disabled until your account is approved."}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Button
             variant="default"
             className="w-full"

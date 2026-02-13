@@ -136,9 +136,13 @@ async function cloudRequest<T>(
     }
 
     if (response.status === 403) {
+      const errorData = await response.json().catch(() => ({}));
       return {
         success: false,
-        error: "Cloud AI requires a Pro or Max subscription",
+        error:
+          typeof errorData.error === "string"
+            ? errorData.error
+            : "Cloud AI requires a Pro or Max subscription",
         fallbackToLocal: true,
       };
     }

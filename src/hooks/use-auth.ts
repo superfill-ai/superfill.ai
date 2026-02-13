@@ -1,8 +1,9 @@
 import type { Provider, Session } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
 import { supabase } from "@/lib/supabase/client";
 import { autoSyncManager } from "@/lib/sync/auto-sync-manager";
 
@@ -11,6 +12,9 @@ const logger = createLogger("hook:auth");
 type AuthState = {
   session: Session | null;
   isAuthenticated: boolean;
+  isActive: boolean;
+  pendingApproval: boolean;
+  inactiveMessage: string | null;
   loading: boolean;
   error: string | null;
   signingIn: boolean;
@@ -25,6 +29,31 @@ type AuthActions = {
 export function useAuth(): AuthState & AuthActions {
   const queryClient = useQueryClient();
   const lastSyncedUserId = useRef<string | null>(null);
+  const WEBSITE_URL = import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
+  const [pendingApproval, setPendingApproval] = useState(false);
+  const [inactiveMessage, setInactiveMessage] = useState<string | null>(null);
+
+  const handleInactiveAccount = useCallback(
+    async (message?: string) => {
+      const authService = getAuthService();
+      await authService.clearSession();
+      queryClient.setQueryData(["auth", "session"], null);
+
+      const currentSettings = await storage.aiSettings.getValue();
+      if (currentSettings.cloudModelsEnabled) {
+        await storage.aiSettings.setValue({
+          ...currentSettings,
+          cloudModelsEnabled: false,
+        });
+      }
+
+      setPendingApproval(true);
+      setInactiveMessage(
+        message ?? "Account pending approval. Please contact support.",
+      );
+    },
+    [queryClient],
+  );
 
   const {
     data: session,
@@ -63,21 +92,87 @@ export function useAuth(): AuthState & AuthActions {
   }, [queryClient]);
 
   const sessionValue = session ?? null;
-  const isAuthenticated = !!sessionValue?.access_token;
+
+  const {
+    data: userStatus,
+    isLoading: isUserStatusLoading,
+    error: userStatusError,
+  } = useQuery<{ is_active: boolean; plan?: string } | null>({
+    queryKey: ["auth", "user-status", sessionValue?.user?.id],
+    enabled: !!sessionValue?.access_token,
+    queryFn: async () => {
+      if (!sessionValue?.access_token) {
+        setPendingApproval(false);
+        setInactiveMessage(null);
+        return null;
+      }
+
+      const response = await fetch(`${WEBSITE_URL}/routes/api/user/status`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${sessionValue.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.status === 403) {
+        const errorData = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        await handleInactiveAccount(errorData.error);
+        return { is_active: false };
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user status: ${response.status}`);
+      }
+
+      setPendingApproval(false);
+      setInactiveMessage(null);
+
+      return response.json() as Promise<{ is_active: boolean; plan?: string }>;
+    },
+    staleTime: 10000,
+  });
+
+  const isActive = userStatus?.is_active === true;
+  const isAuthenticated = !!sessionValue?.access_token && isActive;
 
   const checkAuthStatus = useCallback(async () => {
     try {
       logger.debug("[checkAuthStatus] Starting auth status check");
       const { data: refreshedSession } = await refetchSession();
-      const isAuthenticated = refreshedSession !== null;
+      const hasSession = refreshedSession !== null;
 
       logger.debug("[checkAuthStatus] Session retrieved:", {
-        hasSession: !!refreshedSession,
-        isAuthenticated,
+        hasSession,
         hasAccessToken: !!refreshedSession?.access_token,
       });
 
-      if (isAuthenticated && refreshedSession) {
+      if (hasSession && refreshedSession) {
+        const response = await fetch(`${WEBSITE_URL}/routes/api/user/status`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${refreshedSession.access_token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.status === 403) {
+          const errorData = (await response.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          await handleInactiveAccount(errorData.error);
+          return false;
+        }
+
+        if (!response.ok) {
+          return false;
+        }
+
+        setPendingApproval(false);
+        setInactiveMessage(null);
+
         try {
           await autoSyncManager.triggerSync("full", { silent: true });
         } catch (error) {
@@ -85,12 +180,12 @@ export function useAuth(): AuthState & AuthActions {
         }
       }
 
-      return isAuthenticated;
+      return hasSession;
     } catch (error) {
       logger.error("Failed to check auth status", { error });
       return false;
     }
-  }, [refetchSession]);
+  }, [handleInactiveAccount, refetchSession]);
 
   const signInMutation = useMutation({
     mutationFn: async () => {
@@ -104,12 +199,16 @@ export function useAuth(): AuthState & AuthActions {
       logger.debug("[signIn] waitForAuth resolved:", { authenticated });
 
       if (!authenticated) {
-        throw new Error("Authentication timeout");
+        throw new Error(
+          "Authentication timeout. If you were redirected back to superfill.ai, your account may be pending approval.",
+        );
       }
     },
   });
 
   const signIn = useCallback(async () => {
+    setPendingApproval(false);
+    setInactiveMessage(null);
     await signInMutation.mutateAsync();
     logger.debug("[signIn] Calling checkAuthStatus after successful auth");
     await checkAuthStatus();
@@ -128,11 +227,13 @@ export function useAuth(): AuthState & AuthActions {
   });
 
   const signOut = useCallback(async () => {
+    setPendingApproval(false);
+    setInactiveMessage(null);
     await signOutMutation.mutateAsync();
   }, [signOutMutation]);
 
   useEffect(() => {
-    if (!sessionValue?.user?.id) {
+    if (!sessionValue?.user?.id || !isAuthenticated) {
       lastSyncedUserId.current = null;
       return;
     }
@@ -144,7 +245,7 @@ export function useAuth(): AuthState & AuthActions {
     lastSyncedUserId.current = sessionValue.user.id;
     logger.debug("[useAuth] Initializing sync with stored session");
     checkAuthStatus();
-  }, [sessionValue, checkAuthStatus]);
+  }, [sessionValue, checkAuthStatus, isAuthenticated]);
 
   const error =
     (signInMutation.error instanceof Error
@@ -153,14 +254,22 @@ export function useAuth(): AuthState & AuthActions {
     (signOutMutation.error instanceof Error
       ? signOutMutation.error.message
       : null) ||
-    (sessionError instanceof Error ? sessionError.message : null);
+    (sessionError instanceof Error
+      ? sessionError.message
+      : userStatusError instanceof Error
+        ? userStatusError.message
+        : null);
 
-  const loading = isSessionLoading || signOutMutation.isPending;
+  const loading =
+    isSessionLoading || isUserStatusLoading || signOutMutation.isPending;
   const signingIn = signInMutation.isPending;
 
   return {
     session: sessionValue,
     isAuthenticated,
+    isActive,
+    pendingApproval,
+    inactiveMessage,
     loading,
     error,
     signingIn,

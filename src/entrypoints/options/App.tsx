@@ -12,6 +12,7 @@ import { CloudUsageDisplay } from "@/components/features/setting/cloud-usage-dis
 import { OnboardingDialog } from "@/components/features/setting/onboarding-dialog";
 import { UpdateTourDialog } from "@/components/features/setting/update-tour-dialog";
 import { WelcomeTourDialog } from "@/components/features/setting/welcome-tour-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,7 +50,13 @@ const logger = createLogger("options:App");
 
 export const App = () => {
   const isMobile = useIsMobile();
-  const { isAuthenticated, loading, signOut } = useAuth();
+  const {
+    isAuthenticated,
+    loading,
+    signOut,
+    pendingApproval,
+    inactiveMessage,
+  } = useAuth();
   const { syncing, canSync, timeUntilNextSync, syncStatus, performSync } =
     useSync();
   const [activeTab, setActiveTab] = useState<"settings" | "memory">("settings");
@@ -315,6 +322,18 @@ export const App = () => {
       <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
 
       <main className="flex-1 overflow-hidden">
+        {pendingApproval && (
+          <div className="p-4 sm:p-6 pb-0">
+            <Alert>
+              <AlertTitle>Account pending approval</AlertTitle>
+              <AlertDescription>
+                {inactiveMessage ??
+                  "Cloud and sync features are disabled until your account is approved. Local/BYOK features are still available."}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         <Tabs
           value={activeTab}
           onValueChange={(val) => setActiveTab(val as typeof activeTab)}
