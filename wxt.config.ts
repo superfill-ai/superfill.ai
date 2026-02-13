@@ -35,7 +35,7 @@ export default defineConfig({
         "https://generativelanguage.googleapis.com/*",
         "https://superfill.ai/*",
         "https://*.superfill.ai/*",
-        "http://localhost:3002/*",
+        ...(isDev ? ["http://localhost:3002/*"] : []),
       ],
       icons: {
         16: "/icon-16.png",
