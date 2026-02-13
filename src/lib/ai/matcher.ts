@@ -7,12 +7,6 @@ import {
   roundConfidence,
 } from "@/lib/autofill/mapping-utils";
 import { createLogger, DEBUG } from "@/lib/logger";
-import {
-  endActiveSpan,
-  flushSpanProcessor,
-  updateObservation,
-  updateTrace,
-} from "@/lib/observability/telemetry-helpers";
 import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
@@ -211,6 +205,9 @@ export class AIMatcher {
       });
 
       if (DEBUG) {
+        const { updateObservation, updateTrace } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await updateObservation({
           input: { fields, memories, provider },
         });
@@ -243,6 +240,9 @@ export class AIMatcher {
       });
 
       if (DEBUG) {
+        const { updateObservation, updateTrace, endActiveSpan } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
         await updateObservation({
           output: result.object,
         });
@@ -258,6 +258,8 @@ export class AIMatcher {
 
       if (DEBUG) {
         try {
+          const { updateObservation, updateTrace, endActiveSpan } =
+            await import("@/lib/observability/telemetry-helpers");
           await updateObservation({
             output: error,
             level: "ERROR",
@@ -275,6 +277,9 @@ export class AIMatcher {
     } finally {
       if (DEBUG) {
         try {
+          const { flushSpanProcessor } = await import(
+            "@/lib/observability/telemetry-helpers"
+          );
           await flushSpanProcessor();
         } catch (telemetryError) {
           logger.error("Telemetry flush error in matching:", telemetryError);
