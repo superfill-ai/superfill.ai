@@ -23,16 +23,24 @@ class CategorizationService {
     const aiSettings = await storage.aiSettings.getValue();
 
     if (aiSettings.cloudModelsEnabled) {
-      const canUseCloud = await shouldUseCloudAI();
-      if (canUseCloud) {
-        const cloudResult = await cloudCategorize(answer, question);
-        if (cloudResult.success) {
-          return cloudResult.data;
-        }
+      try {
+        const canUseCloud = await shouldUseCloudAI();
 
-        if (cloudResult.quotaExceeded) {
-          logger.warn("Cloud AI quota exceeded, falling back to local");
+        if (canUseCloud) {
+          const cloudResult = await cloudCategorize(answer, question);
+
+          if (cloudResult.success) {
+            return cloudResult.data;
+          }
+
+          if (cloudResult.quotaExceeded) {
+            logger.warn("Cloud AI quota exceeded, falling back to local");
+          }
         }
+      } catch (error) {
+        logger.error("Cloud categorization failed, falling back to local", {
+          error,
+        });
       }
     }
 
@@ -80,16 +88,22 @@ class CategorizationService {
     const aiSettings = await storage.aiSettings.getValue();
 
     if (aiSettings.cloudModelsEnabled) {
-      const canUseCloud = await shouldUseCloudAI();
-      if (canUseCloud) {
-        const cloudResult = await cloudRephrase(answer, question);
-        if (cloudResult.success) {
-          return cloudResult.data;
-        }
+      try {
+        const canUseCloud = await shouldUseCloudAI();
 
-        if (cloudResult.quotaExceeded) {
-          logger.warn("Cloud AI quota exceeded, falling back to local");
+        if (canUseCloud) {
+          const cloudResult = await cloudRephrase(answer, question);
+
+          if (cloudResult.success) {
+            return cloudResult.data;
+          }
+
+          if (cloudResult.quotaExceeded) {
+            logger.warn("Cloud AI quota exceeded, falling back to local");
+          }
         }
+      } catch (error) {
+        logger.error("Cloud rephrase failed, falling back to local", { error });
       }
     }
 

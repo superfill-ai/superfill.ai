@@ -193,9 +193,7 @@ class SyncService {
       const syncState = await storage.syncStateAndSettings.getValue();
       const conflictResolution = syncState?.conflictResolution || "newest";
 
-      const memoryMap = new Map(
-        localMemories.map((memory) => [memory.syncId ?? memory.id, memory]),
-      );
+      const memoryMap = new Map<string, MemoryEntry>();
       const contentHashMap = new Map<string, MemoryEntry>();
 
       for (const memory of localMemories) {
@@ -206,6 +204,9 @@ class SyncService {
             memory.category,
           );
         }
+
+        const key = memory.syncId ?? memory.id;
+        memoryMap.set(key, memory);
 
         if (memory.contentHash) {
           contentHashMap.set(memory.contentHash, memory);
@@ -224,23 +225,19 @@ class SyncService {
               );
 
         if (remoteMemory.is_deleted) {
-          const index = localMemories.findIndex(
-            (m) => (m.syncId ?? m.id) === remoteMemory.local_id,
-          );
-
-          if (index !== -1) {
-            localMemories.splice(index, 1);
+          if (localMemory) {
+            memoryMap.delete(remoteMemory.local_id);
+            if (localMemory.contentHash) {
+              contentHashMap.delete(localMemory.contentHash);
+            }
             itemsSynced++;
           } else if (remoteContentHash) {
             const duplicate = contentHashMap.get(remoteContentHash);
             if (duplicate) {
-              const duplicateIndex = localMemories.findIndex(
-                (m) => m.id === duplicate.id,
-              );
-              if (duplicateIndex !== -1) {
-                localMemories.splice(duplicateIndex, 1);
-                itemsSynced++;
-              }
+              const duplicateKey = duplicate.syncId ?? duplicate.id;
+              memoryMap.delete(duplicateKey);
+              contentHashMap.delete(remoteContentHash);
+              itemsSynced++;
             }
           }
 
@@ -308,7 +305,11 @@ class SyncService {
               source: remoteMemory.source as "manual" | "import",
             },
           };
-          localMemories.push(newMemory);
+          memoryMap.set(remoteMemory.local_id, newMemory);
+
+          if (remoteContentHash) {
+            contentHashMap.set(remoteContentHash, newMemory);
+          }
           itemsSynced++;
         } else {
           const localUpdatedAt = new Date(
@@ -321,10 +322,7 @@ class SyncService {
               conflictResolution === "newest" ||
               conflictResolution === "remote"
             ) {
-              const index = localMemories.findIndex(
-                (m) => (m.syncId ?? m.id) === remoteMemory.local_id,
-              );
-              localMemories[index] = {
+              const updatedMemory: MemoryEntry = {
                 id: localMemory.id,
                 syncId: remoteMemory.local_id,
                 question: remoteMemory.question || undefined,
@@ -345,6 +343,18 @@ class SyncService {
                   source: remoteMemory.source as "manual" | "import",
                 },
               };
+              memoryMap.set(remoteMemory.local_id, updatedMemory);
+
+              if (
+                localMemory.contentHash &&
+                localMemory.contentHash !== remoteContentHash
+              ) {
+                contentHashMap.delete(localMemory.contentHash);
+              }
+
+              if (remoteContentHash) {
+                contentHashMap.set(remoteContentHash, updatedMemory);
+              }
               conflictsResolved++;
               itemsSynced++;
             }
@@ -359,7 +369,7 @@ class SyncService {
         }
       }
 
-      await storage.memories.setValue(localMemories);
+      await storage.memories.setValue(Array.from(memoryMap.values()));
 
       await supabase.from("sync_logs").insert({
         user_id: user.id,

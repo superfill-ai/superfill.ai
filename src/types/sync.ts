@@ -56,12 +56,21 @@ export const syncMemoryEntrySchema = z.object({
   confidence: z.number().min(0).max(1),
   embedding: z.array(z.number()).optional(),
   metadata: z.object({
-    createdAt: z.number(),
-    updatedAt: z.number(),
+    createdAt: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
+      message: "Invalid ISO timestamp",
+    }),
+    updatedAt: z.string().refine((date) => !Number.isNaN(Date.parse(date)), {
+      message: "Invalid ISO timestamp",
+    }),
     source: z.string(),
   }),
   isDeleted: z.boolean(),
-  deletedAt: z.number().optional(),
+  deletedAt: z
+    .string()
+    .refine((date) => !Number.isNaN(Date.parse(date)), {
+      message: "Invalid ISO timestamp",
+    })
+    .optional(),
 });
 
 export type SyncMemoryEntry = z.infer<typeof syncMemoryEntrySchema>;
