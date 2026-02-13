@@ -443,14 +443,15 @@ class SyncService {
         try {
           const { error } = await supabase.rpc("upsert_memory", {
             p_local_id: memory.syncId ?? memory.id,
-            p_question: (memory.question || null) as string,
+            p_question: memory.question || undefined,
             p_answer: memory.answer,
             p_category: memory.category,
             p_tags: memory.tags || [],
             p_confidence: memory.confidence,
-            p_embedding: (memory.embedding && memory.embedding.length > 0
-              ? `[${memory.embedding.join(",")}]`
-              : null) as string,
+            p_embedding:
+              memory.embedding && memory.embedding.length > 0
+                ? `[${memory.embedding.join(",")}]`
+                : undefined,
             p_source: memory.metadata.source,
             p_created_at: memory.metadata.createdAt,
             p_updated_at: memory.metadata.updatedAt,

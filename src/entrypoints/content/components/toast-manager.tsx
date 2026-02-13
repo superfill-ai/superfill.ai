@@ -26,6 +26,7 @@ export class ToastManager {
   private root: Root | null = null;
   private toasts: ToastItem[] = [];
   private timers: Map<string, NodeJS.Timeout> = new Map();
+  private uiSettingsUnwatch?: () => void;
 
   async show(
     ctx: ContentScriptContext,
@@ -76,6 +77,11 @@ export class ToastManager {
     this.timers.clear();
     this.toasts = [];
 
+    if (this.uiSettingsUnwatch) {
+      this.uiSettingsUnwatch();
+      this.uiSettingsUnwatch = undefined;
+    }
+
     if (this.ui) {
       this.ui.remove();
       this.ui = null;
@@ -93,10 +99,10 @@ export class ToastManager {
       position: "inline",
       anchor: "body",
       append: "last",
-      onMount: (container, shadow, host) => {
+      onMount: (container, _shadow, host) => {
         host.id = HOST_ID;
         host.setAttribute("data-ui-type", "toast");
-        void this.applyTheme(shadow);
+        void this.applyTheme(host);
         this.root = createRoot(container);
         this.render();
         return this.root;
@@ -109,32 +115,33 @@ export class ToastManager {
     this.ui.mount();
   }
 
-  private async applyTheme(shadow: ShadowRoot): Promise<void> {
+  private async applyTheme(host: HTMLElement): Promise<void> {
     try {
       const settings = await storage.uiSettings.getValue();
-      this.setThemeClass(shadow, settings.theme ?? "system");
+      this.setThemeClass(host, settings.theme ?? "system");
 
-      storage.uiSettings.watch((newSettings) => {
-        this.setThemeClass(shadow, newSettings.theme ?? "system");
+      if (this.uiSettingsUnwatch) {
+        this.uiSettingsUnwatch();
+      }
+
+      this.uiSettingsUnwatch = storage.uiSettings.watch((newSettings) => {
+        this.setThemeClass(host, newSettings.theme ?? "system");
       });
     } catch {
-      this.setThemeClass(shadow, "system");
+      this.setThemeClass(host, "system");
     }
   }
 
-  private setThemeClass(shadow: ShadowRoot, theme: Theme): void {
-    const root = shadow.querySelector("html");
-    if (!root) return;
-
-    root.classList.remove("light", "dark");
+  private setThemeClass(host: HTMLElement, theme: Theme): void {
+    host.classList.remove("light", "dark");
 
     if (theme === "system") {
       const prefersDark = window.matchMedia(
         "(prefers-color-scheme: dark)",
       ).matches;
-      root.classList.add(prefersDark ? "dark" : "light");
+      host.classList.add(prefersDark ? "dark" : "light");
     } else {
-      root.classList.add(theme);
+      host.classList.add(theme);
     }
   }
 

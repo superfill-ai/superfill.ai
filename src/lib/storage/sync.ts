@@ -4,7 +4,7 @@ export const syncStateAndSettings = storage.defineItem<SyncState>(
   "local:settings:sync-state",
   {
     fallback: {
-      lastSync: new Date().toISOString(),
+      lastSync: new Date(0).toISOString(),
       conflictResolution: "newest",
       status: "pending",
     },

@@ -366,10 +366,14 @@ class AutofillService {
     const useCloudMode = settings.cloudModelsEnabled;
 
     try {
-      const settings = this.currentAiSettings;
-
-      if (!settings) {
-        throw new Error("AI settings not loaded");
+      if (useCloudMode) {
+        logger.info("AutofillService: Using cloud AI mode");
+        return await this.aiMatcher.matchFields(
+          compressedFields,
+          compressedMemories,
+          websiteContext,
+          true,
+        );
       }
 
       const provider = settings.selectedProvider;
@@ -402,10 +406,10 @@ class AutofillService {
         compressedFields,
         compressedMemories,
         websiteContext,
-        useCloudMode,
-        settings.selectedProvider,
+        false,
+        provider,
         apiKey,
-        settings.selectedModels?.[settings.selectedProvider || "openai"],
+        settings.selectedModels?.[provider],
       );
     } catch (error) {
       logger.error("AI matching failed, using fallback:", error);
