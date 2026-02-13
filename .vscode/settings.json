@@ -5,20 +5,12 @@
     "source.fixAll.biome": "explicit",
     "source.organizeImports.biome": "explicit"
   },
-  "typescript.preferences.autoImportFileExcludePatterns": [
-    "@radix-ui"
-  ],
+  "typescript.preferences.autoImportFileExcludePatterns": ["@radix-ui"],
   "files.associations": {
     "*.css": "tailwindcss"
   },
   "typescript.experimental.useTsgo": false,
-  "cSpell.words": [
-    "Superfill",
-    "autofills",
-    "Autofills",
-    "Opid",
-    "ollama"
-  ],
+  "cSpell.words": ["Superfill", "autofills", "Autofills", "Opid", "ollama"],
   "[svg]": {
     "editor.defaultFormatter": "jock.svg"
   },
