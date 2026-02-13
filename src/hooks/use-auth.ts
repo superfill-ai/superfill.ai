@@ -1,11 +1,11 @@
-import type { Provider, Session } from "@supabase/supabase-js";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import { supabase } from "@/lib/supabase/client";
 import { autoSyncManager } from "@/lib/sync/auto-sync-manager";
+import type { Provider, Session } from "@supabase/supabase-js";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const logger = createLogger("hook:auth");
 
@@ -26,10 +26,11 @@ type AuthActions = {
   checkAuthStatus: () => Promise<boolean>;
 };
 
+const WEBSITE_URL = import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
+
 export function useAuth(): AuthState & AuthActions {
   const queryClient = useQueryClient();
   const lastSyncedUserId = useRef<string | null>(null);
-  const WEBSITE_URL = import.meta.env.WXT_WEBSITE_URL || "https://superfill.ai";
   const [pendingApproval, setPendingApproval] = useState(false);
   const [inactiveMessage, setInactiveMessage] = useState<string | null>(null);
 
