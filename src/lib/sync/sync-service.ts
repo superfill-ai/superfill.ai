@@ -8,7 +8,6 @@ import type { MemoryEntry } from "@/types/memory";
 import type { SyncOperationResult } from "@/types/sync";
 import { getAuthService } from "../auth/auth-service";
 import { supabase } from "../supabase/client";
-import { autoSyncManager } from "./auto-sync-manager";
 
 const logger = createLogger("sync-service");
 
@@ -29,7 +28,7 @@ class SyncService {
 
       logger.debug("User authenticated, initializing sync");
 
-      await autoSyncManager.triggerSync("full", { silent: true, force: true });
+      await this.performFullSync(true);
 
       logger.debug("Startup sync initiated successfully");
     } catch (error) {
