@@ -20,14 +20,14 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
-        run: bun install
-
       - name: Validate required env
         run: |
           [[ -n "$WXT_WEBSITE_URL" ]] || { echo "Missing WXT_WEBSITE_URL"; exit 1; }
           [[ -n "$WXT_SUPABASE_URL" ]] || { echo "Missing WXT_SUPABASE_URL"; exit 1; }
           [[ -n "$WXT_SUPABASE_PUBLISHABLE_KEY" ]] || { echo "Missing WXT_SUPABASE_PUBLISHABLE_KEY"; exit 1; }
+
+      - name: Install dependencies
+        run: bun install
 
       - name: Get version
         id: version
