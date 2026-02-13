@@ -5,11 +5,10 @@ import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from "wxt/utils/content-script-ui/shadow-root";
-
+import type { ToastType } from "@/components/ui/sonner";
 import { storage } from "@/lib/storage";
 import type { Theme } from "@/types/theme";
-
-import { Toast, type ToastProps, type ToastType } from "./toast";
+import { Toast, type ToastProps } from "./toast";
 
 const HOST_ID = "superfill-toast-host";
 const DEFAULT_DURATION = 5000;

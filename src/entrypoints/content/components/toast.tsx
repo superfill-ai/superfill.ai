@@ -1,6 +1,5 @@
 import { AlertCircle, CheckCircle, Info, X, XCircle } from "lucide-react";
-
-export type ToastType = "info" | "success" | "warning" | "error";
+import type { ToastType } from "@/components/ui/sonner";
 
 export interface ToastProps {
   message: string;

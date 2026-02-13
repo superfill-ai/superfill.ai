@@ -1,11 +1,9 @@
 import { browser } from "wxt/browser";
+import type { ToastType } from "@/components/ui/sonner";
 import {
   contentAutofillMessaging,
   type ShowToastData,
-  type ToastType,
 } from "@/lib/autofill/content-autofill-messaging";
-
-export type { ToastType };
 
 export async function showToast(
   tabId: number,

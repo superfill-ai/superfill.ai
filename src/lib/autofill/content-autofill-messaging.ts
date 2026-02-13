@@ -1,4 +1,5 @@
 import { defineExtensionMessaging } from "@webext-core/messaging";
+import type { ToastType } from "@/components/ui/sonner";
 import type {
   AutofillProgress,
   CapturedFieldData,
@@ -7,8 +8,6 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { FillSession, FormMapping } from "@/types/memory";
-
-export type ToastType = "info" | "success" | "warning" | "error";
 
 export interface ShowToastData {
   message: string;
