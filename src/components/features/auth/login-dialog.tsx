@@ -31,9 +31,19 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     }
   };
 
+  const preventClose = (event: Event) => {
+    event.preventDefault();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        showCloseButton={false}
+        onEscapeKeyDown={preventClose}
+        onPointerDownOutside={preventClose}
+        onInteractOutside={preventClose}
+      >
         <DialogHeader>
           <DialogTitle className="text-2xl">Sign In</DialogTitle>
           <DialogDescription>

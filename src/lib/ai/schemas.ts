@@ -83,7 +83,7 @@ export const ExtractedItemSchema = z.object({
   question: z.string(),
   answer: z.string(),
   category: CategoryEnum,
-  tags: z.array(z.string()),
+  tags: z.array(TagSchema).min(1).max(5),
 });
 export type ExtractedItem = z.infer<typeof ExtractedItemSchema>;
 

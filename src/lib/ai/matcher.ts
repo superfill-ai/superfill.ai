@@ -179,7 +179,7 @@ export class AIMatcher {
       }
 
       const data = await response.json();
-      return data as AIBatchMatchResult;
+      return AIBatchMatchSchema.parse(data);
     } catch (error) {
       logger.error("Cloud matching failed:", error);
       throw error;

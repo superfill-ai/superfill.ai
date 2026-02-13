@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { CategoryEnum } from "@/lib/ai/categorization";
+import { CategoryEnum, TagSchema } from "@/lib/ai/categorization";
 import { createLogger, DEBUG } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
@@ -17,16 +17,7 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     action: z.literal("create"),
     fieldIndex: z.number().int().min(0),
     category: CategoryEnum,
-    tags: z
-      .array(
-        z
-          .string()
-          .min(2)
-          .max(50)
-          .transform((val) => val.toLowerCase()),
-      )
-      .min(1)
-      .max(5),
+    tags: z.array(TagSchema).min(1).max(5),
     confidence: z.number().min(0).max(1),
     reasoning: z.string().optional(),
   }),
@@ -38,16 +29,7 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     }),
     newAnswer: z.string(),
     category: CategoryEnum,
-    tags: z
-      .array(
-        z
-          .string()
-          .min(2)
-          .max(50)
-          .transform((val) => val.toLowerCase()),
-      )
-      .min(1)
-      .max(5),
+    tags: z.array(TagSchema).min(1).max(5),
     confidence: z.number().min(0).max(1),
     reasoning: z.string().optional(),
   }),
