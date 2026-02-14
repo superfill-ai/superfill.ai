@@ -47,6 +47,7 @@ export default defineConfig({
       },
       browser_specific_settings: {
         gecko: {
+          id: "{dad58e95-9172-4abe-b006-2db179811a47}",
           data_collection_permissions: {
             required: ["none"],
           },
