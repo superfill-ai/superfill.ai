@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.2.7
+
+### Patch Changes
+
+- chore: packages versions upgrade
+
 ## 0.2.6
 
 ### Patch Changes
