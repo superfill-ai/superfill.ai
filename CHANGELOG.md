@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.2.6
+
+### Patch Changes
+
+- feat: subscription service added
+
 ## 0.2.5
 
 ### Patch Changes
