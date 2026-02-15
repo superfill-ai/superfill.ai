@@ -457,14 +457,10 @@ class SyncService {
             p_category: memory.category,
             p_tags: memory.tags || [],
             p_confidence: memory.confidence,
-            p_embedding:
-              memory.embedding && memory.embedding.length > 0
-                ? `[${memory.embedding.join(",")}]`
-                : undefined,
             p_source: memory.metadata.source,
             p_created_at: memory.metadata.createdAt,
             p_updated_at: memory.metadata.updatedAt,
-            p_content_hash: memory.contentHash ?? undefined,
+            p_content_hash: memory.contentHash ?? null,
           });
 
           if (error) {
@@ -563,6 +559,7 @@ class SyncService {
           p_local_id: deletion.localId,
           p_is_deleted: true,
           p_deleted_at: deletion.deletedAt,
+          p_content_hash: null,
         });
 
         if (error) {
