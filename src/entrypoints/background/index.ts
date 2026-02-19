@@ -49,23 +49,15 @@ export default defineBackground({
     const keyVault = getKeyVaultService();
     const autofillService = getAutofillService();
 
-    const maybeOpenSidePanel = async (tabId: number) => {
-      if (!browser.sidePanel?.setOptions || !browser.sidePanel?.open) {
-        logger.warn("Side panel API unavailable; skipping side panel open");
-        return;
-      }
-
-      await browser.sidePanel.setOptions({
-        tabId,
-        path: "sidepanel.html",
-        enabled: true,
-      });
-
-      await browser.sidePanel.open({ tabId });
-    };
-
-    if (browser.sidePanel?.setOptions) {
-      browser.sidePanel.setOptions({ enabled: false }).catch(() => {});
+    // Use setPanelBehavior so Chrome automatically opens the side panel when
+    // the extension icon is clicked — no action.onClicked listener needed.
+    if (browser.sidePanel?.setPanelBehavior) {
+      browser.sidePanel
+        .setOptions({ path: "sidepanel.html", enabled: true })
+        .catch(() => {});
+      browser.sidePanel
+        .setPanelBehavior({ openPanelOnActionClick: true })
+        .catch((err: unknown) => logger.error("setPanelBehavior failed", err));
     }
 
     const updateContextMenu = async (enabled: boolean) => {
@@ -95,15 +87,6 @@ export default defineBackground({
     storage.aiSettings.watch((newSettings) => {
       if (newSettings) {
         updateContextMenu(newSettings.contextMenuEnabled);
-      }
-    });
-
-    browser.action.onClicked.addListener(async (tab) => {
-      if (!tab?.id) return;
-      try {
-        await maybeOpenSidePanel(tab.id);
-      } catch (error) {
-        logger.error("Failed to open side panel", error);
       }
     });
 
@@ -150,6 +133,10 @@ export default defineBackground({
 
         browser.runtime.openOptionsPage();
       }
+    });
+
+    contentAutofillMessaging.onMessage("getTabId", async ({ sender }) => {
+      return sender.tab?.id ?? -1;
     });
 
     contentAutofillMessaging.onMessage("startSession", async () => {
@@ -228,6 +215,29 @@ export default defineBackground({
           });
       },
     );
+
+    contentAutofillMessaging.onMessage("sidepanelFill", async ({ data }) => {
+      const { tabId, fieldsToFill } = data;
+      logger.info(
+        `sidepanelFill: filling ${fieldsToFill.length} fields in tab ${tabId}`,
+      );
+      contentAutofillMessaging
+        .sendMessage("fillFields", { fieldsToFill }, tabId)
+        .catch((error) => {
+          logger.error("sidepanelFill: failed to send fillFields:", error);
+        });
+      return true;
+    });
+
+    contentAutofillMessaging.onMessage("sidepanelClose", async ({ data }) => {
+      const { tabId } = data;
+      contentAutofillMessaging
+        .sendMessage("closePreview", undefined, tabId)
+        .catch((err: unknown) => {
+          logger.error("sidepanelClose: failed to send closePreview:", err);
+        });
+      return true;
+    });
 
     logger.info("Background script initialized with all services");
 

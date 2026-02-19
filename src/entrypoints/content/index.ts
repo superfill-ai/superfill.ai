@@ -15,7 +15,6 @@ import {
   isSiteBlocked,
 } from "@/lib/storage/capture-settings";
 import { isFormInteractionEligible } from "@/lib/tours/form-interaction-utils";
-import type { AutofillProgress, PreviewSidebarPayload } from "@/types/autofill";
 import { CaptureMemoryManager } from "./components/capture-memory-manager";
 import { RightClickGuideManager } from "./components/right-click-guide-manager";
 import { CaptureService } from "./lib/capture-service";
@@ -220,7 +219,11 @@ export default defineContentScript({
                 `Showing capture prompt for ${capturedFields.length} fields`,
               );
 
-              await currentCaptureMemoryManager.show(ctx, capturedFields);
+              await currentCaptureMemoryManager.show(
+                ctx,
+                capturedFields,
+                ownTabId ?? 0,
+              );
             } catch (error) {
               logger.error("Error processing form submission:", error);
             }
@@ -317,16 +320,36 @@ export default defineContentScript({
       rightClickGuideManager.destroy();
     };
 
+    // The content script cannot read its own tab ID from sender when messages come FROM
+    // the background (sender.tab is only set when content scripts send TO background).
+    // Resolve it once here by messaging the background.
+    let ownTabId: number | null = null;
+    if (frameInfo.isMainFrame) {
+      try {
+        const id = await contentAutofillMessaging.sendMessage(
+          "getTabId",
+          undefined,
+        );
+        if (id && id !== -1) ownTabId = id;
+      } catch (err) {
+        logger.error("Failed to resolve own tab ID:", err);
+      }
+    }
+
     contentAutofillMessaging.onMessage(
       "updateProgress",
-      async ({ data: progress }: { data: AutofillProgress }) => {
+      async ({ data: progress }) => {
         if (!frameInfo.isMainFrame) {
           logger.info("Skipping progress UI in iframe");
           return true;
         }
 
+        const tabId = ownTabId;
+        if (!tabId) return true;
+
         return handleUpdateProgress(
           progress,
+          tabId,
           ctx,
           (fieldOpid) => formDetectionService.getCachedField(fieldOpid),
           (formOpid) => formDetectionService.getCachedForm(formOpid),
@@ -334,22 +357,23 @@ export default defineContentScript({
       },
     );
 
-    contentAutofillMessaging.onMessage(
-      "showPreview",
-      async ({ data }: { data: PreviewSidebarPayload }) => {
-        if (!frameInfo.isMainFrame) {
-          logger.info("Skipping preview UI in iframe");
-          return true;
-        }
+    contentAutofillMessaging.onMessage("showPreview", async ({ data }) => {
+      if (!frameInfo.isMainFrame) {
+        logger.info("Skipping preview UI in iframe");
+        return true;
+      }
 
-        return handleShowPreview(
-          data,
-          ctx,
-          (fieldOpid) => formDetectionService.getCachedField(fieldOpid),
-          (formOpid) => formDetectionService.getCachedForm(formOpid),
-        );
-      },
-    );
+      const tabId = ownTabId;
+      if (!tabId) return true;
+
+      return handleShowPreview(
+        data,
+        tabId,
+        ctx,
+        (fieldOpid) => formDetectionService.getCachedField(fieldOpid),
+        (formOpid) => formDetectionService.getCachedForm(formOpid),
+      );
+    });
 
     contentAutofillMessaging.onMessage("fillFields", async ({ data }) => {
       const { fieldsToFill } = data;

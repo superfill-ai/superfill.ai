@@ -19,12 +19,14 @@ let autopilotManager: AutopilotManager | null = null;
 
 const ensurePreviewManager = (
   ctx: ContentScriptContext,
+  tabId: number,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
 ) => {
   if (!previewManager) {
     previewManager = new PreviewSidebarManager({
       ctx,
+      tabId,
       getFieldMetadata,
       getFormMetadata,
     });
@@ -51,6 +53,7 @@ const ensureAutopilotManager = (
 
 export const handleUpdateProgress = async (
   progress: AutofillProgress,
+  tabId: number,
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
@@ -75,6 +78,7 @@ export const handleUpdateProgress = async (
     } else {
       const manager = ensurePreviewManager(
         ctx,
+        tabId,
         getFieldMetadata,
         getFormMetadata,
       );
@@ -89,6 +93,7 @@ export const handleUpdateProgress = async (
 
 export const handleShowPreview = async (
   data: PreviewSidebarPayload,
+  tabId: number,
   ctx: ContentScriptContext,
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null,
   getFormMetadata: (formOpid: FormOpId) => DetectedForm | null,
@@ -108,7 +113,12 @@ export const handleShowPreview = async (
   if (settingStore.autopilotMode) {
     manager = ensureAutopilotManager(ctx, getFieldMetadata, getFormMetadata);
   } else {
-    manager = ensurePreviewManager(ctx, getFieldMetadata, getFormMetadata);
+    manager = ensurePreviewManager(
+      ctx,
+      tabId,
+      getFieldMetadata,
+      getFormMetadata,
+    );
   }
 
   try {

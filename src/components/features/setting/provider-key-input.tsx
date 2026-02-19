@@ -110,7 +110,7 @@ export const ProviderKeyInput = ({
                 Connection Failed
               </>
             ) : (
-              "Test Connection"
+              "Test Connection of ollama"
             )}
           </Button>
           {hasExistingKey && (

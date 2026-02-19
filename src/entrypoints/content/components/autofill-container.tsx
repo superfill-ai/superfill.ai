@@ -15,6 +15,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import type { PreviewRenderData } from "@/lib/autofill/preview-utils";
 import { cn } from "@/lib/cn";
 import { queryClient } from "@/lib/query";
 import type {
@@ -28,7 +29,6 @@ import {
   getProgressTitle,
 } from "../lib/progress-utils";
 import { MemoryLoader } from "./memory-loader";
-import type { PreviewRenderData } from "./preview-manager";
 
 type SelectionState = Set<FieldOpId>;
 

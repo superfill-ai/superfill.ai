@@ -33,6 +33,18 @@ interface ContentAutofillProtocolMap {
     formMappings: FormMapping[];
   }) => boolean;
 
+  /** Called by the content script to discover its own tab ID (sender.tab is populated on background side) */
+  getTabId: () => number;
+
+  /** Sent from the side panel to fill fields in a specific tab */
+  sidepanelFill: (data: {
+    fieldsToFill: FieldsToFillData;
+    sessionId: string;
+    tabId: number;
+  }) => boolean;
+  /** Sent from the side panel to close/cancel the autofill session for a specific tab */
+  sidepanelClose: (data: { tabId: number }) => boolean;
+
   saveCapturedMemories: (data: {
     capturedFields: CapturedFieldData[];
   }) => Promise<{ success: boolean; savedCount: number }>;
