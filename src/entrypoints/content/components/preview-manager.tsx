@@ -22,6 +22,7 @@ import type {
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { FilledField, FormMapping, MemoryEntry } from "@/types/memory";
+import { Theme } from "@/types/theme";
 import { AutofillContainer } from "./autofill-container";
 
 const logger = createLogger("preview-manager");
@@ -456,12 +457,6 @@ export class PreviewSidebarManager {
 
         const mountPoint = document.createElement("div");
         mountPoint.id = "superfill-autofill-preview-root";
-        mountPoint.style.cssText = `
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        `;
         uiContainer.append(mountPoint);
 
         const root = createRoot(mountPoint);
@@ -471,7 +466,17 @@ export class PreviewSidebarManager {
         (async () => {
           const uiSettings = await storage.uiSettings.getValue();
 
-          uiContainer.classList.add(uiSettings.theme);
+          host.classList.remove("light", "dark");
+          if (uiSettings.theme === Theme.LIGHT) {
+            host.classList.add("light");
+          } else if (uiSettings.theme === Theme.DARK) {
+            host.classList.add("dark");
+          } else {
+            const isDarkMode =
+              document.documentElement.classList.contains("dark") ||
+              window.matchMedia("(prefers-color-scheme: dark)").matches;
+            host.classList.add(isDarkMode ? "dark" : "light");
+          }
         })();
 
         return root;

@@ -2,6 +2,7 @@
 @import "~/assets/globals.css";
 
 :host {
+  all: initial !important;
   position: fixed !important;
   top: 0 !important;
   right: 0 !important;
@@ -12,7 +13,11 @@
   z-index: 2147483646 !important;
   pointer-events: none !important;
   overflow: visible !important;
-  font-family: var(--font-sans, "Outfit", sans-serif);
+  font-family: var(--font-sans, "Outfit", sans-serif) !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+  color: initial !important;
+  box-sizing: border-box !important;
 }
 
 :host([data-ui-type="preview"]) {
@@ -49,6 +54,16 @@
   pointer-events: none !important;
 }
 
+:host > div {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+}
+
 html,
 body {
   position: static !important;
@@ -56,11 +71,24 @@ body {
   left: auto !important;
   right: auto !important;
   bottom: auto !important;
+  box-sizing: border-box !important;
   width: 100% !important;
   height: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
-  overflow: visible !important;
+  overflow: hidden !important;
+}
+
+#superfill-autofill-preview-root {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  position: relative !important;
 }
 
 /* From Uiverse.io by andrew-manzyk */
