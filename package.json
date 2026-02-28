@@ -1,7 +1,7 @@
 {
   "name": "superfill.ai",
   "description": "AI-powered form filling browser extension",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "type": "module",
   "author": {
     "email": "mihirpandey.13@gmail.com",

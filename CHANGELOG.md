@@ -1,5 +1,11 @@
 # superfill.ai
 
+## 0.2.9
+
+### Patch Changes
+
+- [`55e6725`](https://github.com/superfill-ai/superfill.ai/commit/55e67250d611647440162d143e90cdf37514d0d9) Thanks [@mikr13](https://github.com/mikr13)! - fix: update theme handling and improve CSS styles for preview component
+
 ## 0.2.8
 
 ### Patch Changes
