@@ -211,7 +211,7 @@
 }
 
 @layer base {
-  * {
+  *:not(:host) {
     @apply border-border outline-ring/50;
   }
 
