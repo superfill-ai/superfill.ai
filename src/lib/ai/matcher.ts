@@ -66,6 +66,7 @@ export class AIMatcher {
     apiKey?: string,
     modelName?: string,
     domContext?: string,
+    screenshot?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       logger.info("No fields to match");
@@ -91,6 +92,7 @@ export class AIMatcher {
           fields,
           memories,
           websiteContext,
+          screenshot,
         );
         const mappings = this.convertAIResultsToMappings(cloudResults, fields);
         const elapsed = performance.now() - startTime;
@@ -131,6 +133,7 @@ export class AIMatcher {
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
     websiteContext: WebsiteContext,
+    screenshot?: string,
   ): Promise<AIBatchMatchResult> {
     try {
       const authService = getAuthService();
@@ -157,6 +160,7 @@ export class AIMatcher {
           fields,
           memories,
           websiteContext,
+          ...(screenshot ? { screenshot } : {}),
         }),
       });
 
@@ -308,6 +312,24 @@ export class AIMatcher {
     - Match the user's memory to the closest option semantically.
     - If user's memory is "United States", and options are ["USA", "Canada", "UK"], return "USA".
     - If no option matches well or you are uncertain, you MUST set the value to null.
+    
+    ## RADIO BUTTON GROUPS
+    For radio button groups (type: "radiogroup"), you MUST:
+    - Return a value that EXACTLY matches one of the provided options (by value or label).
+    - Match the user's memory to the closest option semantically.
+    - If no option matches, set the value to null.
+    
+    ## CHECKBOXES & SWITCHES
+    For checkbox and switch fields:
+    - Return "true" if the checkbox should be checked, "false" if unchecked.
+    - Infer the correct state from the user's memories and the field's label/context.
+    - Common patterns: "I agree to terms" → "true" if user has accepted terms, newsletter opt-in based on user preferences.
+    - When uncertain, set value to null rather than guessing.
+    
+    ## SLIDERS & SPIN BUTTONS
+    For slider and spinbutton fields:
+    - Return the numeric value as a string.
+    - Match to the user's memory, respecting any min/max constraints implied by the field context.
     
     Important Rules:
     1. **ALWAYS USE MEMORIES**: If a user has stored a memory that matches the field, USE IT. The whole point is to fill forms with user's stored data.

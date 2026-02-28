@@ -188,15 +188,40 @@ export default defineBackground({
           return;
         }
 
-        logger.info(
-          `Broadcasting fill command to all frames in tab ${tabId} for ${data.fieldsToFill.length} fields`,
+        // Check if any fields are CDP-detected (opid starts with "cdp-")
+        const cdpFields = data.fieldsToFill.filter((f) =>
+          f.fieldOpid.startsWith("cdp-"),
+        );
+        const domFields = data.fieldsToFill.filter(
+          (f) => !f.fieldOpid.startsWith("cdp-"),
         );
 
-        contentAutofillMessaging
-          .sendMessage("fillFields", { fieldsToFill: data.fieldsToFill }, tabId)
-          .catch((error) => {
-            logger.error("Failed to broadcast fill command:", error);
-          });
+        if (cdpFields.length > 0) {
+          logger.info(`Routing ${cdpFields.length} CDP fields to CDP filler`);
+          try {
+            const autofillService = getAutofillService();
+            await autofillService.executeCDPFill(
+              cdpFields.map((f) => ({
+                fieldOpid: f.fieldOpid,
+                value: f.value,
+              })),
+            );
+          } catch (error) {
+            logger.error("CDP fill failed:", error);
+          }
+        }
+
+        if (domFields.length > 0) {
+          logger.info(
+            `Broadcasting fill command to all frames in tab ${tabId} for ${domFields.length} fields`,
+          );
+
+          contentAutofillMessaging
+            .sendMessage("fillFields", { fieldsToFill: domFields }, tabId)
+            .catch((error) => {
+              logger.error("Failed to broadcast fill command:", error);
+            });
+        }
       },
     );
 

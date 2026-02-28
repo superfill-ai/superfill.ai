@@ -1,4 +1,4 @@
-import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
+import type { SpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { createLogger, DEBUG } from "@/lib/logger";
 
 let spanProcessorPromise: Promise<SpanProcessor> | null = null;
@@ -88,15 +88,19 @@ export async function initializeTracerProvider(): Promise<void> {
   if (!DEBUG || providerInitialized) return;
 
   try {
-    const { WebTracerProvider } = await import("@opentelemetry/sdk-trace-web");
+    const { BasicTracerProvider } = await import(
+      "@opentelemetry/sdk-trace-base"
+    );
+    const { trace } = await import("@opentelemetry/api");
     const processor = await getSpanProcessor();
 
-    const tracerProvider = new WebTracerProvider({
+    const tracerProvider = new BasicTracerProvider({
       spanProcessors: [processor as SpanProcessor],
     });
 
-    tracerProvider.register();
+    trace.setGlobalTracerProvider(tracerProvider);
     providerInitialized = true;
+    logger.debug("Telemetry initialized successfully");
   } catch (error) {
     logger.warn("initializeTracerProvider failed:", error);
   }

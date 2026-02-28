@@ -120,6 +120,7 @@ export type FieldType =
   | "textarea"
   | "select"
   | "checkbox"
+  | "radio"
   | "date"
   | "number"
   | "password";
@@ -259,3 +260,68 @@ export type FieldsToFillData = Array<{
   value: string;
   confidence?: number;
 }>;
+
+// --- CDP (Chrome DevTools Protocol) types ---
+
+export interface CDPRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface CDPFieldOption {
+  value: string;
+  label: string;
+}
+
+export type CDPFieldRole =
+  | "textbox"
+  | "searchbox"
+  | "combobox"
+  | "listbox"
+  | "checkbox"
+  | "radio"
+  | "radiogroup"
+  | "spinbutton"
+  | "slider"
+  | "switch"
+  | "menuitemcheckbox"
+  | "menuitemradio"
+  | "textarea";
+
+export interface CDPDetectedField {
+  opid: string;
+  highlightIndex: number;
+  backendNodeId: number;
+  role: CDPFieldRole;
+  name: string;
+  description: string;
+  value: string;
+  checked?: boolean;
+  required: boolean;
+  disabled: boolean;
+  options?: CDPFieldOption[];
+  rect: CDPRect;
+  /** For radio groups: the child radio options */
+  radioOptions?: CDPRadioOption[];
+}
+
+export interface CDPRadioOption {
+  backendNodeId: number;
+  label: string;
+  value: string;
+  checked: boolean;
+  rect: CDPRect;
+}
+
+export interface CDPFormDetectionResult {
+  fields: CDPDetectedField[];
+  screenshot?: string;
+}
+
+export interface CDPFieldMapping {
+  field: CDPDetectedField;
+  value: string;
+  confidence: number;
+}

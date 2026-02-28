@@ -216,6 +216,15 @@ export function useAuth(): AuthState & AuthActions {
     mutationFn: async () => {
       const authService = getAuthService();
       await authService.clearSession();
+
+      const currentSettings = await storage.aiSettings.getValue();
+      if (currentSettings.cloudModelsEnabled) {
+        await storage.aiSettings.setValue({
+          ...currentSettings,
+          cloudModelsEnabled: false,
+        });
+      }
+
       logger.debug("Signed out successfully");
     },
     onSuccess: () => {
