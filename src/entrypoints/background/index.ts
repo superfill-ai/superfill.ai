@@ -13,6 +13,10 @@ import {
   getSessionService,
   registerSessionService,
 } from "@/lib/autofill/session-service";
+import {
+  getCDPAutofillService,
+  registerCDPAutofillService,
+} from "@/lib/cdp/cdp-autofill-service";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
@@ -28,6 +32,7 @@ import { migrateAISettings } from "./lib/migrate-settings-handler";
 const logger = createLogger("background");
 
 const CONTEXT_MENU_ID = "superfill-autofill";
+const CDP_CONTEXT_MENU_ID = "superfill-cdp-agent";
 
 export default defineBackground({
   type: "module",
@@ -44,6 +49,7 @@ export default defineBackground({
     registerAuthService();
     registerCaptureMemoryService();
     registerCategorizationService();
+    registerCDPAutofillService();
     registerKeyValidationService();
     registerKeyVaultService();
     registerModelService();
@@ -52,6 +58,7 @@ export default defineBackground({
     const authService = getAuthService();
     const autofillService = getAutofillService();
     const captureMemoryService = getCaptureMemoryService();
+    const cdpAutofillService = getCDPAutofillService();
     const keyVault = getKeyVaultService();
     const sessionService = getSessionService();
     const syncService = getSyncService();
@@ -60,15 +67,26 @@ export default defineBackground({
       try {
         if (enabled) {
           await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
+          await browser.contextMenus
+            .remove(CDP_CONTEXT_MENU_ID)
+            .catch(() => {});
           browser.contextMenus.create({
             id: CONTEXT_MENU_ID,
             title: "Fill with superfill.ai",
             contexts: ["editable", "page"],
           });
-          logger.info("Context menu created");
+          browser.contextMenus.create({
+            id: CDP_CONTEXT_MENU_ID,
+            title: "Fill with superfill.ai (Agent Mode)",
+            contexts: ["editable", "page"],
+          });
+          logger.info("Context menus created");
         } else {
           await browser.contextMenus.remove(CONTEXT_MENU_ID).catch(() => {});
-          logger.info("Context menu removed");
+          await browser.contextMenus
+            .remove(CDP_CONTEXT_MENU_ID)
+            .catch(() => {});
+          logger.info("Context menus removed");
         }
       } catch (error) {
         logger.error("Failed to update context menu:", error);
@@ -93,6 +111,20 @@ export default defineBackground({
           await autofillService.startAutofillOnActiveTab();
         } catch (error) {
           logger.error("Context menu autofill failed:", error);
+        }
+      }
+
+      if (info.menuItemId === CDP_CONTEXT_MENU_ID && tab?.id) {
+        logger.debug("CDP agent mode triggered", { tabId: tab.id });
+        try {
+          const result = await cdpAutofillService.startAgentOnActiveTab();
+          logger.info("CDP agent result:", {
+            success: result.success,
+            steps: result.totalSteps,
+            summary: result.summary,
+          });
+        } catch (error) {
+          logger.error("CDP agent failed:", error);
         }
       }
     });
@@ -246,6 +278,7 @@ export default defineBackground({
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
         autofillService.dispose();
+        cdpAutofillService.dispose();
         logger.debug("Background script HMR cleanup completed");
       });
     }
