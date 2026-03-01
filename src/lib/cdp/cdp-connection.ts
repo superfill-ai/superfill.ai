@@ -15,17 +15,28 @@ interface ChromeDebuggerDebuggee {
 type DetachListener = (source: ChromeDebuggerDebuggee, reason: string) => void;
 
 /** Access the chrome.debugger API (available in MV3 background service worker) */
-const chromeDebugger = (globalThis as unknown as { chrome: {
-  debugger: {
-    attach: (target: ChromeDebuggerDebuggee, requiredVersion: string) => Promise<void>;
-    detach: (target: ChromeDebuggerDebuggee) => Promise<void>;
-    sendCommand: (target: ChromeDebuggerDebuggee, method: string, commandParams?: Record<string, unknown>) => Promise<unknown>;
-    onDetach: {
-      addListener: (callback: DetachListener) => void;
-      removeListener: (callback: DetachListener) => void;
+const chromeDebugger = (
+  globalThis as unknown as {
+    chrome: {
+      debugger: {
+        attach: (
+          target: ChromeDebuggerDebuggee,
+          requiredVersion: string,
+        ) => Promise<void>;
+        detach: (target: ChromeDebuggerDebuggee) => Promise<void>;
+        sendCommand: (
+          target: ChromeDebuggerDebuggee,
+          method: string,
+          commandParams?: Record<string, unknown>,
+        ) => Promise<unknown>;
+        onDetach: {
+          addListener: (callback: DetachListener) => void;
+          removeListener: (callback: DetachListener) => void;
+        };
+      };
     };
-  };
-} }).chrome.debugger;
+  }
+).chrome.debugger;
 
 /**
  * Manages Chrome DevTools Protocol connections via chrome.debugger API.
@@ -165,10 +176,7 @@ export class CDPConnection {
     ]);
   }
 
-  private handleDetach(
-    source: ChromeDebuggerDebuggee,
-    reason: string,
-  ): void {
+  private handleDetach(source: ChromeDebuggerDebuggee, reason: string): void {
     if (source.tabId === this.tabId) {
       logger.warn("CDP detached externally, reason:", reason);
       this.attached = false;

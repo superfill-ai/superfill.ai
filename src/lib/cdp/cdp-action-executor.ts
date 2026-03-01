@@ -1,5 +1,5 @@
-import { createLogger } from "@/lib/logger";
 import { delay } from "@/lib/delay";
+import { createLogger } from "@/lib/logger";
 import type {
   CDPActionResult,
   CDPAgentAction,
@@ -25,7 +25,12 @@ export async function executeAction(
   try {
     switch (action.action) {
       case "click":
-        return await executeClick(connection, action.index, elements, action.doubleClick);
+        return await executeClick(
+          connection,
+          action.index,
+          elements,
+          action.doubleClick,
+        );
       case "type":
         return await executeType(
           connection,
@@ -52,13 +57,24 @@ export async function executeAction(
       case "wait":
         return await executeWait(Math.min(action.duration, 3000));
       case "done":
-        return { success: true, description: `Agent finished: ${action.summary}` };
+        return {
+          success: true,
+          description: `Agent finished: ${action.summary}`,
+        };
       case "go_back":
         return await executeGoBack(connection);
       case "tab":
-        return await executeTab(connection, action.count ?? 1, action.shift ?? false);
+        return await executeTab(
+          connection,
+          action.count ?? 1,
+          action.shift ?? false,
+        );
       default:
-        return { success: false, description: "Unknown action", error: `Unknown action type` };
+        return {
+          success: false,
+          description: "Unknown action",
+          error: `Unknown action type`,
+        };
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -94,7 +110,10 @@ async function executeClick(
   // Get fresh bounding box after scroll
   let box = element.boundingBox;
   if (element.backendNodeId) {
-    const freshBox = await getElementBoundingBox(connection, element.backendNodeId);
+    const freshBox = await getElementBoundingBox(
+      connection,
+      element.backendNodeId,
+    );
     if (freshBox) box = freshBox;
   }
 
@@ -332,14 +351,18 @@ async function executeKeyPress(
     type: "keyDown",
     key: keyMapping.key,
     code: keyMapping.code,
-    ...(keyMapping.keyCode ? { windowsVirtualKeyCode: keyMapping.keyCode } : {}),
+    ...(keyMapping.keyCode
+      ? { windowsVirtualKeyCode: keyMapping.keyCode }
+      : {}),
   });
 
   await connection.send("Input.dispatchKeyEvent", {
     type: "keyUp",
     key: keyMapping.key,
     code: keyMapping.code,
-    ...(keyMapping.keyCode ? { windowsVirtualKeyCode: keyMapping.keyCode } : {}),
+    ...(keyMapping.keyCode
+      ? { windowsVirtualKeyCode: keyMapping.keyCode }
+      : {}),
   });
 
   const desc = `Pressed key: ${key}`;
@@ -437,15 +460,15 @@ async function getScrollPosition(
     returnByValue: true,
   });
 
-  return result.result.value
-    ? JSON.parse(result.result.value)
-    : { x: 0, y: 0 };
+  return result.result.value ? JSON.parse(result.result.value) : { x: 0, y: 0 };
 }
 
 function isMac(): boolean {
   // In extension background context, navigator is available
-  return typeof navigator !== "undefined" &&
-    navigator.platform?.toLowerCase().includes("mac");
+  return (
+    typeof navigator !== "undefined" &&
+    navigator.platform?.toLowerCase().includes("mac")
+  );
 }
 
 function getKeyMapping(key: string): {

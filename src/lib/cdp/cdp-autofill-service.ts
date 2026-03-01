@@ -1,10 +1,10 @@
 import { defineProxyService } from "@webext-core/proxy-service";
+import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
+import type { AIProvider } from "@/lib/providers/registry";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import { aiSettings } from "@/lib/storage/ai-settings";
-import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "@/lib/errors";
-import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CDPAgentConfig,
   CDPAgentProgress,
@@ -12,9 +12,9 @@ import type {
 } from "@/types/cdp";
 import { DEFAULT_CDP_AGENT_CONFIG } from "@/types/cdp";
 import type { AISettings } from "@/types/settings";
-import { CDPConnection } from "./cdp-connection";
 import { CDPAgent } from "../ai/cdp-agent";
 import { contentAutofillMessaging } from "../autofill/content-autofill-messaging";
+import { CDPConnection } from "./cdp-connection";
 
 const logger = createLogger("cdp-autofill-service");
 
@@ -129,8 +129,7 @@ class CDPAutofillService {
       }
 
       // Get AI provider configuration
-      const { provider, apiKey, modelName } =
-        await this.getAIConfiguration();
+      const { provider, apiKey, modelName } = await this.getAIConfiguration();
 
       // Build the task description
       const tab = await browser.tabs.get(tabId);
@@ -162,8 +161,7 @@ class CDPAutofillService {
 
       return result;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       logger.error("CDP agent failed:", error);
 
       this.sendProgress(tabId, {

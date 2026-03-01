@@ -1,7 +1,7 @@
 import { generateObject, type UserContent } from "ai";
 import { z } from "zod";
-import { createLogger, DEBUG } from "@/lib/logger";
 import { delay } from "@/lib/delay";
+import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
@@ -14,8 +14,8 @@ import type {
   CDPPageState,
 } from "@/types/cdp";
 import type { MemoryEntry } from "@/types/memory";
-import type { CDPConnection } from "../cdp/cdp-connection";
 import { executeAction } from "../cdp/cdp-action-executor";
+import type { CDPConnection } from "../cdp/cdp-connection";
 import { extractInteractiveElements } from "../cdp/cdp-dom-extractor";
 import {
   captureAnnotatedScreenshot,
@@ -51,27 +51,19 @@ const CDPAgentActionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("scroll"),
     direction: z.enum(["up", "down"]).describe("Scroll direction"),
-    amount: z
-      .number()
-      .optional()
-      .describe("Pixels to scroll (default: 500)"),
+    amount: z.number().optional().describe("Pixels to scroll (default: 500)"),
     reasoning: z.string().describe("Why scrolling is needed"),
   }),
   z.object({
     action: z.literal("key_press"),
     key: z
       .string()
-      .describe(
-        "Key to press (e.g., 'Enter', 'Tab', 'Escape', 'ArrowDown')",
-      ),
+      .describe("Key to press (e.g., 'Enter', 'Tab', 'Escape', 'ArrowDown')"),
     reasoning: z.string().describe("Why this key press is needed"),
   }),
   z.object({
     action: z.literal("wait"),
-    duration: z
-      .number()
-      .max(3000)
-      .describe("Milliseconds to wait (max 3000)"),
+    duration: z.number().max(3000).describe("Milliseconds to wait (max 3000)"),
     reasoning: z.string().describe("Why waiting is needed"),
   }),
   z.object({
@@ -240,8 +232,7 @@ export class CDPAgent {
 
       return this.buildResult(startTime, true, undefined, summary);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       logger.error("Agent loop failed:", error);
 
       this.emitProgress({
@@ -291,7 +282,9 @@ export class CDPAgent {
     };
   }
 
-  private async getNextAction(pageState: CDPPageState): Promise<CDPAgentAction> {
+  private async getNextAction(
+    pageState: CDPPageState,
+  ): Promise<CDPAgentAction> {
     const model = getAIModel(this.provider, this.apiKey, this.modelName);
 
     const systemPrompt = this.buildSystemPrompt();
@@ -418,9 +411,7 @@ ${memoriesSection}
     }
 
     // Build current state message
-    const elementsText = this.formatElementsList(
-      pageState.interactiveElements,
-    );
+    const elementsText = this.formatElementsList(pageState.interactiveElements);
 
     const stateText = `## Current Page State (Step ${pageState.stepNumber}/${this.config.maxSteps})
 **URL**: ${pageState.url}
@@ -468,7 +459,8 @@ Choose your next action. Pick ONE action to perform.`;
 
         const meta: string[] = [];
         if (el.label) meta.push(`label="${el.label}"`);
-        if (el.currentValue) meta.push(`value="${el.currentValue.substring(0, 100)}"`);
+        if (el.currentValue)
+          meta.push(`value="${el.currentValue.substring(0, 100)}"`);
         if (el.text && el.tagName !== "input" && el.tagName !== "textarea") {
           meta.push(`text="${el.text.substring(0, 100)}"`);
         }
@@ -479,7 +471,9 @@ Choose your next action. Pick ONE action to perform.`;
             .slice(0, 10)
             .map((o) => `"${o.value}"`)
             .join(", ");
-          meta.push(`options=[${optPreview}${el.options.length > 10 ? ", ..." : ""}]`);
+          meta.push(
+            `options=[${optPreview}${el.options.length > 10 ? ", ..." : ""}]`,
+          );
         }
 
         if (meta.length > 0) parts.push(` (${meta.join(", ")})`);
@@ -512,9 +506,7 @@ Choose your next action. Pick ONE action to perform.`;
     };
   }
 
-  private emitProgress(
-    progress: Omit<CDPAgentProgress, never>,
-  ): void {
+  private emitProgress(progress: Omit<CDPAgentProgress, never>): void {
     this.onProgress?.(progress);
   }
 }
