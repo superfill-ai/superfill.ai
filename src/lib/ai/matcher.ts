@@ -6,7 +6,7 @@ import {
   createEmptyMapping,
   roundConfidence,
 } from "@/lib/autofill/mapping-utils";
-import { createLogger, DEBUG } from "@/lib/logger";
+import { createLogger } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
@@ -208,19 +208,6 @@ export class AIMatcher {
         websiteContext,
       });
 
-      if (DEBUG) {
-        const { updateObservation, updateTrace } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          input: { fields, memories, provider },
-        });
-        await updateTrace({
-          name: "superfill:memory-categorization",
-          input: { fields, memories, provider },
-        });
-      }
-
       const result = await generateObject({
         model,
         schema: AIBatchMatchSchema,
@@ -230,65 +217,12 @@ export class AIMatcher {
         system: systemPrompt,
         prompt: userPrompt,
         temperature: 0.3,
-        experimental_telemetry: {
-          isEnabled: DEBUG,
-          functionId: "field-matching",
-          metadata: {
-            fieldCount: fields.length,
-            fields: JSON.stringify(fields),
-            memoryCount: memories.length,
-            memories: JSON.stringify(memories),
-            provider,
-          },
-        },
       });
-
-      if (DEBUG) {
-        const { updateObservation, updateTrace, endActiveSpan } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          output: result.object,
-        });
-        await updateTrace({
-          output: result.object,
-        });
-        await endActiveSpan();
-      }
 
       return result.object;
     } catch (error) {
       logger.error("AI matching failed:", error);
-
-      if (DEBUG) {
-        try {
-          const { updateObservation, updateTrace, endActiveSpan } =
-            await import("@/lib/observability/telemetry-helpers");
-          await updateObservation({
-            output: error,
-            level: "ERROR",
-          });
-          await updateTrace({
-            output: error,
-          });
-          await endActiveSpan();
-        } catch (telemetryError) {
-          logger.error("Telemetry error in matching catch:", telemetryError);
-        }
-      }
-
       throw error;
-    } finally {
-      if (DEBUG) {
-        try {
-          const { flushSpanProcessor } = await import(
-            "@/lib/observability/telemetry-helpers"
-          );
-          await flushSpanProcessor();
-        } catch (telemetryError) {
-          logger.error("Telemetry flush error in matching:", telemetryError);
-        }
-      }
     }
   }
 

@@ -9,6 +9,9 @@ export default defineConfig({
   vite: () => {
     return {
       plugins: [tailwindcss()],
+      build: {
+        modulePreload: { polyfill: false },
+      },
     };
   },
   react: {

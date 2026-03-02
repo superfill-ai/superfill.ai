@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { createLogger, DEBUG } from "@/lib/logger";
+import { createLogger } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type { CompressedFieldData } from "@/types/autofill";
@@ -141,19 +141,6 @@ Be precise and consider context. For example:
       ? `Question: ${question}\nAnswer: ${answer}`
       : `Information: ${answer}`;
 
-    if (DEBUG) {
-      const { updateObservation, updateTrace } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        input: { answer, question },
-      });
-      await updateTrace({
-        name: "superfill:memory-categorization",
-        input: { answer, question },
-      });
-    }
-
     const result = await generateObject({
       model,
       system: systemPrompt,
@@ -162,70 +149,12 @@ Be precise and consider context. For example:
       schemaName: "CategorizationResult",
       schemaDescription: "Categorization and tagging result for user data",
       temperature: 0.3,
-      experimental_telemetry: {
-        isEnabled: DEBUG,
-        functionId: "memory-categorization",
-        metadata: {
-          hasQuestion: !!question,
-          answerLength: answer.length,
-          provider,
-        },
-      },
     });
-
-    if (DEBUG) {
-      const { updateObservation, updateTrace, endActiveSpan } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        output: result.object,
-      });
-      await updateTrace({
-        output: result.object,
-      });
-      await endActiveSpan();
-    }
 
     return result.object;
   } catch (error) {
     logger.error("AI categorization failed:", error);
-
-    if (DEBUG) {
-      try {
-        const { updateObservation, updateTrace, endActiveSpan } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          output: error,
-          level: "ERROR",
-        });
-        await updateTrace({
-          output: error,
-        });
-        await endActiveSpan();
-      } catch (telemetryError) {
-        logger.error(
-          "Telemetry error in categorization catch:",
-          telemetryError,
-        );
-      }
-    }
-
     return fallbackCategorization(answer, question);
-  } finally {
-    if (DEBUG) {
-      try {
-        const { flushSpanProcessor } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await flushSpanProcessor();
-      } catch (telemetryError) {
-        logger.error(
-          "Telemetry flush error in categorization:",
-          telemetryError,
-        );
-      }
-    }
   }
 };
 
@@ -338,19 +267,6 @@ export const rephraseAgent = async (
 
     const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
 
-    if (DEBUG) {
-      const { updateObservation, updateTrace } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        input: { answer, question },
-      });
-      await updateTrace({
-        name: "superfill:memory-rephrase",
-        input: { answer, question },
-      });
-    }
-
     const { object } = await generateObject({
       model,
       system: systemPrompt,
@@ -361,52 +277,9 @@ export const rephraseAgent = async (
       temperature: 0.5,
     });
 
-    if (DEBUG) {
-      const { updateObservation, updateTrace, endActiveSpan } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        output: object,
-      });
-      await updateTrace({
-        output: object,
-      });
-      await endActiveSpan();
-    }
-
     return object;
   } catch (error) {
     logger.error("AI rephrasing failed:", error);
-
-    if (DEBUG) {
-      try {
-        const { updateObservation, updateTrace, endActiveSpan } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          output: error,
-          level: "ERROR",
-        });
-        await updateTrace({
-          output: error,
-        });
-        await endActiveSpan();
-      } catch (telemetryError) {
-        logger.error("Telemetry error in rephrase catch:", telemetryError);
-      }
-    }
-
     throw new Error("Failed to rephrase content with AI.");
-  } finally {
-    if (DEBUG) {
-      try {
-        const { flushSpanProcessor } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await flushSpanProcessor();
-      } catch (telemetryError) {
-        logger.error("Telemetry flush error in rephrase:", telemetryError);
-      }
-    }
   }
 };
