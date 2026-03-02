@@ -1,6 +1,10 @@
 import { createLogger, DEBUG } from "@/lib/logger";
 
 const logger = createLogger("cdp-screenshot-saver");
+const DEFAULT_SAVER_URL = "http://localhost:3002/cdp-screenshot";
+const saverUrl =
+  (import.meta.env.VITE_CDP_SAVER_URL as string | undefined) ??
+  DEFAULT_SAVER_URL;
 
 /**
  * Generates a run ID based on the current date and time.
@@ -32,25 +36,35 @@ export async function saveScreenshotLocally(
   if (!DEBUG) return;
 
   try {
-    const dataUrl = base64Screenshot.startsWith("data:")
+    const normalized = base64Screenshot.startsWith("data:")
       ? base64Screenshot
       : `data:image/jpeg;base64,${base64Screenshot}`;
 
-    const filename = `superfill-debug/cdp-runs/${runId}/step-${String(stepNumber).padStart(3, "0")}.jpg`;
-
-    await browser.downloads.download({
-      url: dataUrl,
-      filename,
-      saveAs: false,
-      conflictAction: "uniquify",
+    const response = await fetch(saverUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        runId,
+        stepNumber,
+        screenshot: normalized,
+        metadata,
+      }),
     });
 
+    if (!response.ok) {
+      throw new Error(`Saver responded with ${response.status}`);
+    }
+
     logger.debug(
-      `[Run ${runId}] Saved screenshot for step ${stepNumber}`,
+      `[Run ${runId}] Saved screenshot for step ${stepNumber} via dev saver`,
       metadata,
     );
   } catch (error) {
-    // Don't let screenshot saving failures break the agent loop
-    logger.warn(`Failed to save screenshot for step ${stepNumber}:`, error);
+    logger.warn(
+      `Failed to save screenshot for step ${stepNumber} via dev saver:`,
+      error,
+    );
   }
 }

@@ -29,66 +29,33 @@ import {
 const logger = createLogger("cdp-agent");
 
 /** Zod schema for the AI agent's action response */
-const CDPAgentActionSchema = z.discriminatedUnion("action", [
-  z.object({
-    action: z.literal("click"),
-    index: z.number().describe("Index of the element to click"),
-    doubleClick: z.boolean().optional().describe("Whether to double-click"),
-    reasoning: z.string().describe("Why this action is being taken"),
-  }),
-  z.object({
-    action: z.literal("type"),
-    index: z.number().describe("Index of the element to type into"),
-    text: z.string().describe("Text to type into the field"),
-    clearFirst: z
-      .boolean()
-      .optional()
-      .describe("Whether to clear existing text first (default: true)"),
-    reasoning: z.string().describe("Why this action is being taken"),
-  }),
-  z.object({
-    action: z.literal("select_option"),
-    index: z.number().describe("Index of the select element"),
-    value: z.string().describe("Option value or text to select"),
-    reasoning: z.string().describe("Why this option is being selected"),
-  }),
-  z.object({
-    action: z.literal("scroll"),
-    direction: z.enum(["up", "down"]).describe("Scroll direction"),
-    amount: z.number().optional().describe("Pixels to scroll (default: 500)"),
-    reasoning: z.string().describe("Why scrolling is needed"),
-  }),
-  z.object({
-    action: z.literal("key_press"),
-    key: z
-      .string()
-      .describe("Key to press (e.g., 'Enter', 'Tab', 'Escape', 'ArrowDown')"),
-    reasoning: z.string().describe("Why this key press is needed"),
-  }),
-  z.object({
-    action: z.literal("wait"),
-    duration: z.number().max(3000).describe("Milliseconds to wait (max 3000)"),
-    reasoning: z.string().describe("Why waiting is needed"),
-  }),
-  z.object({
-    action: z.literal("done"),
-    summary: z.string().describe("Summary of what was accomplished"),
-    reasoning: z.string().describe("Why the task is complete"),
-  }),
-  z.object({
-    action: z.literal("go_back"),
-    reasoning: z.string().describe("Why navigating back is needed"),
-  }),
-  z.object({
-    action: z.literal("tab"),
-    count: z.number().optional().describe("Number of Tab presses (default: 1)"),
-    shift: z
-      .boolean()
-      .optional()
-      .describe("Whether to hold Shift (reverse tab)"),
-    reasoning: z.string().describe("Why tabbing is needed"),
-  }),
-]);
+const CDPAgentActionSchema = z.object({
+  action: z.enum([
+    "click",
+    "type",
+    "select_option",
+    "scroll",
+    "key_press",
+    "wait",
+    "done",
+    "go_back",
+    "tab",
+  ]),
+  // Common optional fields — we normalize/validate after parsing
+  index: z.number().optional(),
+  doubleClick: z.boolean().optional(),
+  text: z.string().optional(),
+  clearFirst: z.boolean().optional(),
+  value: z.string().optional(),
+  direction: z.enum(["up", "down"]).optional(),
+  amount: z.number().optional(),
+  key: z.string().optional(),
+  duration: z.number().max(3000).optional(),
+  summary: z.string().optional(),
+  reasoning: z.string().optional(),
+  count: z.number().optional(),
+  shift: z.boolean().optional(),
+});
 
 /**
  * The AI-driven agent loop that controls form filling through CDP.
@@ -343,40 +310,159 @@ export class CDPAgent {
     );
 
     const callStart = performance.now();
-    const result = await generateObject({
-      model,
-      schema: CDPAgentActionSchema,
-      schemaName: "AgentAction",
-      schemaDescription:
-        "The next action the agent should take to fill the form",
-      system: systemPrompt,
-      messages,
-      temperature: 0.1,
-      ...(DEBUG
-        ? {
-            experimental_telemetry: {
-              isEnabled: true,
-              functionId: "cdp-agent-action",
-              metadata: {
-                step: String(pageState.stepNumber),
-                elementCount: String(pageState.interactiveElements.length),
+
+    try {
+      const result = await generateObject({
+        model,
+        schema: CDPAgentActionSchema,
+        schemaName: "AgentAction",
+        schemaDescription:
+          "The next action the agent should take to fill the form",
+        system: systemPrompt,
+        messages,
+        temperature: 0.1,
+        ...(DEBUG
+          ? {
+              experimental_telemetry: {
+                isEnabled: true,
+                functionId: "cdp-agent-action",
+                metadata: {
+                  step: String(pageState.stepNumber),
+                  elementCount: String(pageState.interactiveElements.length),
+                },
               },
-            },
-          }
-        : {}),
-    });
-    const callDuration = Math.round(performance.now() - callStart);
+            }
+          : {}),
+      });
 
-    logger.info(
-      `[Run ${this.runId}][Step ${pageState.stepNumber}] generateObject completed in ${callDuration}ms`,
-      {
-        action: result.object,
-        durationMs: callDuration,
-        usage: result.usage,
-      },
-    );
+      const callDuration = Math.round(performance.now() - callStart);
 
-    return result.object as CDPAgentAction;
+      logger.info(
+        `[Run ${this.runId}][Step ${pageState.stepNumber}] generateObject completed in ${callDuration}ms`,
+        {
+          action: result.object,
+          durationMs: callDuration,
+          usage: result.usage,
+        },
+      );
+
+      return this.normalizeAction(result.object as CDPAgentAction);
+    } catch (error) {
+      const callDuration = Math.round(performance.now() - callStart);
+      logger.warn(
+        `[Run ${this.runId}][Step ${pageState.stepNumber}] generateObject failed, falling back to wait`,
+        { error, durationMs: callDuration },
+      );
+
+      this.emitProgress({
+        state: "waiting",
+        message: `Recovering from schema error, retrying...`,
+        stepNumber: pageState.stepNumber,
+        maxSteps: this.config.maxSteps,
+      });
+
+      return {
+        action: "wait",
+        duration: 800,
+        reasoning: "Model returned invalid schema; retry after short wait",
+      };
+    }
+  }
+
+  private normalizeAction(action: CDPAgentAction): CDPAgentAction {
+    const withDefault = <T>(value: T | undefined, fallback: T): T =>
+      value === undefined || value === null ? fallback : value;
+
+    switch (action.action) {
+      case "click":
+        if (action.index === undefined) {
+          return {
+            action: "wait",
+            duration: 500,
+            reasoning: "Missing index for click; waiting and retrying",
+          };
+        }
+        return {
+          ...action,
+          doubleClick: withDefault(action.doubleClick, false),
+          reasoning: withDefault(action.reasoning, "Click target element"),
+        };
+      case "type":
+        if (action.index === undefined || action.text === undefined) {
+          return {
+            action: "wait",
+            duration: 500,
+            reasoning: "Missing index or text for type; waiting and retrying",
+          };
+        }
+        return {
+          ...action,
+          clearFirst: withDefault(action.clearFirst, true),
+          reasoning: withDefault(action.reasoning, "Type into the field"),
+        };
+      case "select_option":
+        if (action.index === undefined || action.value === undefined) {
+          return {
+            action: "wait",
+            duration: 500,
+            reasoning:
+              "Missing index or value for select; waiting and retrying",
+          };
+        }
+        return {
+          ...action,
+          reasoning: withDefault(action.reasoning, "Select matching option"),
+        };
+      case "scroll":
+        return {
+          ...action,
+          direction: withDefault(action.direction, "down"),
+          amount: withDefault(action.amount, 500),
+          reasoning: withDefault(action.reasoning, "Scroll to reveal more"),
+        };
+      case "key_press":
+        if (!action.key) {
+          return {
+            action: "wait",
+            duration: 500,
+            reasoning: "Missing key for key_press; waiting and retrying",
+          };
+        }
+        return {
+          ...action,
+          reasoning: withDefault(action.reasoning, "Send key press"),
+        };
+      case "wait":
+        return {
+          ...action,
+          duration: withDefault(action.duration, 500),
+          reasoning: withDefault(action.reasoning, "Pause before next step"),
+        };
+      case "done":
+        return {
+          ...action,
+          summary: withDefault(action.summary, "Completed form filling"),
+          reasoning: withDefault(action.reasoning, "Task complete"),
+        };
+      case "go_back":
+        return {
+          ...action,
+          reasoning: withDefault(action.reasoning, "Navigate back"),
+        };
+      case "tab":
+        return {
+          ...action,
+          count: withDefault(action.count, 1),
+          shift: withDefault(action.shift, false),
+          reasoning: withDefault(action.reasoning, "Advance focus"),
+        };
+      default:
+        return {
+          action: "wait",
+          duration: 500,
+          reasoning: "Unrecognized action; waiting",
+        };
+    }
   }
 
   private buildSystemPrompt(): string {
@@ -446,11 +532,13 @@ ${memoriesSection}
 
   private buildMessages(
     pageState: CDPPageState,
-  ): Array<{ role: "user"; content: UserContent }> {
+  ): Array<{ role: "user"; content: UserContent | string }> {
     const messages: Array<{
       role: "user";
-      content: UserContent;
+      content: UserContent | string;
     }> = [];
+
+    const visionCapable = this.config.useVision && this.supportsVisionModel();
 
     // Add previous steps as context (last 5 steps to keep context manageable)
     const recentSteps = this.steps.slice(-5);
@@ -462,15 +550,22 @@ ${memoriesSection}
         )
         .join("\n");
 
-      messages.push({
-        role: "user",
-        content: [
-          {
-            type: "text" as const,
-            text: `## Previous Actions\n${historyText}\n\n---\n`,
-          },
-        ],
-      });
+      if (visionCapable) {
+        messages.push({
+          role: "user",
+          content: [
+            {
+              type: "text" as const,
+              text: `## Previous Actions\n${historyText}\n\n---\n`,
+            },
+          ],
+        });
+      } else {
+        messages.push({
+          role: "user",
+          content: `## Previous Actions\n${historyText}\n\n---\n`,
+        });
+      }
     }
 
     // Build current state message
@@ -488,21 +583,34 @@ ${elementsText}
 
 Choose your next action. Pick ONE action to perform.`;
 
-    const content: UserContent = [];
-
-    // Add screenshot if available (vision mode)
-    if (pageState.screenshot && this.config.useVision) {
-      content.push({
-        type: "image" as const,
-        image: pageState.screenshot,
-        mediaType: "image/jpeg",
-      });
+    if (visionCapable && pageState.screenshot) {
+      const content: UserContent = [
+        {
+          type: "image" as const,
+          image: pageState.screenshot,
+          mediaType: "image/jpeg",
+        },
+        { type: "text" as const, text: stateText },
+      ];
+      messages.push({ role: "user", content });
+    } else {
+      messages.push({ role: "user", content: stateText });
     }
 
-    content.push({ type: "text" as const, text: stateText });
-    messages.push({ role: "user", content });
-
     return messages;
+  }
+
+  private supportsVisionModel(): boolean {
+    const model = (this.modelName || "").toLowerCase();
+
+    if (this.provider === "anthropic") return true;
+    if (this.provider === "gemini") return true;
+    if (this.provider === "openai") {
+      return /gpt-4o|gpt-4\.1|vision/.test(model);
+    }
+
+    // Groq/deepseek/ollama and other OpenAI-compatible providers default to text-only
+    return false;
   }
 
   private formatElementsList(elements: CDPInteractiveElement[]): string {

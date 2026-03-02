@@ -250,6 +250,7 @@ class CDPAutofillService {
     };
 
     const mappedState = stateMap[progress.state];
+    const isFailure = mappedState === "failed";
 
     try {
       contentAutofillMessaging
@@ -258,6 +259,7 @@ class CDPAutofillService {
           {
             state: mappedState,
             message: `[CDP Agent] ${progress.message}`,
+            ...(isFailure ? { error: `[CDP Agent] ${progress.message}` } : {}),
             // Leave fields undefined so the UI shows the message text instead of a bogus count
             fieldsDetected: undefined,
             fieldsMatched: undefined,
