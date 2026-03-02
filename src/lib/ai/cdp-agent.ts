@@ -1,5 +1,3 @@
-import { generateObject, type UserContent } from "ai";
-import { z } from "zod";
 import { delay } from "@/lib/delay";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
@@ -14,6 +12,8 @@ import type {
   CDPPageState,
 } from "@/types/cdp";
 import type { MemoryEntry } from "@/types/memory";
+import { generateObject, type UserContent } from "ai";
+import { z } from "zod";
 import { executeAction } from "../cdp/cdp-action-executor";
 import type { CDPConnection } from "../cdp/cdp-connection";
 import { extractInteractiveElements } from "../cdp/cdp-dom-extractor";
@@ -69,6 +69,7 @@ export class CDPAgent {
   private apiKey: string;
   private modelName?: string;
   private steps: CDPAgentStep[] = [];
+  private allowedAnswers: string[];
   private aborted = false;
   private onProgress?: (progress: CDPAgentProgress) => void;
   private task: string;
@@ -93,6 +94,9 @@ export class CDPAgent {
     this.task = params.task;
     this.onProgress = params.onProgress;
     this.runId = createRunId();
+    this.allowedAnswers = params.memories
+      .map((m) => m.answer.trim())
+      .filter((answer) => answer.length > 0);
     logger.info(`Agent run initialized with ID: ${this.runId}`);
   }
 
@@ -387,7 +391,7 @@ export class CDPAgent {
           doubleClick: withDefault(action.doubleClick, false),
           reasoning: withDefault(action.reasoning, "Click target element"),
         };
-      case "type":
+      case "type": {
         if (action.index === undefined || action.text === undefined) {
           return {
             action: "wait",
@@ -395,11 +399,31 @@ export class CDPAgent {
             reasoning: "Missing index or text for type; waiting and retrying",
           };
         }
+
+        const requested = action.text.trim();
+        const isAllowed = this.allowedAnswers.some((allowed) => {
+          if (allowed === requested) return true;
+          if (allowed.length > 0 && requested.length > 0) {
+            return allowed.includes(requested) || requested.includes(allowed);
+          }
+          return false;
+        });
+
+        if (!isAllowed) {
+          return {
+            action: "wait",
+            duration: 500,
+            reasoning:
+              "Typing was skipped because the value is not in the user's memories",
+          };
+        }
+
         return {
           ...action,
           clearFirst: withDefault(action.clearFirst, true),
           reasoning: withDefault(action.reasoning, "Type into the field"),
         };
+      }
       case "select_option":
         if (action.index === undefined || action.value === undefined) {
           return {
@@ -570,6 +594,7 @@ ${memoriesSection}
 
     // Build current state message
     const elementsText = this.formatElementsList(pageState.interactiveElements);
+    const allowedValuesText = this.formatAllowedValues();
 
     const stateText = `## Current Page State (Step ${pageState.stepNumber}/${this.config.maxSteps})
 **URL**: ${pageState.url}
@@ -580,6 +605,9 @@ ${memoriesSection}
 
 ## Interactive Elements (${pageState.interactiveElements.length} found)
 ${elementsText}
+
+  ## Allowed Answers (only type values from this list)
+  ${allowedValuesText}
 
 Choose your next action. Pick ONE action to perform.`;
 
@@ -650,6 +678,21 @@ Choose your next action. Pick ONE action to perform.`;
         if (meta.length > 0) parts.push(` (${meta.join(", ")})`);
 
         return parts.join("");
+      })
+      .join("\n");
+  }
+
+  private formatAllowedValues(): string {
+    if (this.allowedAnswers.length === 0) {
+      return "No memories available; do not type anything.";
+    }
+
+    return this.memories
+      .map((m, i) => {
+        const label = m.question?.trim().length
+          ? m.question.trim()
+          : m.category;
+        return `${i + 1}. ${label}: ${m.answer}`;
       })
       .join("\n");
   }
