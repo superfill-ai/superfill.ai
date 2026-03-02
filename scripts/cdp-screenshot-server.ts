@@ -1,6 +1,17 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+// Minimal Bun serve typing to satisfy tsc without adding @types/bun
+type BunServe = (options: {
+  port: number;
+  fetch: (request: Request) => Promise<Response> | Response;
+  error?: (error: unknown) => Response;
+}) => { port: number };
+
+declare const Bun: {
+  serve: BunServe;
+};
+
 const PORT = Number(process.env.CDP_SAVER_PORT ?? 3002);
 const OUTPUT_DIR = process.env.CDP_SAVER_DIR ?? "development/cdp-runs";
 const CORS_HEADERS = {
@@ -60,7 +71,7 @@ async function saveScreenshot(payload: ScreenshotPayload): Promise<void> {
 
 Bun.serve({
   port: PORT,
-  fetch: async (request) => {
+  fetch: async (request: Request) => {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -94,7 +105,7 @@ Bun.serve({
       });
     }
   },
-  error(error) {
+  error(error: unknown) {
     console.error("CDP screenshot saver error", error);
     return new Response("Server error", { status: 500, headers: CORS_HEADERS });
   },
