@@ -32,6 +32,7 @@ export default defineConfig({
         "offscreen",
         "contextMenus",
         "debugger",
+        "downloads",
       ],
       host_permissions: [
         "https://api.openai.com/*",

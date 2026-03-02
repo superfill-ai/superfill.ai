@@ -130,7 +130,7 @@ export class CDPConnection {
   }
 
   /**
-   * Enable a CDP domain (e.g., "DOM", "Page", "Runtime", "Input").
+   * Enable a CDP domain (e.g., "DOM", "Page", "Runtime").
    */
   async enableDomain(domain: string): Promise<void> {
     await this.send(`${domain}.enable`);
@@ -152,12 +152,12 @@ export class CDPConnection {
    * Initialize all domains needed for the agent loop.
    */
   async initializeForAgentLoop(): Promise<void> {
+    // Note: Input and Overlay domains don't require enable/disable —
+    // they're available implicitly once the debugger is attached.
     await Promise.all([
       this.enableDomain("DOM"),
       this.enableDomain("Page"),
       this.enableDomain("Runtime"),
-      this.enableDomain("Input"),
-      this.enableDomain("Overlay"),
     ]);
 
     logger.info("CDP domains initialized for agent loop");
@@ -168,8 +168,6 @@ export class CDPConnection {
    */
   async cleanupDomains(): Promise<void> {
     await Promise.all([
-      this.disableDomain("Overlay"),
-      this.disableDomain("Input"),
       this.disableDomain("Runtime"),
       this.disableDomain("Page"),
       this.disableDomain("DOM"),

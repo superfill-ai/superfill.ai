@@ -1,5 +1,3 @@
-import { generateObject, type UserContent } from "ai";
-import { z } from "zod";
 import { delay } from "@/lib/delay";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
@@ -14,6 +12,8 @@ import type {
   CDPPageState,
 } from "@/types/cdp";
 import type { MemoryEntry } from "@/types/memory";
+import { generateObject, type UserContent } from "ai";
+import { z } from "zod";
 import { executeAction } from "../cdp/cdp-action-executor";
 import type { CDPConnection } from "../cdp/cdp-connection";
 import { extractInteractiveElements } from "../cdp/cdp-dom-extractor";
@@ -21,6 +21,10 @@ import {
   captureAnnotatedScreenshot,
   captureScreenshot,
 } from "../cdp/cdp-screenshot";
+import {
+  createRunId,
+  saveScreenshotLocally,
+} from "../cdp/cdp-screenshot-saver";
 
 const logger = createLogger("cdp-agent");
 
@@ -101,6 +105,7 @@ export class CDPAgent {
   private aborted = false;
   private onProgress?: (progress: CDPAgentProgress) => void;
   private task: string;
+  private runId: string;
 
   constructor(params: {
     connection: CDPConnection;
@@ -120,6 +125,8 @@ export class CDPAgent {
     this.modelName = params.modelName;
     this.task = params.task;
     this.onProgress = params.onProgress;
+    this.runId = createRunId();
+    logger.info(`Agent run initialized with ID: ${this.runId}`);
   }
 
   abort(): void {
@@ -290,6 +297,52 @@ export class CDPAgent {
     const systemPrompt = this.buildSystemPrompt();
     const messages = this.buildMessages(pageState);
 
+    // Log image details and save locally
+    if (pageState.screenshot && this.config.useVision) {
+      const imageSizeKB = Math.round(
+        (pageState.screenshot.length * 3) / 4 / 1024,
+      );
+      logger.info(
+        `[Run ${this.runId}][Step ${pageState.stepNumber}] Sending screenshot to AI`,
+        {
+          step: pageState.stepNumber,
+          imageSizeKB,
+          annotated: this.config.annotateScreenshots,
+          url: pageState.url,
+          viewport: pageState.viewport,
+          elementCount: pageState.interactiveElements.length,
+          hasMoreContentBelow: pageState.hasMoreContentBelow,
+        },
+      );
+
+      // Save screenshot locally for debugging
+      saveScreenshotLocally(
+        this.runId,
+        pageState.stepNumber,
+        pageState.screenshot,
+        {
+          url: pageState.url,
+          elementCount: pageState.interactiveElements.length,
+        },
+      );
+    } else {
+      logger.info(
+        `[Step ${pageState.stepNumber}] No screenshot (vision disabled)`,
+      );
+    }
+
+    logger.info(
+      `[Run ${this.runId}][Step ${pageState.stepNumber}] Calling generateObject`,
+      {
+        provider: this.provider,
+        model: this.modelName,
+        messageCount: messages.length,
+        elementCount: pageState.interactiveElements.length,
+        previousSteps: this.steps.length,
+      },
+    );
+
+    const callStart = performance.now();
     const result = await generateObject({
       model,
       schema: CDPAgentActionSchema,
@@ -312,6 +365,16 @@ export class CDPAgent {
           }
         : {}),
     });
+    const callDuration = Math.round(performance.now() - callStart);
+
+    logger.info(
+      `[Run ${this.runId}][Step ${pageState.stepNumber}] generateObject completed in ${callDuration}ms`,
+      {
+        action: result.object,
+        durationMs: callDuration,
+        usage: result.usage,
+      },
+    );
 
     return result.object as CDPAgentAction;
   }

@@ -1,10 +1,10 @@
-import { defineProxyService } from "@webext-core/proxy-service";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import { aiSettings } from "@/lib/storage/ai-settings";
+import type { AutofillProgress } from "@/types/autofill";
 import type {
   CDPAgentConfig,
   CDPAgentProgress,
@@ -12,6 +12,7 @@ import type {
 } from "@/types/cdp";
 import { DEFAULT_CDP_AGENT_CONFIG } from "@/types/cdp";
 import type { AISettings } from "@/types/settings";
+import { defineProxyService } from "@webext-core/proxy-service";
 import { CDPAgent } from "../ai/cdp-agent";
 import { contentAutofillMessaging } from "../autofill/content-autofill-messaging";
 import { CDPConnection } from "./cdp-connection";
@@ -234,15 +235,32 @@ class CDPAutofillService {
   }
 
   private sendProgress(tabId: number, progress: CDPAgentProgress): void {
+    const stateMap: Record<
+      CDPAgentProgress["state"],
+      AutofillProgress["state"]
+    > = {
+      connecting: "detecting",
+      capturing: "analyzing",
+      thinking: "matching",
+      acting: "filling",
+      waiting: "filling",
+      completed: "completed",
+      failed: "failed",
+      disconnected: "failed",
+    };
+
+    const mappedState = stateMap[progress.state];
+
     try {
       contentAutofillMessaging
         .sendMessage(
           "updateProgress",
           {
-            state: "matching" as const,
+            state: mappedState,
             message: `[CDP Agent] ${progress.message}`,
-            fieldsDetected: progress.stepNumber,
-            fieldsMatched: progress.maxSteps,
+            // Leave fields undefined so the UI shows the message text instead of a bogus count
+            fieldsDetected: undefined,
+            fieldsMatched: undefined,
           },
           tabId,
         )
