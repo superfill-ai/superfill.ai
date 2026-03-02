@@ -1,3 +1,5 @@
+import { generateObject, type UserContent } from "ai";
+import { z } from "zod";
 import { delay } from "@/lib/delay";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
@@ -12,8 +14,6 @@ import type {
   CDPPageState,
 } from "@/types/cdp";
 import type { MemoryEntry } from "@/types/memory";
-import { generateObject, type UserContent } from "ai";
-import { z } from "zod";
 import { executeAction } from "../cdp/cdp-action-executor";
 import type { CDPConnection } from "../cdp/cdp-connection";
 import { extractInteractiveElements } from "../cdp/cdp-dom-extractor";
