@@ -1,3 +1,4 @@
+import { defineProxyService } from "@webext-core/proxy-service";
 import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "@/lib/errors";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -12,7 +13,6 @@ import type {
 } from "@/types/cdp";
 import { DEFAULT_CDP_AGENT_CONFIG } from "@/types/cdp";
 import type { AISettings } from "@/types/settings";
-import { defineProxyService } from "@webext-core/proxy-service";
 import { CDPAgent } from "../ai/cdp-agent";
 import { contentAutofillMessaging } from "../autofill/content-autofill-messaging";
 import { CDPConnection } from "./cdp-connection";
