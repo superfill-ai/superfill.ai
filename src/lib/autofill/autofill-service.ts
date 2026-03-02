@@ -114,15 +114,9 @@ class AutofillService {
 
       // Try CDP path (Chrome/Edge) — falls back to DOM path (Firefox, or if CDP fails)
       if (isCDPSupported()) {
-        try {
-          const cdpResult = await this.runCDPAutofill(tabId, sessionId);
-          if (cdpResult) return cdpResult;
-        } catch (cdpError) {
-          logger.warn(
-            "CDP autofill failed, falling back to DOM path:",
-            cdpError,
-          );
-        }
+        const cdpResult = await this.runCDPAutofill(tabId, sessionId);
+        if (cdpResult) return cdpResult;
+        throw new Error("No forms detected on this page");
       }
 
       const requestId = `autofill-${sessionId}-${Date.now()}`;
@@ -329,7 +323,7 @@ class AutofillService {
       const cdpFields = await detectFormFields(tabId);
 
       if (cdpFields.length === 0) {
-        logger.info("CDP detected no fields, falling back to DOM");
+        logger.info("CDP detected no fields");
         return null;
       }
 
@@ -638,8 +632,8 @@ class AutofillService {
     }));
 
     // Build synthetic form snapshots for the preview UI
-    const syntheticFields: DetectedFieldSnapshot[] = fields.map((f, index) => ({
-      opid: `__${index}` as unknown as FieldOpId,
+    const syntheticFields: DetectedFieldSnapshot[] = fields.map((f) => ({
+      opid: f.opid as unknown as FieldOpId,
       formOpid: "__form__cdp" as unknown as FormOpId,
       highlightIndex: f.highlightIndex,
       frameId: undefined,

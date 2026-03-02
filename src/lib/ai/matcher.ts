@@ -75,6 +75,7 @@ export class AIMatcher {
 
     if (memories.length === 0) {
       logger.info("No memories available for matching");
+
       return fields.map((field) =>
         createEmptyMapping<CompressedFieldData, FieldMapping>(
           field,
@@ -96,9 +97,11 @@ export class AIMatcher {
         );
         const mappings = this.convertAIResultsToMappings(cloudResults, fields);
         const elapsed = performance.now() - startTime;
+
         logger.debug(
           `Cloud AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
         );
+
         return mappings;
       }
 
@@ -116,8 +119,8 @@ export class AIMatcher {
         domContext,
       );
       const mappings = this.convertAIResultsToMappings(aiResults, fields);
-
       const elapsed = performance.now() - startTime;
+
       logger.info(
         `AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
@@ -195,7 +198,6 @@ export class AIMatcher {
   ): Promise<AIBatchMatchResult> {
     try {
       const model = getAIModel(provider, apiKey, modelName);
-
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(
         fields,
