@@ -449,9 +449,6 @@ class AutofillService {
         logger.error("Failed to send CDP preview payload:", previewError);
       }
 
-      // Store CDP mappings for later fill via cdpFillConfirmed
-      this.pendingCDPFill = { tabId, fields: limitedFields, mappings };
-
       return {
         success: true,
         fieldsDetected: cdpFields.length,
@@ -465,34 +462,26 @@ class AutofillService {
     }
   }
 
-  private pendingCDPFill: {
-    tabId: number;
-    fields: CDPDetectedField[];
-    mappings: FieldMapping[];
-  } | null = null;
-
   async executeCDPFill(
-    fieldsToFill: Array<{ fieldOpid: string; value: string }>,
+    tabId: number,
+    fieldsToFill: Array<{
+      fieldOpid: string;
+      value: string;
+      cdpField?: CDPDetectedField;
+    }>,
   ): Promise<void> {
-    if (!this.pendingCDPFill) {
-      logger.warn("No pending CDP fill data");
+    const cdpMappings: CDPFieldMapping[] = fieldsToFill
+      .filter((item) => item.cdpField != null)
+      .map((item) => ({
+        field: item.cdpField!,
+        value: item.value,
+        confidence: 1,
+      }));
+
+    if (cdpMappings.length === 0) {
+      logger.warn("executeCDPFill: no CDP fields provided in fill payload");
       return;
     }
-
-    const { tabId, fields } = this.pendingCDPFill;
-    this.pendingCDPFill = null;
-
-    const fieldMap = new Map(fields.map((f) => [f.opid, f]));
-    const cdpMappings: CDPFieldMapping[] = [];
-
-    for (const item of fieldsToFill) {
-      const field = fieldMap.get(item.fieldOpid);
-      if (field) {
-        cdpMappings.push({ field, value: item.value, confidence: 1 });
-      }
-    }
-
-    if (cdpMappings.length === 0) return;
 
     try {
       await attachToTab(tabId);
@@ -677,6 +666,7 @@ class AutofillService {
       forms: [syntheticForm],
       mappings: mappingsWithThreshold,
       sessionId,
+      cdpFields: fields,
     };
   }
 

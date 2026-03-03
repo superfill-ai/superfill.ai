@@ -78,20 +78,81 @@ async function fillTextField(
   backendNodeId: number,
   value: string,
 ): Promise<void> {
+  const wasSetViaRuntime = await setNodeValueViaRuntime(
+    tabId,
+    backendNodeId,
+    value,
+  );
+
+  if (wasSetViaRuntime) {
+    return;
+  }
+
   await focusNode(tabId, backendNodeId);
   await selectAll(tabId);
   await dispatchKey(tabId, "Backspace", "Backspace");
 
   for (const char of value) {
-    await dispatchKey(tabId, char, char, "keyDown");
     await sendCommand(tabId, "Input.dispatchKeyEvent", {
       type: "char",
       text: char,
     });
-    await dispatchKey(tabId, char, char, "keyUp");
     await delay(
       TYPING_DELAY_MIN + Math.random() * (TYPING_DELAY_MAX - TYPING_DELAY_MIN),
     );
+  }
+}
+
+async function setNodeValueViaRuntime(
+  tabId: number,
+  backendNodeId: number,
+  value: string,
+): Promise<boolean> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+
+    if (!resolved?.object?.objectId) {
+      return false;
+    }
+
+    const result = await sendCommand<{ result: { value?: boolean } }>(
+      tabId,
+      "Runtime.callFunctionOn",
+      {
+        objectId: resolved.object.objectId,
+        functionDeclaration: `function(nextValue) {
+          const el = this;
+          if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+            return false;
+          }
+
+          const prototype = el instanceof HTMLTextAreaElement
+            ? HTMLTextAreaElement.prototype
+            : HTMLInputElement.prototype;
+
+          const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+          if (nativeSetter) {
+            nativeSetter.call(el, nextValue);
+          } else {
+            el.value = nextValue;
+          }
+
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        }`,
+        arguments: [{ value }],
+        returnByValue: true,
+      },
+    );
+
+    return result?.result?.value === true;
+  } catch {
+    return false;
   }
 }
 
@@ -246,13 +307,13 @@ async function selectAll(tabId: number): Promise<void> {
     type: "keyDown",
     key: "a",
     code: "KeyA",
-    modifiers: 2, // Ctrl/Cmd
+    modifiers: 4, // Meta (Cmd on macOS)
   });
   await sendCommand(tabId, "Input.dispatchKeyEvent", {
     type: "keyUp",
     key: "a",
     code: "KeyA",
-    modifiers: 2,
+    modifiers: 4,
   });
 }
 
@@ -266,7 +327,6 @@ async function dispatchKey(
     type,
     key,
     code,
-    text: type === "keyDown" ? key : undefined,
   });
 
   if (type === "keyDown") {

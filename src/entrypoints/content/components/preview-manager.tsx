@@ -11,6 +11,7 @@ import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
   AutofillProgress,
+  CDPDetectedField,
   DetectedField,
   DetectedFieldSnapshot,
   DetectedForm,
@@ -129,6 +130,7 @@ export class PreviewSidebarManager {
   private reactRoot: Root | null = null;
   private highlightedElement: HTMLElement | null = null;
   private mappingLookup: Map<string, FieldMapping> = new Map();
+  private cdpFieldLookup: Map<string, CDPDetectedField> = new Map();
   private sessionId: string | null = null;
   private currentMode: "loading" | "preview" = "loading";
   private currentProgress: AutofillProgress | null = null;
@@ -146,6 +148,9 @@ export class PreviewSidebarManager {
     }
 
     this.sessionId = payload.sessionId;
+    this.cdpFieldLookup = new Map(
+      payload.cdpFields?.map((f) => [f.opid, f]) ?? [],
+    );
     this.currentMode = "preview";
     this.currentData = renderData;
 
@@ -265,6 +270,7 @@ export class PreviewSidebarManager {
     }
 
     this.mappingLookup.clear();
+    this.cdpFieldLookup.clear();
   }
 
   private async handleFill(
@@ -279,7 +285,10 @@ export class PreviewSidebarManager {
 
       if (frameInfo.isMainFrame) {
         await contentAutofillMessaging.sendMessage("broadcastFillToAllFrames", {
-          fieldsToFill,
+          fieldsToFill: fieldsToFill.map((f) => ({
+            ...f,
+            cdpField: this.cdpFieldLookup.get(f.fieldOpid) ?? undefined,
+          })),
         });
       } else {
         await fillFields(fieldsToFill, frameInfo, {

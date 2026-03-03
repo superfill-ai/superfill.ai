@@ -188,6 +188,7 @@ export interface PreviewSidebarPayload {
   mappings: FieldMapping[];
   processingTime?: number;
   sessionId: string;
+  cdpFields?: CDPDetectedField[];
 }
 
 export type AutofillProgressState =
@@ -259,6 +260,7 @@ export type FieldsToFillData = Array<{
   fieldOpid: FieldOpId;
   value: string;
   confidence?: number;
+  cdpField?: CDPDetectedField;
 }>;
 
 // --- CDP (Chrome DevTools Protocol) types ---

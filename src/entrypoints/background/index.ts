@@ -193,9 +193,11 @@ export default defineBackground({
           try {
             const autofillService = getAutofillService();
             await autofillService.executeCDPFill(
+              tabId,
               cdpFields.map((f) => ({
                 fieldOpid: f.fieldOpid,
                 value: f.value,
+                cdpField: f.cdpField,
               })),
             );
           } catch (error) {
