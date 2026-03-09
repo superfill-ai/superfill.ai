@@ -6,7 +6,9 @@ export type TrackableFieldType = (typeof TRACKABLE_FIELD_TYPES)[number];
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;
 };
-export type FieldOpId = `__${number}` & { readonly __brand: unique symbol };
+export type FieldOpId = (`__${number}` | `cdp-${string}`) & {
+  readonly __brand: unique symbol;
+};
 
 export type DetectFormsResult =
   | {
@@ -292,6 +294,24 @@ export type CDPFieldRole =
   | "menuitemradio"
   | "textarea";
 
+export interface CDPDOMMetadata {
+  tagName: string;
+  inputType: string | null;
+  placeholder: string | null;
+  autocomplete: string | null;
+  htmlName: string | null;
+  htmlId: string | null;
+  labelText: string | null;
+  ariaDescribedByText: string | null;
+  helperText: string | null;
+  maxLength: number | null;
+  formAction: string | null;
+  formName: string | null;
+  isVisible: boolean;
+  isContentEditable: boolean;
+  cssSelector: string | null;
+}
+
 export interface CDPDetectedField {
   opid: string;
   highlightIndex: number;
@@ -307,6 +327,7 @@ export interface CDPDetectedField {
   rect: CDPRect;
   /** For radio groups: the child radio options */
   radioOptions?: CDPRadioOption[];
+  domMetadata?: CDPDOMMetadata;
 }
 
 export interface CDPRadioOption {

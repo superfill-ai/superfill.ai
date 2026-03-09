@@ -35,6 +35,7 @@ import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
 import { aiSettings } from "../storage/ai-settings";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
+import { inferFieldPurpose } from "./field-purpose";
 import { isCrypticString } from "./field-quality";
 import { createEmptyMapping } from "./mapping-utils";
 
@@ -112,11 +113,10 @@ class AutofillService {
       sessionId = session.id;
       logger.info("Started autofill session:", sessionId);
 
-      // Try CDP path (Chrome/Edge) — falls back to DOM path (Firefox, or if CDP fails)
+      // Try CDP path (Chrome/Edge) — falls back to DOM path if CDP finds nothing
       if (isCDPSupported()) {
         const cdpResult = await this.runCDPAutofill(tabId, sessionId);
         if (cdpResult) return cdpResult;
-        throw new Error("No forms detected on this page");
       }
 
       const requestId = `autofill-${sessionId}-${Date.now()}`;
@@ -471,9 +471,12 @@ class AutofillService {
     }>,
   ): Promise<void> {
     const cdpMappings: CDPFieldMapping[] = fieldsToFill
-      .filter((item) => item.cdpField != null)
+      .filter(
+        (item): item is typeof item & { cdpField: CDPDetectedField } =>
+          item.cdpField != null,
+      )
       .map((item) => ({
-        field: item.cdpField!,
+        field: item.cdpField,
         value: item.value,
         confidence: 1,
       }));
@@ -506,19 +509,55 @@ class AutofillService {
       slider: "number",
     };
 
-    const type = roleToFieldType[field.role] ?? "text";
+    const dm = field.domMetadata;
 
-    const labels = [field.name, field.description].filter(
-      (s) => s && s.length > 0,
+    let type = roleToFieldType[field.role] ?? "text";
+    if (dm?.inputType) {
+      const inputTypeMap: Record<string, CompressedFieldData["type"]> = {
+        email: "email",
+        tel: "tel",
+        url: "url",
+        number: "number",
+        date: "date",
+      };
+      type = inputTypeMap[dm.inputType] ?? type;
+    }
+
+    const labelSources = [
+      field.name,
+      dm?.labelText,
+      field.description,
+      dm?.ariaDescribedByText,
+    ];
+    const labels = Array.from(
+      new Set(labelSources.filter((s): s is string => !!s && s.length > 0)),
     );
+
+    const contextParts = [dm?.placeholder, dm?.helperText, field.description];
+    if (dm?.htmlName && !isCrypticString(dm.htmlName)) {
+      contextParts.push(dm.htmlName);
+    }
+    if (dm?.htmlId && !isCrypticString(dm.htmlId)) {
+      contextParts.push(dm.htmlId);
+    }
+    const context = contextParts.filter(Boolean).join(" ");
+
+    const purpose = inferFieldPurpose({
+      fieldType: type,
+      autocomplete: dm?.autocomplete ?? null,
+      labels: [field.name, dm?.labelText, field.description],
+      placeholder: dm?.placeholder ?? null,
+      htmlName: dm?.htmlName ?? null,
+      htmlId: dm?.htmlId ?? null,
+    });
 
     return {
       opid: field.opid,
       highlightIndex: field.highlightIndex,
       type,
-      purpose: "unknown",
+      purpose,
       labels,
-      context: field.description || "",
+      context,
       ...(field.options?.length
         ? {
             options: field.options.map((o) => ({
@@ -620,42 +659,58 @@ class AutofillService {
         mapping.value !== null && mapping.confidence >= confidenceThreshold,
     }));
 
-    // Build synthetic form snapshots for the preview UI
-    const syntheticFields: DetectedFieldSnapshot[] = fields.map((f) => ({
-      opid: f.opid as unknown as FieldOpId,
-      formOpid: "__form__cdp" as unknown as FormOpId,
-      highlightIndex: f.highlightIndex,
-      frameId: undefined,
-      metadata: {
-        id: f.opid,
-        name: f.name,
-        className: null,
-        type: f.role,
-        labelTag: f.name,
-        labelData: null,
-        labelAria: f.name,
-        labelLeft: null,
-        labelTop: null,
-        placeholder: null,
-        helperText: f.description || null,
-        autocomplete: null,
-        required: f.required,
-        disabled: f.disabled,
-        readonly: false,
-        maxLength: null,
-        rect: f.rect,
-        currentValue: f.value,
-        fieldType: this.compressCDPField(f).type as CompressedFieldData["type"],
-        fieldPurpose: "unknown" as const,
-        isVisible: true,
-        isTopElement: true,
-        isInteractive: true,
-        options: f.options?.map((o) => ({ value: o.value, label: o.label })),
-      },
-    }));
+    const isPlaceholderName = (s: string | null | undefined): boolean => {
+      if (!s) return true;
+      return /^(select|choose|pick|enter|type|search|find|none|--|—)\b/i.test(
+        s.trim(),
+      );
+    };
+
+    const syntheticFields: DetectedFieldSnapshot[] = fields.map((f) => {
+      const dm = f.domMetadata;
+      const compressed = this.compressCDPField(f);
+
+      const axName = isPlaceholderName(f.name) ? null : f.name;
+
+      return {
+        opid: f.opid as FieldOpId,
+        formOpid: "__form__cdp" as FormOpId,
+        highlightIndex: f.highlightIndex,
+        frameId: undefined,
+        metadata: {
+          id: dm?.htmlId ?? f.opid,
+          name: dm?.htmlName ?? (axName || f.name),
+          className: null,
+          type: dm?.inputType ?? f.role,
+          labelTag: dm?.labelText ?? axName ?? null,
+          labelData: null,
+          labelAria: axName || null,
+          labelLeft: null,
+          labelTop: null,
+          placeholder: dm?.placeholder ?? null,
+          helperText:
+            dm?.helperText ??
+            dm?.ariaDescribedByText ??
+            (f.description || null),
+          autocomplete: dm?.autocomplete ?? null,
+          required: f.required,
+          disabled: f.disabled,
+          readonly: false,
+          maxLength: dm?.maxLength ?? null,
+          rect: f.rect,
+          currentValue: f.value,
+          fieldType: compressed.type as CompressedFieldData["type"],
+          fieldPurpose: compressed.purpose,
+          isVisible: true,
+          isTopElement: true,
+          isInteractive: true,
+          options: f.options?.map((o) => ({ value: o.value, label: o.label })),
+        },
+      };
+    });
 
     const syntheticForm: DetectedFormSnapshot = {
-      opid: "__form__cdp" as unknown as FormOpId,
+      opid: "__form__cdp" as FormOpId,
       action: "",
       method: "",
       name: "CDP-detected form",

@@ -41,6 +41,11 @@ async function fillField(
 ): Promise<void> {
   const { role } = field;
 
+  if (field.domMetadata?.isContentEditable) {
+    await fillContentEditable(tabId, field.backendNodeId, value);
+    return;
+  }
+
   switch (role) {
     case "textbox":
     case "searchbox":
@@ -134,9 +139,9 @@ async function setNodeValueViaRuntime(
             ? HTMLTextAreaElement.prototype
             : HTMLInputElement.prototype;
 
-          const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-          if (nativeSetter) {
-            nativeSetter.call(el, nextValue);
+          const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value');
+          if (nativeSetter?.set) {
+            nativeSetter.set.call(el, nextValue);
           } else {
             el.value = nextValue;
           }
@@ -156,6 +161,35 @@ async function setNodeValueViaRuntime(
   }
 }
 
+async function fillContentEditable(
+  tabId: number,
+  backendNodeId: number,
+  value: string,
+): Promise<void> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+
+    if (!resolved?.object?.objectId) return;
+
+    await sendCommand(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function(nextValue) {
+        this.focus();
+        this.textContent = nextValue;
+        this.dispatchEvent(new Event('input', { bubbles: true }));
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }`,
+      arguments: [{ value }],
+    });
+  } catch (error) {
+    logger.error(`Failed to fill contenteditable ${backendNodeId}:`, error);
+  }
+}
+
 async function fillCheckbox(
   tabId: number,
   field: CDPDetectedField,
@@ -169,7 +203,7 @@ async function fillCheckbox(
     return;
   }
 
-  await clickCenter(tabId, field.rect);
+  await clickNodeDirect(tabId, field.backendNodeId);
 }
 
 async function fillRadioGroup(
@@ -182,7 +216,6 @@ async function fillRadioGroup(
     return;
   }
 
-  // Find matching radio by value or label (case-insensitive)
   const valueLower = value.toLowerCase();
   const target = field.radioOptions.find(
     (opt) =>
@@ -202,7 +235,37 @@ async function fillRadioGroup(
     return;
   }
 
-  await clickCenter(tabId, target.rect);
+  await clickNodeDirect(tabId, target.backendNodeId);
+}
+
+async function clickNodeDirect(
+  tabId: number,
+  backendNodeId: number,
+): Promise<void> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+
+    if (!resolved?.object?.objectId) {
+      logger.warn(`Could not resolve node ${backendNodeId} for direct click`);
+      return;
+    }
+
+    await sendCommand(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function() {
+        this.scrollIntoView({ block: 'center', behavior: 'instant' });
+        this.focus();
+        this.click();
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }`,
+    });
+  } catch (error) {
+    logger.error(`Direct click failed for node ${backendNodeId}:`, error);
+  }
 }
 
 async function fillSelectLike(
@@ -210,49 +273,122 @@ async function fillSelectLike(
   field: CDPDetectedField,
   value: string,
 ): Promise<void> {
-  // Try native <select> approach first via Runtime.callFunctionOn
+  if (await tryNativeSelect(tabId, field.backendNodeId, value)) return;
+
+  if (await tryAriaControlledOption(tabId, field.backendNodeId, value)) return;
+
+  await fillCustomCombobox(tabId, field, value);
+}
+
+async function tryNativeSelect(
+  tabId: number,
+  backendNodeId: number,
+  value: string,
+): Promise<boolean> {
   try {
     const resolved = await sendCommand<{ object: { objectId: string } }>(
       tabId,
       "DOM.resolveNode",
-      { backendNodeId: field.backendNodeId },
+      { backendNodeId },
     );
 
-    if (resolved?.object?.objectId) {
-      const result = await sendCommand<{
-        result: { type: string; value: boolean };
-      }>(tabId, "Runtime.callFunctionOn", {
-        objectId: resolved.object.objectId,
-        functionDeclaration: `function(targetValue) {
-          const el = this;
-          if (el.tagName === 'SELECT') {
-            const option = Array.from(el.options).find(
-              o => o.value === targetValue || o.textContent.trim().toLowerCase() === targetValue.toLowerCase()
-            );
-            if (option) {
-              el.value = option.value;
-              el.dispatchEvent(new Event('change', { bubbles: true }));
-              el.dispatchEvent(new Event('input', { bubbles: true }));
-              return true;
+    if (!resolved?.object?.objectId) return false;
+
+    const result = await sendCommand<{
+      result: { type: string; value: boolean };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function(targetValue) {
+        const el = this;
+        if (el.tagName !== 'SELECT') return false;
+        const tl = targetValue.toLowerCase();
+        const option = Array.from(el.options).find(o =>
+          o.value === targetValue
+          || o.value.toLowerCase() === tl
+          || o.textContent.trim().toLowerCase() === tl
+        );
+        if (!option) return false;
+        el.value = option.value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      }`,
+      arguments: [{ value }],
+      returnByValue: true,
+    });
+
+    return result?.result?.value === true;
+  } catch {
+    return false;
+  }
+}
+
+async function tryAriaControlledOption(
+  tabId: number,
+  backendNodeId: number,
+  value: string,
+): Promise<boolean> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+
+    if (!resolved?.object?.objectId) return false;
+
+    const result = await sendCommand<{
+      result: { type: string; value: string };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function(targetValue) {
+        const el = this;
+        const listboxId = el.getAttribute('aria-owns') || el.getAttribute('aria-controls');
+        if (!listboxId) return JSON.stringify({ found: false });
+        const tl = targetValue.toLowerCase();
+        for (const id of listboxId.split(/\\s+/)) {
+          const listbox = document.getElementById(id);
+          if (!listbox) continue;
+          const opts = listbox.querySelectorAll('[role="option"], li[data-value], li');
+          for (const opt of opts) {
+            const optValue = opt.getAttribute('data-value') || opt.getAttribute('value') || opt.textContent.trim();
+            if (optValue.toLowerCase() === tl || opt.textContent.trim().toLowerCase() === tl) {
+              const rect = opt.getBoundingClientRect();
+              return JSON.stringify({ found: true, x: rect.x, y: rect.y, width: rect.width, height: rect.height });
             }
           }
-          return false;
-        }`,
-        arguments: [{ value }],
-        returnByValue: true,
-      });
+        }
+        return JSON.stringify({ found: false });
+      }`,
+      arguments: [{ value }],
+      returnByValue: true,
+    });
 
-      if (result?.result?.value === true) return;
-    }
+    if (!result?.result?.value) return false;
+    const parsed = JSON.parse(result.result.value);
+    if (!parsed.found) return false;
+
+    await clickCenter(tabId, parsed as CDPRect);
+    return true;
   } catch {
-    // Fall through to click-based approach
+    return false;
   }
+}
 
-  // Click-based fallback for custom combobox/listbox
+async function fillCustomCombobox(
+  tabId: number,
+  field: CDPDetectedField,
+  value: string,
+): Promise<void> {
   await clickCenter(tabId, field.rect);
   await delay(300);
 
-  // Type value to filter/search in combo
+  await focusNode(tabId, field.backendNodeId);
+
+  await selectAll(tabId);
+  await dispatchKey(tabId, "Backspace", "Backspace");
+  await delay(50);
+
   for (const char of value) {
     await sendCommand(tabId, "Input.dispatchKeyEvent", {
       type: "char",
@@ -260,9 +396,8 @@ async function fillSelectLike(
     });
     await delay(50);
   }
-  await delay(200);
+  await delay(400);
 
-  // Press Enter to confirm
   await dispatchKey(tabId, "Enter", "Enter");
 }
 
@@ -284,8 +419,8 @@ async function fillSlider(
         functionDeclaration: `function(v) {
           const nativeSetter = Object.getOwnPropertyDescriptor(
             HTMLInputElement.prototype, 'value'
-          )?.set;
-          if (nativeSetter) nativeSetter.call(this, v);
+          );
+          if (nativeSetter?.set) nativeSetter.set.call(this, v);
           else this.value = v;
           this.dispatchEvent(new Event('input', { bubbles: true }));
           this.dispatchEvent(new Event('change', { bubbles: true }));
@@ -307,7 +442,7 @@ async function selectAll(tabId: number): Promise<void> {
     type: "keyDown",
     key: "a",
     code: "KeyA",
-    modifiers: 4, // Meta (Cmd on macOS)
+    modifiers: 4,
   });
   await sendCommand(tabId, "Input.dispatchKeyEvent", {
     type: "keyUp",

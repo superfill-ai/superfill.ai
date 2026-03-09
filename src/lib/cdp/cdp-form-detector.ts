@@ -1,6 +1,7 @@
 import { createLogger } from "@/lib/logger";
 import type {
   CDPDetectedField,
+  CDPDOMMetadata,
   CDPFieldOption,
   CDPFieldRole,
   CDPRadioOption,
@@ -26,6 +27,8 @@ const INTERACTIVE_ROLES = new Set<string>([
   "textarea",
 ]);
 
+const ROW_THRESHOLD_PX = 10;
+
 interface AXNode {
   nodeId: string;
   backendDOMNodeId?: number;
@@ -35,6 +38,7 @@ interface AXNode {
   value?: { type: string; value: string | number | boolean };
   properties?: AXProperty[];
   childIds?: string[];
+  parentId?: string;
   ignored?: boolean;
 }
 
@@ -93,7 +97,7 @@ export async function detectFormFields(
   }
 
   const fields: CDPDetectedField[] = [];
-  let highlightIndex = 0;
+  const orphanRadios: AXNode[] = [];
 
   for (const node of axTree.nodes) {
     if (node.ignored) continue;
@@ -104,39 +108,182 @@ export async function detectFormFields(
     const disabled = getPropertyBool(node, "disabled");
     if (disabled) continue;
 
-    // Skip individual radio buttons — they'll be grouped under radiogroup
-    if (role === "radio") continue;
-
-    if (role === "radiogroup") {
-      const field = await buildRadioGroupField(
-        tabId,
-        node,
-        nodeMap,
-        highlightIndex,
-      );
-      if (field) {
-        fields.push(field);
-        highlightIndex++;
+    if (role === "radio") {
+      if (!hasRadioGroupParent(node, nodeMap)) {
+        orphanRadios.push(node);
       }
       continue;
     }
 
-    const field = await buildField(tabId, node, role, highlightIndex);
-    if (field) {
-      fields.push(field);
-      highlightIndex++;
+    if (role === "radiogroup") {
+      const field = await buildRadioGroupField(tabId, node, nodeMap);
+      if (field) fields.push(field);
+      continue;
+    }
+
+    const field = await buildField(tabId, node, role);
+    if (field) fields.push(field);
+  }
+
+  if (orphanRadios.length > 0) {
+    const grouped = await groupOrphanRadios(tabId, orphanRadios, nodeMap);
+    fields.push(...grouped);
+  }
+
+  const enrichedFields = await enrichAllFields(tabId, fields);
+
+  const visibleFields = enrichedFields.filter((f) => {
+    if (f.domMetadata && !f.domMetadata.isVisible) return false;
+    if (f.domMetadata?.inputType === "password") return false;
+    if (f.domMetadata?.inputType === "hidden") return false;
+    return true;
+  });
+
+  visibleFields.sort((a, b) => {
+    const yDiff = a.rect.y - b.rect.y;
+    if (Math.abs(yDiff) < ROW_THRESHOLD_PX) {
+      return a.rect.x - b.rect.x;
+    }
+    return yDiff;
+  });
+
+  for (let i = 0; i < visibleFields.length; i++) {
+    visibleFields[i].highlightIndex = i;
+  }
+
+  logger.info(
+    `Detected ${visibleFields.length} interactive fields via AX tree (from ${fields.length} raw)`,
+  );
+  return visibleFields;
+}
+
+function hasRadioGroupParent(
+  node: AXNode,
+  nodeMap: Map<string, AXNode>,
+): boolean {
+  if (!node.parentId) return false;
+  const parent = nodeMap.get(node.parentId);
+  return parent?.role?.value === "radiogroup";
+}
+
+async function groupOrphanRadios(
+  tabId: number,
+  radios: AXNode[],
+  nodeMap: Map<string, AXNode>,
+): Promise<CDPDetectedField[]> {
+  const nameGroups = new Map<string, AXNode[]>();
+
+  for (const radio of radios) {
+    if (!radio.backendDOMNodeId) continue;
+    const htmlName = await getNodeAttribute(
+      tabId,
+      radio.backendDOMNodeId,
+      "name",
+    );
+    const key = htmlName || `__unnamed_${radio.nodeId}`;
+    const group = nameGroups.get(key) ?? [];
+    group.push(radio);
+    nameGroups.set(key, group);
+  }
+
+  const fields: CDPDetectedField[] = [];
+  for (const [, group] of nameGroups) {
+    if (group.length < 2) continue;
+    const field = await buildOrphanRadioGroup(tabId, group, nodeMap);
+    if (field) fields.push(field);
+  }
+  return fields;
+}
+
+async function getNodeAttribute(
+  tabId: number,
+  backendNodeId: number,
+  attr: string,
+): Promise<string | null> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+    if (!resolved?.object?.objectId) return null;
+
+    const result = await sendCommand<{
+      result: { type: string; value: string };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function(a) { return this.getAttribute(a) || ''; }`,
+      arguments: [{ value: attr }],
+      returnByValue: true,
+    });
+    return result?.result?.value || null;
+  } catch {
+    return null;
+  }
+}
+
+async function buildOrphanRadioGroup(
+  tabId: number,
+  radioNodes: AXNode[],
+  _nodeMap: Map<string, AXNode>,
+): Promise<CDPDetectedField | null> {
+  const radioOptions: CDPRadioOption[] = [];
+  let groupRect: CDPRect | null = null;
+  let selectedValue = "";
+
+  for (const child of radioNodes) {
+    if (!child.backendDOMNodeId) continue;
+    const childRect = await getNodeRect(tabId, child.backendDOMNodeId);
+    if (!childRect) continue;
+
+    const checked = getPropertyBool(child, "checked");
+    const label = String(child.name?.value ?? "");
+    const value = await getRadioValue(tabId, child.backendDOMNodeId, label);
+
+    if (checked) selectedValue = value;
+
+    radioOptions.push({
+      backendNodeId: child.backendDOMNodeId,
+      label,
+      value,
+      checked,
+      rect: childRect,
+    });
+
+    if (!groupRect) {
+      groupRect = { ...childRect };
+    } else {
+      expandRect(groupRect, childRect);
     }
   }
 
-  logger.info(`Detected ${fields.length} interactive fields via AX tree`);
-  return fields;
+  if (radioOptions.length === 0) return null;
+
+  const groupName = radioNodes.find((n) => n.name?.value)?.name?.value ?? "";
+
+  const firstNodeId =
+    radioNodes[0].backendDOMNodeId ?? radioOptions[0].backendNodeId;
+
+  return {
+    opid: `cdp-orphan-rg-${firstNodeId}`,
+    highlightIndex: 0,
+    backendNodeId: firstNodeId,
+    role: "radiogroup",
+    name: String(groupName),
+    description: "",
+    value: selectedValue,
+    required: radioNodes.some((n) => getPropertyBool(n, "required")),
+    disabled: false,
+    options: radioOptions.map((r) => ({ value: r.value, label: r.label })),
+    rect: groupRect ?? { x: 0, y: 0, width: 0, height: 0 },
+    radioOptions,
+  };
 }
 
 async function buildField(
   tabId: number,
   node: AXNode,
   role: string,
-  highlightIndex: number,
 ): Promise<CDPDetectedField | null> {
   const backendNodeId = node.backendDOMNodeId;
   if (!backendNodeId) return null;
@@ -152,7 +299,7 @@ async function buildField(
 
   const field: CDPDetectedField = {
     opid: `cdp-${backendNodeId}`,
-    highlightIndex,
+    highlightIndex: 0,
     backendNodeId,
     role: role as CDPFieldRole,
     name: typeof name === "string" ? name : "",
@@ -178,7 +325,6 @@ async function buildRadioGroupField(
   tabId: number,
   groupNode: AXNode,
   nodeMap: Map<string, AXNode>,
-  highlightIndex: number,
 ): Promise<CDPDetectedField | null> {
   const backendNodeId = groupNode.backendDOMNodeId;
   const childIds = groupNode.childIds ?? [];
@@ -214,18 +360,7 @@ async function buildRadioGroupField(
     if (!groupRect) {
       groupRect = { ...childRect };
     } else {
-      const right = Math.max(
-        groupRect.x + groupRect.width,
-        childRect.x + childRect.width,
-      );
-      const bottom = Math.max(
-        groupRect.y + groupRect.height,
-        childRect.y + childRect.height,
-      );
-      groupRect.x = Math.min(groupRect.x, childRect.x);
-      groupRect.y = Math.min(groupRect.y, childRect.y);
-      groupRect.width = right - groupRect.x;
-      groupRect.height = bottom - groupRect.y;
+      expandRect(groupRect, childRect);
     }
   }
 
@@ -237,8 +372,8 @@ async function buildRadioGroupField(
   }));
 
   return {
-    opid: backendNodeId ? `cdp-${backendNodeId}` : `cdp-rg-${highlightIndex}`,
-    highlightIndex,
+    opid: backendNodeId ? `cdp-${backendNodeId}` : `cdp-rg-${groupNode.nodeId}`,
+    highlightIndex: 0,
     backendNodeId: backendNodeId ?? radioOptions[0].backendNodeId,
     role: "radiogroup",
     name: String(groupNode.name?.value ?? ""),
@@ -250,6 +385,338 @@ async function buildRadioGroupField(
     rect: groupRect ?? { x: 0, y: 0, width: 0, height: 0 },
     radioOptions,
   };
+}
+
+function expandRect(target: CDPRect, source: CDPRect): void {
+  const right = Math.max(target.x + target.width, source.x + source.width);
+  const bottom = Math.max(target.y + target.height, source.y + source.height);
+  target.x = Math.min(target.x, source.x);
+  target.y = Math.min(target.y, source.y);
+  target.width = right - target.x;
+  target.height = bottom - target.y;
+}
+
+async function enrichAllFields(
+  tabId: number,
+  fields: CDPDetectedField[],
+): Promise<CDPDetectedField[]> {
+  const enriched: CDPDetectedField[] = [];
+
+  for (const field of fields) {
+    const meta = await enrichFieldFromDOM(tabId, field.backendNodeId);
+    if (meta) {
+      field.domMetadata = meta;
+
+      if (meta.placeholder && !field.name) {
+        field.name = meta.placeholder;
+      }
+    }
+
+    if (field.role === "radiogroup" && field.radioOptions?.length) {
+      const groupLabel = await findRadioGroupLabel(
+        tabId,
+        field.radioOptions[0].backendNodeId,
+      );
+      if (groupLabel) {
+        field.name = groupLabel;
+        if (field.domMetadata) field.domMetadata.labelText = groupLabel;
+      }
+    }
+
+    enriched.push(field);
+  }
+
+  return enriched;
+}
+
+async function findRadioGroupLabel(
+  tabId: number,
+  firstRadioNodeId: number,
+): Promise<string | null> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId: firstRadioNodeId },
+    );
+    if (!resolved?.object?.objectId) return null;
+
+    const result = await sendCommand<{
+      result: { type: string; value: string };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function() {
+        const el = this;
+        const cleanText = (s) => {
+          if (!s) return null;
+          const c = s.replace(/[\\n\\r\\t]+/g, ' ').replace(/\\s+/g, ' ').trim();
+          return (c.length > 2 && c.length < 200) ? c : null;
+        };
+
+        // Check fieldset/legend pattern
+        const fieldset = el.closest('fieldset');
+        if (fieldset) {
+          const legend = fieldset.querySelector('legend');
+          if (legend) return cleanText(legend.textContent);
+        }
+
+        // Check [role="group"]/[role="radiogroup"] with aria-label/aria-labelledby
+        const group = el.closest('[role="group"], [role="radiogroup"]');
+        if (group) {
+          const ariaLabel = group.getAttribute('aria-label');
+          if (ariaLabel) return cleanText(ariaLabel);
+          const lblId = group.getAttribute('aria-labelledby');
+          if (lblId) {
+            const lblEl = document.getElementById(lblId);
+            if (lblEl) return cleanText(lblEl.textContent);
+          }
+        }
+
+        // Walk up to find a label/question container above the radio group
+        let container = el.parentElement;
+        let depth = 0;
+        while (container && depth < 6) {
+          const hasMultipleRadios = container.querySelectorAll('input[type="radio"]').length > 1;
+          if (hasMultipleRadios) {
+            const candidates = container.querySelectorAll(
+              'label, legend, [class*="label"], [class*="question"], [class*="title"], [class*="heading"]'
+            );
+            for (const c of candidates) {
+              if (c.querySelector('input[type="radio"]')) continue;
+              const txt = cleanText(c.textContent);
+              if (txt) return txt;
+            }
+            // Also check text above the radios via previous siblings
+            let prev = container.previousElementSibling;
+            let sibDepth = 0;
+            while (prev && sibDepth < 3) {
+              const txt = cleanText(prev.textContent);
+              if (txt) return txt;
+              prev = prev.previousElementSibling;
+              sibDepth++;
+            }
+          }
+          container = container.parentElement;
+          depth++;
+        }
+        return null;
+      }`,
+      returnByValue: true,
+    });
+
+    return (result?.result?.value as string) || null;
+  } catch {
+    return null;
+  }
+}
+
+async function enrichFieldFromDOM(
+  tabId: number,
+  backendNodeId: number,
+): Promise<CDPDOMMetadata | null> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+
+    if (!resolved?.object?.objectId) return null;
+
+    const result = await sendCommand<{
+      result: { type: string; value: string };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function() {
+        const el = this;
+        const style = window.getComputedStyle(el);
+        const isVisible = !!(
+          el.offsetWidth > 0 &&
+          el.offsetHeight > 0 &&
+          style.visibility !== 'hidden' &&
+          style.display !== 'none' &&
+          style.opacity !== '0' &&
+          !el.closest('[aria-hidden="true"]')
+        );
+
+        const cleanText = (s) => {
+          if (!s) return null;
+          const c = s.replace(/[\\n\\r\\t]+/g, ' ').replace(/\\s+/g, ' ').trim();
+          return (c.length > 0 && c.length < 200) ? c : null;
+        };
+
+        // 1. Explicit label: el.labels API, label[for], or closest parent label
+        let labelText = null;
+        if (el.labels && el.labels.length > 0) {
+          labelText = cleanText(el.labels[0].textContent);
+        } else if (el.id) {
+          const lbl = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
+          if (lbl) labelText = cleanText(lbl.textContent);
+        }
+        if (!labelText) {
+          const parentLabel = el.closest('label');
+          if (parentLabel) {
+            const clone = parentLabel.cloneNode(true);
+            clone.querySelectorAll('input, select, textarea').forEach(n => n.remove());
+            labelText = cleanText(clone.textContent);
+          }
+        }
+
+        // 2. aria-label / aria-labelledby
+        if (!labelText) {
+          const ariaLabel = el.getAttribute('aria-label');
+          if (ariaLabel) {
+            labelText = cleanText(ariaLabel);
+          } else {
+            const ariaLabelledBy = el.getAttribute('aria-labelledby');
+            if (ariaLabelledBy) {
+              const parts = ariaLabelledBy.split(/\\s+/)
+                .map(id => document.getElementById(id)?.textContent?.trim())
+                .filter(Boolean);
+              if (parts.length > 0) labelText = cleanText(parts.join(' '));
+            }
+          }
+        }
+
+        // 3. Contextual label: walk up DOM looking for label/legend/question text
+        //    in a nearby container (handles Lever-style forms, schema-generated forms)
+        if (!labelText) {
+          let container = el.parentElement;
+          let depth = 0;
+          while (container && depth < 5) {
+            const candidates = container.querySelectorAll(
+              'label, legend, [class*="label"], [class*="question"], [class*="title"], [class*="heading"]'
+            );
+            for (const c of candidates) {
+              if (c === el || c.contains(el)) continue;
+              if (c.querySelector('input, select, textarea')) continue;
+              const txt = cleanText(c.textContent);
+              if (txt && txt.length > 2) {
+                labelText = txt;
+                break;
+              }
+            }
+            if (labelText) break;
+            container = container.parentElement;
+            depth++;
+          }
+        }
+
+        // 4. Positional label: find nearest text above the field (like non-CDP method)
+        if (!labelText) {
+          const rect = el.getBoundingClientRect();
+          let bestText = null;
+          let bestDist = 120;
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+            acceptNode: (node) => {
+              const t = node.textContent?.trim();
+              if (!t || t.length < 3 || t.length > 200) return NodeFilter.FILTER_REJECT;
+              const p = node.parentElement;
+              if (!p) return NodeFilter.FILTER_REJECT;
+              const tag = p.tagName.toLowerCase();
+              if (['script','style','noscript','input','textarea','select','button','option'].includes(tag))
+                return NodeFilter.FILTER_REJECT;
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          });
+          let n = walker.nextNode();
+          let checked = 0;
+          while (n && checked < 200) {
+            checked++;
+            const p = n.parentElement;
+            if (p) {
+              const pr = p.getBoundingClientRect();
+              if (pr.bottom <= rect.top && (rect.top - pr.bottom) < bestDist) {
+                const hOverlap = Math.min(rect.right, pr.right) > Math.max(rect.left, pr.left);
+                const hDist = Math.min(Math.abs(rect.left - pr.right), Math.abs(pr.left - rect.right));
+                if (hOverlap || hDist < 50) {
+                  bestDist = rect.top - pr.bottom;
+                  bestText = cleanText(p.textContent);
+                }
+              }
+            }
+            n = walker.nextNode();
+          }
+          if (bestText) labelText = bestText;
+        }
+
+        let ariaDescText = null;
+        const describedBy = el.getAttribute('aria-describedby');
+        if (describedBy) {
+          const parts = describedBy.split(/\\s+/)
+            .map(id => document.getElementById(id)?.textContent?.trim())
+            .filter(Boolean);
+          if (parts.length > 0) ariaDescText = parts.join(' ');
+        }
+
+        let helperText = null;
+        const parent = el.parentElement;
+        if (parent) {
+          const helper = parent.querySelector(
+            '[class*="help"], [class*="hint"], [class*="description"], [class*="error"], [class*="caption"]'
+          );
+          if (helper && helper !== el) {
+            helperText = cleanText(helper.textContent);
+          }
+        }
+
+        const form = el.closest('form');
+        const ml = el.maxLength;
+
+        // Build a unique CSS selector for highlight from content script
+        let cssSelector = null;
+        if (el.id) {
+          cssSelector = '#' + CSS.escape(el.id);
+        } else {
+          const parts = [];
+          let cur = el;
+          while (cur && cur !== document.body && parts.length < 6) {
+            let seg = cur.tagName.toLowerCase();
+            if (cur.id) {
+              parts.unshift('#' + CSS.escape(cur.id));
+              break;
+            }
+            const p = cur.parentElement;
+            if (p) {
+              const siblings = Array.from(p.children).filter(c => c.tagName === cur.tagName);
+              if (siblings.length > 1) {
+                seg += ':nth-of-type(' + (siblings.indexOf(cur) + 1) + ')';
+              }
+            }
+            parts.unshift(seg);
+            cur = cur.parentElement;
+          }
+          if (parts.length > 0) cssSelector = parts.join(' > ');
+        }
+
+        return JSON.stringify({
+          tagName: el.tagName.toLowerCase(),
+          inputType: el.type || null,
+          placeholder: el.placeholder || el.getAttribute('placeholder') || null,
+          autocomplete: el.getAttribute('autocomplete') || null,
+          htmlName: el.getAttribute('name') || null,
+          htmlId: el.id || null,
+          labelText: labelText || null,
+          ariaDescribedByText: ariaDescText,
+          helperText: helperText,
+          maxLength: (ml && ml > 0 && ml < 524288) ? ml : null,
+          formAction: form ? (form.action || null) : null,
+          formName: form ? (form.getAttribute('name') || form.id || null) : null,
+          isVisible: isVisible,
+          isContentEditable: el.isContentEditable || false,
+          cssSelector: cssSelector
+        });
+      }`,
+      returnByValue: true,
+    });
+
+    if (result?.result?.value) {
+      return JSON.parse(result.result.value as string) as CDPDOMMetadata;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 async function getNodeRect(
@@ -298,12 +765,37 @@ async function extractOptions(
       objectId: result.object.objectId,
       functionDeclaration: `function() {
         const el = this;
+
         if (el.tagName === 'SELECT') {
           return JSON.stringify(
             Array.from(el.options).map(o => ({ value: o.value, label: o.textContent.trim() }))
           );
         }
-        // For ARIA listbox, find option children
+
+        if (el.list) {
+          return JSON.stringify(
+            Array.from(el.list.options).map(o => ({ value: o.value, label: o.label || o.textContent.trim() }))
+          );
+        }
+
+        const listboxId = el.getAttribute('aria-owns') || el.getAttribute('aria-controls');
+        if (listboxId) {
+          for (const id of listboxId.split(/\\s+/)) {
+            const listbox = document.getElementById(id);
+            if (listbox) {
+              const opts = listbox.querySelectorAll('[role="option"], li[data-value], li');
+              if (opts.length > 0 && opts.length < 200) {
+                return JSON.stringify(
+                  Array.from(opts).map(o => ({
+                    value: o.getAttribute('data-value') || o.getAttribute('value') || o.textContent.trim(),
+                    label: o.textContent.trim()
+                  }))
+                );
+              }
+            }
+          }
+        }
+
         const opts = el.querySelectorAll('[role="option"]');
         if (opts.length > 0) {
           return JSON.stringify(
@@ -313,6 +805,7 @@ async function extractOptions(
             }))
           );
         }
+
         return '[]';
       }`,
       returnByValue: true,
@@ -358,7 +851,6 @@ async function getRadioValue(
 function getPropertyBool(node: AXNode, propName: string): boolean {
   const prop = node.properties?.find((p) => p.name === propName);
   if (!prop) return false;
-  // "checked" can be "true", "false", or "mixed" as string in AX tree
   if (
     prop.value.type === "tristate" ||
     prop.value.type === "booleanOrUndefined"

@@ -419,17 +419,24 @@ export class PreviewSidebarManager {
   }
 
   private highlightField(fieldOpid: FieldOpId) {
-    const detected = this.options.getFieldMetadata(fieldOpid);
-    if (!detected) {
-      return;
-    }
-
     this.clearHighlight();
 
-    const element = detected.element as HTMLElement;
-    if (!element) {
-      return;
+    let element: HTMLElement | null = null;
+
+    const detected = this.options.getFieldMetadata(fieldOpid);
+    if (detected) {
+      element = detected.element as HTMLElement;
     }
+
+    if (!element) {
+      const cdpField = this.cdpFieldLookup.get(fieldOpid);
+      const selector = cdpField?.domMetadata?.cssSelector;
+      if (selector) {
+        element = document.querySelector<HTMLElement>(selector);
+      }
+    }
+
+    if (!element) return;
 
     if (document.documentElement.classList.contains("dark")) {
       element.classList.add(HIGHLIGHT_DARK_CLASS);
