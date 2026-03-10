@@ -1,10 +1,6 @@
 import { delay } from "@/lib/delay";
 import { createLogger } from "@/lib/logger";
-import type {
-  CDPDetectedField,
-  CDPFieldMapping,
-  CDPRect,
-} from "@/types/autofill";
+import type { CDPDetectedField, CDPFieldMapping } from "@/types/autofill";
 import { sendCommand } from "./cdp-service";
 
 const logger = createLogger("cdp-form-filler");
@@ -338,13 +334,13 @@ async function tryAriaControlledOption(
     if (!resolved?.object?.objectId) return false;
 
     const result = await sendCommand<{
-      result: { type: string; value: string };
+      result: { type: string; value: boolean };
     }>(tabId, "Runtime.callFunctionOn", {
       objectId: resolved.object.objectId,
       functionDeclaration: `function(targetValue) {
         const el = this;
         const listboxId = el.getAttribute('aria-owns') || el.getAttribute('aria-controls');
-        if (!listboxId) return JSON.stringify({ found: false });
+        if (!listboxId) return false;
         const tl = targetValue.toLowerCase();
         for (const id of listboxId.split(/\\s+/)) {
           const listbox = document.getElementById(id);
@@ -353,23 +349,19 @@ async function tryAriaControlledOption(
           for (const opt of opts) {
             const optValue = opt.getAttribute('data-value') || opt.getAttribute('value') || opt.textContent.trim();
             if (optValue.toLowerCase() === tl || opt.textContent.trim().toLowerCase() === tl) {
-              const rect = opt.getBoundingClientRect();
-              return JSON.stringify({ found: true, x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+              opt.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+              opt.click();
+              return true;
             }
           }
         }
-        return JSON.stringify({ found: false });
+        return false;
       }`,
       arguments: [{ value }],
       returnByValue: true,
     });
 
-    if (!result?.result?.value) return false;
-    const parsed = JSON.parse(result.result.value);
-    if (!parsed.found) return false;
-
-    await clickCenter(tabId, parsed as CDPRect);
-    return true;
+    return result?.result?.value === true;
   } catch {
     return false;
   }
@@ -380,11 +372,13 @@ async function fillCustomCombobox(
   field: CDPDetectedField,
   value: string,
 ): Promise<void> {
-  await clickCenter(tabId, field.rect);
+  await clickNodeDirect(tabId, field.backendNodeId);
   await delay(300);
 
-  await focusNode(tabId, field.backendNodeId);
+  const clicked = await clickMatchingOption(tabId, field.backendNodeId, value);
+  if (clicked) return;
 
+  await focusNode(tabId, field.backendNodeId);
   await selectAll(tabId);
   await dispatchKey(tabId, "Backspace", "Backspace");
   await delay(50);
@@ -398,7 +392,88 @@ async function fillCustomCombobox(
   }
   await delay(400);
 
-  await dispatchKey(tabId, "Enter", "Enter");
+  const clickedAfterType = await clickMatchingOption(
+    tabId,
+    field.backendNodeId,
+    value,
+  );
+  if (!clickedAfterType) {
+    await dispatchKey(tabId, "Enter", "Enter");
+  }
+}
+
+async function clickMatchingOption(
+  tabId: number,
+  backendNodeId: number,
+  value: string,
+): Promise<boolean> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+
+    if (!resolved?.object?.objectId) return false;
+
+    const result = await sendCommand<{
+      result: { type: string; value: boolean };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId: resolved.object.objectId,
+      functionDeclaration: `function(targetValue) {
+        const tl = targetValue.toLowerCase();
+
+        const findAndClick = (root) => {
+          const opts = root.querySelectorAll('[role="option"]');
+          for (const opt of opts) {
+            const optValue = opt.getAttribute('data-value') || opt.getAttribute('value') || opt.textContent.trim();
+            if (optValue.toLowerCase() === tl || opt.textContent.trim().toLowerCase() === tl) {
+              opt.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+              opt.click();
+              return true;
+            }
+          }
+          return false;
+        };
+
+        // 1. Try aria-controls/aria-owns linked listbox
+        const ctrlId = this.getAttribute('aria-controls') || this.getAttribute('aria-owns');
+        if (ctrlId) {
+          for (const id of ctrlId.split(/\\s+/)) {
+            const lb = document.getElementById(id);
+            if (lb && findAndClick(lb)) return true;
+          }
+        }
+
+        // 2. Search nearby in parent containers
+        let container = this.parentElement;
+        let depth = 0;
+        while (container && depth < 4) {
+          const listbox = container.querySelector('[role="listbox"]');
+          if (listbox && !this.contains(listbox) && findAndClick(listbox)) return true;
+          if (findAndClick(container)) return true;
+          container = container.parentElement;
+          depth++;
+        }
+
+        // 3. Broad document search for visible listboxes
+        const allListboxes = document.querySelectorAll('[role="listbox"]');
+        for (const lb of allListboxes) {
+          const style = window.getComputedStyle(lb);
+          if (style.display === 'none' || style.visibility === 'hidden') continue;
+          if (findAndClick(lb)) return true;
+        }
+
+        return false;
+      }`,
+      arguments: [{ value }],
+      returnByValue: true,
+    });
+
+    return result?.result?.value === true;
+  } catch {
+    return false;
+  }
 }
 
 async function fillSlider(
@@ -471,25 +546,4 @@ async function dispatchKey(
       code,
     });
   }
-}
-
-async function clickCenter(tabId: number, rect: CDPRect): Promise<void> {
-  const x = rect.x + rect.width / 2;
-  const y = rect.y + rect.height / 2;
-
-  await sendCommand(tabId, "Input.dispatchMouseEvent", {
-    type: "mousePressed",
-    x,
-    y,
-    button: "left",
-    clickCount: 1,
-  });
-
-  await sendCommand(tabId, "Input.dispatchMouseEvent", {
-    type: "mouseReleased",
-    x,
-    y,
-    button: "left",
-    clickCount: 1,
-  });
 }

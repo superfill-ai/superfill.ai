@@ -751,18 +751,18 @@ async function extractOptions(
   backendNodeId: number,
 ): Promise<CDPFieldOption[]> {
   try {
-    const result = await sendCommand<{ object: { objectId: string } }>(
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
       tabId,
       "DOM.resolveNode",
       { backendNodeId },
     );
 
-    if (!result?.object?.objectId) return [];
+    if (!resolved?.object?.objectId) return [];
 
     const evalResult = await sendCommand<{
       result: { type: string; value: string };
     }>(tabId, "Runtime.callFunctionOn", {
-      objectId: result.object.objectId,
+      objectId: resolved.object.objectId,
       functionDeclaration: `function() {
         const el = this;
 
@@ -812,7 +812,104 @@ async function extractOptions(
     });
 
     if (evalResult?.result?.value) {
-      return JSON.parse(evalResult.result.value as string);
+      const options = JSON.parse(evalResult.result.value as string);
+      if (options.length > 0) return options;
+    }
+
+    return await extractOptionsViaClick(tabId, resolved.object.objectId);
+  } catch {
+    return [];
+  }
+}
+
+async function extractOptionsViaClick(
+  tabId: number,
+  objectId: string,
+): Promise<CDPFieldOption[]> {
+  try {
+    const isCombobox = await sendCommand<{
+      result: { type: string; value: boolean };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId,
+      functionDeclaration: `function() {
+        return this.getAttribute('role') === 'combobox'
+          || this.getAttribute('aria-haspopup') === 'true'
+          || this.getAttribute('aria-haspopup') === 'listbox';
+      }`,
+      returnByValue: true,
+    });
+
+    if (!isCombobox?.result?.value) return [];
+
+    await sendCommand(tabId, "Runtime.callFunctionOn", {
+      objectId,
+      functionDeclaration: `function() {
+        this.scrollIntoView({ block: 'center', behavior: 'instant' });
+        this.click();
+      }`,
+    });
+
+    await new Promise((r) => setTimeout(r, 250));
+
+    const result = await sendCommand<{
+      result: { type: string; value: string };
+    }>(tabId, "Runtime.callFunctionOn", {
+      objectId,
+      functionDeclaration: `function() {
+        const findOptions = (root) => {
+          const opts = root.querySelectorAll('[role="option"]');
+          if (opts.length > 0 && opts.length < 200) {
+            return Array.from(opts).map(o => ({
+              value: o.getAttribute('data-value') || o.getAttribute('value') || o.textContent.trim(),
+              label: o.textContent.trim()
+            }));
+          }
+          return null;
+        };
+
+        // 1. Check aria-controls/aria-owns (may appear after opening)
+        const ctrlId = this.getAttribute('aria-controls') || this.getAttribute('aria-owns');
+        if (ctrlId) {
+          for (const id of ctrlId.split(/\\s+/)) {
+            const lb = document.getElementById(id);
+            if (lb) {
+              const opts = findOptions(lb);
+              if (opts) return JSON.stringify(opts);
+            }
+          }
+        }
+
+        // 2. Search nearby listbox in siblings/parent
+        let container = this.parentElement;
+        let depth = 0;
+        while (container && depth < 4) {
+          const listbox = container.querySelector('[role="listbox"]');
+          if (listbox && !this.contains(listbox)) {
+            const opts = findOptions(listbox);
+            if (opts) return JSON.stringify(opts);
+          }
+          const opts = findOptions(container);
+          if (opts) return JSON.stringify(opts);
+          container = container.parentElement;
+          depth++;
+        }
+
+        // 3. Broad document search for any visible listbox
+        const allListboxes = document.querySelectorAll('[role="listbox"]');
+        for (const lb of allListboxes) {
+          const style = window.getComputedStyle(lb);
+          if (style.display === 'none' || style.visibility === 'hidden') continue;
+          const opts = findOptions(lb);
+          if (opts) return JSON.stringify(opts);
+        }
+
+        return '[]';
+      }`,
+      returnByValue: true,
+    });
+
+    if (result?.result?.value) {
+      return JSON.parse(result.result.value as string);
     }
     return [];
   } catch {
