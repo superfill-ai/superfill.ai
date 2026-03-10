@@ -63,7 +63,7 @@ export interface FieldMetadataSnapshot
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
-  frameId?: number;
+  frameId?: number | string;
   metadata: FieldMetadataSnapshot;
 }
 
@@ -274,6 +274,20 @@ export interface CDPRect {
   height: number;
 }
 
+export interface CDPFieldFingerprint {
+  role: CDPFieldRole;
+  name: string | null;
+  description: string | null;
+  htmlName: string | null;
+  htmlId: string | null;
+  labelText: string | null;
+  placeholder: string | null;
+  inputType: string | null;
+  cssSelector: string | null;
+  frameId: string | null;
+  rect: CDPRect | null;
+}
+
 export interface CDPFieldOption {
   value: string;
   label: string;
@@ -318,6 +332,7 @@ export interface CDPDetectedField {
   opid: string;
   highlightIndex: number;
   backendNodeId: number;
+  frameId?: string;
   role: CDPFieldRole;
   name: string;
   description: string;
@@ -330,6 +345,7 @@ export interface CDPDetectedField {
   /** For radio groups: the child radio options */
   radioOptions?: CDPRadioOption[];
   domMetadata?: CDPDOMMetadata;
+  fingerprint?: CDPFieldFingerprint;
 }
 
 export interface CDPRadioOption {
@@ -349,4 +365,28 @@ export interface CDPFieldMapping {
   field: CDPDetectedField;
   value: string;
   confidence: number;
+}
+
+export type CDPFillStatus = "verified" | "recovered" | "failed";
+
+export interface CDPFillOutcome {
+  fieldOpid: string;
+  role: CDPFieldRole;
+  requestedValue: string;
+  status: CDPFillStatus;
+  verified: boolean;
+  attempts: number;
+  backendNodeId: number;
+  recoveredBackendNodeId?: number;
+  reason?: string;
+  actualValue?: string;
+}
+
+export interface CDPFillSummary {
+  total: number;
+  succeeded: number;
+  verified: number;
+  recovered: number;
+  failed: number;
+  outcomes: CDPFillOutcome[];
 }

@@ -134,8 +134,12 @@ class AutofillService {
 
       // Try CDP path (Chrome/Edge) — falls back to DOM path if CDP finds nothing
       if (isCDPSupported()) {
-        const cdpResult = await this.runCDPAutofill(tabId, sessionId);
-        if (cdpResult) return cdpResult;
+        try {
+          const cdpResult = await this.runCDPAutofill(tabId, sessionId);
+          if (cdpResult) return cdpResult;
+        } catch (cdpError) {
+          logger.warn("CDP path failed, falling back to DOM path:", cdpError);
+        }
       }
 
       const requestId = `autofill-${sessionId}-${Date.now()}`;
@@ -507,7 +511,8 @@ class AutofillService {
 
     try {
       await attachToTab(tabId);
-      await cdpFillAllFields(tabId, cdpMappings);
+      const summary = await cdpFillAllFields(tabId, cdpMappings);
+      logger.info("CDP fill summary:", summary);
     } finally {
       await detachFromTab(tabId);
     }
@@ -605,73 +610,14 @@ class AutofillService {
     settings: AISettings,
     screenshot?: string,
   ): Promise<FieldMapping[]> {
-    const useCloudMode = settings.cloudModelsEnabled;
-
-    try {
-      if (useCloudMode) {
-        const authService = getAuthService();
-        const session = await authService.getSession();
-
-        if (!session?.access_token) {
-          logger.warn(
-            "Cloud models enabled but user not authenticated, using BYOK/fallback",
-          );
-          const provider = settings.selectedProvider;
-          if (!provider) {
-            return await this.fallbackMatcher.matchFields(fields, memories);
-          }
-          const keyVaultService = getKeyVaultService();
-          const apiKey = await keyVaultService.getKey(provider);
-          if (!apiKey) {
-            return await this.fallbackMatcher.matchFields(fields, memories);
-          }
-          return await this.aiMatcher.matchFields(
-            fields,
-            memories,
-            websiteContext,
-            false,
-            provider,
-            apiKey,
-            settings.selectedModels?.[provider],
-          );
-        }
-
-        return await this.aiMatcher.matchFields(
-          fields,
-          memories,
-          websiteContext,
-          true,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          screenshot,
-        );
-      }
-
-      const provider = settings.selectedProvider;
-      if (!provider) throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
-
-      const keyVaultService = getKeyVaultService();
-      const apiKey = await keyVaultService.getKey(provider);
-
-      if (!apiKey) {
-        return await this.fallbackMatcher.matchFields(fields, memories);
-      }
-
-      return await this.aiMatcher.matchFields(
-        fields,
-        memories,
-        websiteContext,
-        false,
-        provider,
-        apiKey,
-        settings.selectedModels?.[provider],
-      );
-    } catch (error) {
-      logger.error("CDP AI matching failed, using fallback:", error);
-      return await this.fallbackMatcher.matchFields(fields, memories);
-    }
+    return this.runMatchingPipeline(
+      fields,
+      memories,
+      websiteContext,
+      settings,
+      screenshot,
+      "CDP",
+    );
   }
 
   private buildCDPPreviewPayload(
@@ -705,7 +651,7 @@ class AutofillService {
         opid: f.opid as FieldOpId,
         formOpid: "__form__cdp" as FormOpId,
         highlightIndex: f.highlightIndex,
-        frameId: undefined,
+        frameId: f.frameId,
         metadata: {
           id: dm?.htmlId ?? f.opid,
           name: dm?.htmlName ?? (axName || f.name),
@@ -730,8 +676,8 @@ class AutofillService {
           currentValue: f.value,
           fieldType: compressed.type as CompressedFieldData["type"],
           fieldPurpose: compressed.purpose,
-          isVisible: true,
-          isTopElement: true,
+          isVisible: dm?.isVisible ?? true,
+          isTopElement: dm?.isTopElement ?? true,
           isInteractive: true,
           options: f.options?.map((o) => ({ value: o.value, label: o.label })),
         },
@@ -845,6 +791,24 @@ class AutofillService {
       throw new Error("AI settings not loaded");
     }
 
+    return this.runMatchingPipeline(
+      compressedFields,
+      compressedMemories,
+      websiteContext,
+      settings,
+      undefined,
+      "DOM",
+    );
+  }
+
+  private async runMatchingPipeline(
+    fields: CompressedFieldData[],
+    memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
+    settings: AISettings,
+    screenshot: string | undefined,
+    source: "CDP" | "DOM",
+  ): Promise<FieldMapping[]> {
     const useCloudMode = settings.cloudModelsEnabled;
 
     try {
@@ -852,86 +816,63 @@ class AutofillService {
         const authService = getAuthService();
         const session = await authService.getSession();
 
-        if (!session?.access_token) {
-          logger.warn(
-            "Cloud models enabled but user not authenticated, using BYOK/fallback",
-          );
-          const provider = settings.selectedProvider;
-          if (!provider) {
-            return await this.fallbackMatcher.matchFields(
-              compressedFields,
-              compressedMemories,
-            );
-          }
-          const keyVaultService = getKeyVaultService();
-          const apiKey = await keyVaultService.getKey(provider);
-          if (!apiKey) {
-            return await this.fallbackMatcher.matchFields(
-              compressedFields,
-              compressedMemories,
-            );
+        if (session?.access_token) {
+          if (source === "DOM") {
+            logger.info("AutofillService: Using cloud AI mode");
           }
           return await this.aiMatcher.matchFields(
-            compressedFields,
-            compressedMemories,
+            fields,
+            memories,
             websiteContext,
-            false,
-            provider,
-            apiKey,
-            settings.selectedModels?.[provider],
+            true,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            screenshot,
           );
         }
 
-        logger.info("AutofillService: Using cloud AI mode");
-        return await this.aiMatcher.matchFields(
-          compressedFields,
-          compressedMemories,
-          websiteContext,
-          true,
+        logger.warn(
+          "Cloud models enabled but user not authenticated, using BYOK/fallback",
         );
       }
 
       const provider = settings.selectedProvider;
-
       if (!provider) {
         throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
       }
 
       const selectedModel = settings.selectedModels?.[provider];
-
-      logger.info(
-        "AutofillService: Using AI provider",
-        provider,
-        "with model",
-        selectedModel,
-      );
+      if (source === "DOM") {
+        logger.info(
+          "AutofillService: Using AI provider",
+          provider,
+          "with model",
+          selectedModel,
+        );
+      }
 
       const keyVaultService = getKeyVaultService();
       const apiKey = await keyVaultService.getKey(provider);
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");
-        return await this.fallbackMatcher.matchFields(
-          compressedFields,
-          compressedMemories,
-        );
+        return await this.fallbackMatcher.matchFields(fields, memories);
       }
 
       return await this.aiMatcher.matchFields(
-        compressedFields,
-        compressedMemories,
+        fields,
+        memories,
         websiteContext,
         false,
         provider,
         apiKey,
-        settings.selectedModels?.[provider],
+        selectedModel,
       );
     } catch (error) {
-      logger.error("AI matching failed, using fallback:", error);
-      return await this.fallbackMatcher.matchFields(
-        compressedFields,
-        compressedMemories,
-      );
+      logger.error(`${source} AI matching failed, using fallback:`, error);
+      return await this.fallbackMatcher.matchFields(fields, memories);
     }
   }
 

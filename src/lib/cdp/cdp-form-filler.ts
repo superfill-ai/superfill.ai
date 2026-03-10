@@ -1,6 +1,17 @@
 import { delay } from "@/lib/delay";
 import { createLogger } from "@/lib/logger";
-import type { CDPDetectedField, CDPFieldMapping } from "@/types/autofill";
+import type {
+  CDPDetectedField,
+  CDPFieldMapping,
+  CDPFillOutcome,
+  CDPFillSummary,
+} from "@/types/autofill";
+import { resolveFieldBackendNodeId } from "./cdp-field-fingerprint";
+import {
+  parseBooleanLike,
+  readCheckedState,
+  verifyFilledField,
+} from "./cdp-fill-verifier";
 import { sendCommand } from "./cdp-service";
 
 const logger = createLogger("cdp-form-filler");
@@ -8,37 +19,58 @@ const logger = createLogger("cdp-form-filler");
 const TYPING_DELAY_MIN = 30;
 const TYPING_DELAY_MAX = 80;
 const BETWEEN_FIELDS_DELAY = 150;
+const MAX_FILL_ATTEMPTS = 2;
 
 export async function fillAllFields(
   tabId: number,
   mappings: CDPFieldMapping[],
-): Promise<void> {
+): Promise<CDPFillSummary> {
   logger.info(`Filling ${mappings.length} fields via CDP`);
 
+  const outcomes: CDPFillOutcome[] = [];
+  let previousDomToken = await getDOMVersionToken(tabId);
+
   for (const mapping of mappings) {
-    try {
-      await fillField(tabId, mapping.field, mapping.value);
-      await delay(BETWEEN_FIELDS_DELAY);
-    } catch (error) {
-      logger.error(
-        `Failed to fill field ${mapping.field.opid} (${mapping.field.role}):`,
-        error,
-      );
-    }
+    const domTokenBeforeFill = await getDOMVersionToken(tabId);
+    const domDrifted =
+      previousDomToken !== null &&
+      domTokenBeforeFill !== null &&
+      previousDomToken !== domTokenBeforeFill;
+    const outcome = await fillFieldWithRecoveryAndVerification(
+      tabId,
+      mapping,
+      domDrifted,
+    );
+    outcomes.push(outcome);
+    previousDomToken = domTokenBeforeFill ?? previousDomToken;
+    await delay(BETWEEN_FIELDS_DELAY);
   }
 
-  logger.info("CDP fill complete");
+  const summary: CDPFillSummary = {
+    total: outcomes.length,
+    succeeded: outcomes.filter((o) => o.status !== "failed").length,
+    verified: outcomes.filter((o) => o.verified).length,
+    recovered: outcomes.filter((o) => o.status === "recovered").length,
+    failed: outcomes.filter((o) => o.status === "failed").length,
+    outcomes,
+  };
+
+  logger.info(
+    `CDP fill complete: verified=${summary.verified}/${summary.total}, recovered=${summary.recovered}, failed=${summary.failed}`,
+  );
+  return summary;
 }
 
 async function fillField(
   tabId: number,
   field: CDPDetectedField,
+  backendNodeId: number,
   value: string,
 ): Promise<void> {
   const { role } = field;
 
   if (field.domMetadata?.isContentEditable) {
-    await fillContentEditable(tabId, field.backendNodeId, value);
+    await fillContentEditable(tabId, backendNodeId, value);
     return;
   }
 
@@ -47,30 +79,152 @@ async function fillField(
     case "searchbox":
     case "textarea":
     case "spinbutton":
-      await fillTextField(tabId, field.backendNodeId, value);
+      await fillTextField(tabId, backendNodeId, value);
       break;
 
     case "checkbox":
     case "switch":
     case "menuitemcheckbox":
-      await fillCheckbox(tabId, field, value);
+      await fillCheckbox(tabId, field, backendNodeId, value);
       break;
 
     case "radiogroup":
-      await fillRadioGroup(tabId, field, value);
+      await fillRadioGroup(tabId, field, backendNodeId, value);
       break;
 
     case "combobox":
     case "listbox":
-      await fillSelectLike(tabId, field, value);
+      await fillSelectLike(tabId, backendNodeId, value);
       break;
 
     case "slider":
-      await fillSlider(tabId, field, value);
+      await fillSlider(tabId, backendNodeId, value);
       break;
 
     default:
       logger.warn(`Unsupported role for filling: ${role}`);
+  }
+}
+
+async function fillFieldWithRecoveryAndVerification(
+  tabId: number,
+  mapping: CDPFieldMapping,
+  domDrifted: boolean,
+): Promise<CDPFillOutcome> {
+  const field = mapping.field;
+  const requestedValue = mapping.value;
+  let attempts = 0;
+  let backendNodeId = await resolveFieldBackendNodeId(tabId, field, true);
+  let recoveredBackendNodeId: number | undefined;
+  let lastReason = "";
+  let lastActualValue: string | undefined;
+
+  if (!backendNodeId) {
+    return {
+      fieldOpid: field.opid,
+      role: field.role,
+      requestedValue,
+      status: "failed",
+      verified: false,
+      attempts: 0,
+      backendNodeId: field.backendNodeId,
+      reason: "Could not resolve field node before filling",
+    };
+  }
+
+  if (backendNodeId !== field.backendNodeId) {
+    recoveredBackendNodeId = backendNodeId;
+  }
+
+  if (domDrifted) {
+    logger.debug(
+      `DOM drift detected before filling ${field.opid}; prioritizing recovery`,
+    );
+  }
+
+  while (attempts < MAX_FILL_ATTEMPTS) {
+    attempts++;
+    try {
+      await fillField(tabId, field, backendNodeId, requestedValue);
+      const verification = await verifyFilledField(
+        tabId,
+        field,
+        requestedValue,
+        backendNodeId,
+      );
+      lastReason = verification.reason || "";
+      lastActualValue = verification.actualValue;
+
+      if (verification.verified) {
+        const recovered = backendNodeId !== field.backendNodeId;
+        return {
+          fieldOpid: field.opid,
+          role: field.role,
+          requestedValue,
+          status: recovered ? "recovered" : "verified",
+          verified: true,
+          attempts,
+          backendNodeId,
+          recoveredBackendNodeId,
+          actualValue: verification.actualValue,
+        };
+      }
+    } catch (error) {
+      lastReason =
+        error instanceof Error ? error.message : "Unexpected fill error";
+    }
+
+    if (attempts < MAX_FILL_ATTEMPTS && field.fingerprint) {
+      const recoveredNodeId = await resolveFieldBackendNodeId(
+        tabId,
+        field,
+        true,
+      );
+      if (recoveredNodeId && recoveredNodeId !== backendNodeId) {
+        backendNodeId = recoveredNodeId;
+        recoveredBackendNodeId = recoveredNodeId;
+        continue;
+      }
+    }
+    break;
+  }
+
+  return {
+    fieldOpid: field.opid,
+    role: field.role,
+    requestedValue,
+    status: "failed",
+    verified: false,
+    attempts,
+    backendNodeId,
+    recoveredBackendNodeId,
+    reason: lastReason || "Verification failed",
+    actualValue: lastActualValue,
+  };
+}
+
+async function getDOMVersionToken(tabId: number): Promise<string | null> {
+  try {
+    const token = await sendCommand<{ result: { value?: string } }>(
+      tabId,
+      "Runtime.evaluate",
+      {
+        expression: `(function() {
+          const body = document.body;
+          const childCount = body ? body.childElementCount : 0;
+          return [
+            location.href,
+            document.readyState,
+            childCount,
+            history.length
+          ].join("|");
+        })()`,
+        returnByValue: true,
+      },
+    );
+    return token?.result?.value ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -191,26 +345,33 @@ async function fillContentEditable(
 async function fillCheckbox(
   tabId: number,
   field: CDPDetectedField,
+  backendNodeId: number,
   value: string,
 ): Promise<void> {
-  const shouldBeChecked = value === "true" || value === "yes" || value === "1";
-  const isChecked = field.checked === true;
+  const expected = parseBooleanLike(value);
+  if (expected === null) {
+    logger.warn(`Checkbox ${field.opid} has non-boolean value "${value}"`);
+    return;
+  }
+  const isChecked = await readCheckedState(tabId, backendNodeId);
 
-  if (shouldBeChecked === isChecked) {
+  if (isChecked !== null && expected === isChecked) {
     logger.debug(`Checkbox ${field.opid} already in desired state`);
     return;
   }
 
-  await clickNodeDirect(tabId, field.backendNodeId);
+  await clickNodeDirect(tabId, backendNodeId);
 }
 
 async function fillRadioGroup(
   tabId: number,
   field: CDPDetectedField,
+  backendNodeId: number,
   value: string,
 ): Promise<void> {
   if (!field.radioOptions?.length) {
     logger.warn(`Radio group ${field.opid} has no options`);
+    await selectRadioByValue(tabId, backendNodeId, value);
     return;
   }
 
@@ -225,15 +386,63 @@ async function fillRadioGroup(
     logger.warn(
       `No matching radio option for value "${value}" in group ${field.opid}`,
     );
+    await selectRadioByValue(tabId, backendNodeId, value);
     return;
   }
 
-  if (target.checked) {
+  const currentChecked = await readCheckedState(tabId, target.backendNodeId);
+  if (currentChecked === true) {
     logger.debug(`Radio option "${value}" already selected`);
     return;
   }
 
   await clickNodeDirect(tabId, target.backendNodeId);
+  const verified = await readCheckedState(tabId, target.backendNodeId);
+  if (!verified) {
+    await selectRadioByValue(tabId, backendNodeId, value);
+  }
+}
+
+async function selectRadioByValue(
+  tabId: number,
+  backendNodeId: number,
+  value: string,
+): Promise<void> {
+  try {
+    const resolved = await sendCommand<{ object?: { objectId?: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+    const objectId = resolved?.object?.objectId;
+    if (!objectId) return;
+
+    await sendCommand(tabId, "Runtime.callFunctionOn", {
+      objectId,
+      functionDeclaration: `function(targetValue) {
+        const norm = (v) => String(v ?? '').trim().toLowerCase();
+        const expected = norm(targetValue);
+        const root =
+          this.closest('fieldset,[role="radiogroup"],form') ||
+          this.parentElement ||
+          document;
+        const radios = root.querySelectorAll('input[type="radio"], [role="radio"]');
+        for (const radio of radios) {
+          const value = norm(radio.getAttribute('value') || radio.value || '');
+          const label = norm(radio.getAttribute('aria-label') || radio.textContent || '');
+          if (value === expected || label === expected) {
+            radio.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+            radio.click();
+            return true;
+          }
+        }
+        return false;
+      }`,
+      arguments: [{ value }],
+    });
+  } catch (error) {
+    logger.debug("Radio fallback selection failed:", error);
+  }
 }
 
 async function waitForStability(
@@ -316,14 +525,14 @@ async function clickNodeDirect(
 
 async function fillSelectLike(
   tabId: number,
-  field: CDPDetectedField,
+  backendNodeId: number,
   value: string,
 ): Promise<void> {
-  if (await tryNativeSelect(tabId, field.backendNodeId, value)) return;
+  if (await tryNativeSelect(tabId, backendNodeId, value)) return;
 
-  if (await tryAriaControlledOption(tabId, field.backendNodeId, value)) return;
+  if (await tryAriaControlledOption(tabId, backendNodeId, value)) return;
 
-  await fillCustomCombobox(tabId, field, value);
+  await fillCustomCombobox(tabId, backendNodeId, value);
 }
 
 async function tryNativeSelect(
@@ -419,16 +628,16 @@ async function tryAriaControlledOption(
 
 async function fillCustomCombobox(
   tabId: number,
-  field: CDPDetectedField,
+  backendNodeId: number,
   value: string,
 ): Promise<void> {
-  await clickNodeDirect(tabId, field.backendNodeId);
+  await clickNodeDirect(tabId, backendNodeId);
   await delay(300);
 
-  const clicked = await clickMatchingOption(tabId, field.backendNodeId, value);
+  const clicked = await clickMatchingOption(tabId, backendNodeId, value);
   if (clicked) return;
 
-  await focusNode(tabId, field.backendNodeId);
+  await focusNode(tabId, backendNodeId);
   await selectAll(tabId);
   await dispatchKey(tabId, "Backspace", "Backspace");
   await delay(50);
@@ -444,7 +653,7 @@ async function fillCustomCombobox(
 
   const clickedAfterType = await clickMatchingOption(
     tabId,
-    field.backendNodeId,
+    backendNodeId,
     value,
   );
   if (!clickedAfterType) {
@@ -528,14 +737,14 @@ async function clickMatchingOption(
 
 async function fillSlider(
   tabId: number,
-  field: CDPDetectedField,
+  backendNodeId: number,
   value: string,
 ): Promise<void> {
   try {
     const resolved = await sendCommand<{ object: { objectId: string } }>(
       tabId,
       "DOM.resolveNode",
-      { backendNodeId: field.backendNodeId },
+      { backendNodeId },
     );
 
     if (resolved?.object?.objectId) {
@@ -554,7 +763,7 @@ async function fillSlider(
       });
     }
   } catch (error) {
-    logger.error(`Failed to fill slider ${field.opid}:`, error);
+    logger.error(`Failed to fill slider on node ${backendNodeId}:`, error);
   }
 }
 

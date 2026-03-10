@@ -432,7 +432,7 @@ export class PreviewSidebarManager {
       const cdpField = this.cdpFieldLookup.get(fieldOpid);
       const selector = cdpField?.domMetadata?.cssSelector;
       if (selector) {
-        element = document.querySelector<HTMLElement>(selector);
+        element = this.findElementAcrossFrames(selector);
       }
     }
 
@@ -444,6 +444,43 @@ export class PreviewSidebarManager {
 
     element.classList.add(HIGHLIGHT_CLASS);
     this.highlightedElement = element;
+  }
+
+  private findElementAcrossFrames(
+    selector: string,
+    rootDoc: Document = document,
+    depth = 0,
+  ): HTMLElement | null {
+    if (depth > 4) return null;
+
+    try {
+      const directMatch = rootDoc.querySelector<HTMLElement>(selector);
+
+      if (directMatch) return directMatch;
+    } catch {
+      return null;
+    }
+
+    const frames = rootDoc.querySelectorAll("iframe");
+
+    for (const frame of Array.from(frames)) {
+      try {
+        const childDoc = frame.contentDocument;
+
+        if (!childDoc) continue;
+
+        const nestedMatch = this.findElementAcrossFrames(
+          selector,
+          childDoc,
+          depth + 1,
+        );
+
+        if (nestedMatch) return nestedMatch;
+      } catch {
+        // Cross-origin frame; ignore.
+      }
+    }
+    return null;
   }
 
   private clearHighlight() {

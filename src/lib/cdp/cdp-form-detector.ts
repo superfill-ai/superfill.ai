@@ -7,6 +7,7 @@ import type {
   CDPRadioOption,
   CDPRect,
 } from "@/types/autofill";
+import { buildFieldFingerprint } from "./cdp-field-fingerprint";
 import { sendCommand } from "./cdp-service";
 
 const logger = createLogger("cdp-form-detector");
@@ -98,15 +99,11 @@ export async function detectFormFields(
     nodeMap.set(node.nodeId, node);
   }
 
-  const mainFrameId = axTree.nodes.find((n) => n.frameId)?.frameId;
-
   const fields: CDPDetectedField[] = [];
   const orphanRadios: AXNode[] = [];
 
   for (const node of axTree.nodes) {
     if (node.ignored) continue;
-
-    if (mainFrameId && node.frameId && node.frameId !== mainFrameId) continue;
 
     const role = node.role?.value;
     if (!role || !INTERACTIVE_ROLES.has(role)) continue;
@@ -137,6 +134,9 @@ export async function detectFormFields(
   }
 
   const enrichedFields = await enrichAllFields(tabId, fields);
+  for (const field of enrichedFields) {
+    field.fingerprint = buildFieldFingerprint(field);
+  }
 
   const visibleFields = enrichedFields.filter((f) => {
     if (f.domMetadata && !f.domMetadata.isVisible) return false;
@@ -187,7 +187,8 @@ async function groupOrphanRadios(
       radio.backendDOMNodeId,
       "name",
     );
-    const key = htmlName || `__unnamed_${radio.nodeId}`;
+    const frameKey = radio.frameId || "main";
+    const key = `${frameKey}::${htmlName || `__unnamed_${radio.nodeId}`}`;
     const group = nameGroups.get(key) ?? [];
     group.push(radio);
     nameGroups.set(key, group);
@@ -275,6 +276,7 @@ async function buildOrphanRadioGroup(
     opid: `cdp-orphan-rg-${firstNodeId}`,
     highlightIndex: 0,
     backendNodeId: firstNodeId,
+    frameId: radioNodes[0]?.frameId,
     role: "radiogroup",
     name: String(groupName),
     description: "",
@@ -308,6 +310,7 @@ async function buildField(
     opid: `cdp-${backendNodeId}`,
     highlightIndex: 0,
     backendNodeId,
+    frameId: node.frameId,
     role: role as CDPFieldRole,
     name: typeof name === "string" ? name : "",
     description: typeof description === "string" ? description : "",
@@ -382,6 +385,7 @@ async function buildRadioGroupField(
     opid: backendNodeId ? `cdp-${backendNodeId}` : `cdp-rg-${groupNode.nodeId}`,
     highlightIndex: 0,
     backendNodeId: backendNodeId ?? radioOptions[0].backendNodeId,
+    frameId: groupNode.frameId,
     role: "radiogroup",
     name: String(groupNode.name?.value ?? ""),
     description: String(groupNode.description?.value ?? ""),
@@ -851,101 +855,6 @@ async function extractOptions(
       if (options.length > 0) return options;
     }
 
-    return await extractOptionsViaClick(tabId, resolved.object.objectId);
-  } catch {
-    return [];
-  }
-}
-
-async function extractOptionsViaClick(
-  tabId: number,
-  objectId: string,
-): Promise<CDPFieldOption[]> {
-  try {
-    const isCombobox = await sendCommand<{
-      result: { type: string; value: boolean };
-    }>(tabId, "Runtime.callFunctionOn", {
-      objectId,
-      functionDeclaration: `function() {
-        return this.getAttribute('role') === 'combobox'
-          || this.getAttribute('aria-haspopup') === 'true'
-          || this.getAttribute('aria-haspopup') === 'listbox';
-      }`,
-      returnByValue: true,
-    });
-
-    if (!isCombobox?.result?.value) return [];
-
-    await sendCommand(tabId, "Runtime.callFunctionOn", {
-      objectId,
-      functionDeclaration: `function() {
-        this.scrollIntoView({ block: 'center', behavior: 'instant' });
-        this.click();
-      }`,
-    });
-
-    await new Promise((r) => setTimeout(r, 250));
-
-    const result = await sendCommand<{
-      result: { type: string; value: string };
-    }>(tabId, "Runtime.callFunctionOn", {
-      objectId,
-      functionDeclaration: `function() {
-        const findOptions = (root) => {
-          const opts = root.querySelectorAll('[role="option"]');
-          if (opts.length > 0 && opts.length < 200) {
-            return Array.from(opts).map(o => ({
-              value: o.getAttribute('data-value') || o.getAttribute('value') || o.textContent.trim(),
-              label: o.textContent.trim()
-            }));
-          }
-          return null;
-        };
-
-        // 1. Check aria-controls/aria-owns (may appear after opening)
-        const ctrlId = this.getAttribute('aria-controls') || this.getAttribute('aria-owns');
-        if (ctrlId) {
-          for (const id of ctrlId.split(/\\s+/)) {
-            const lb = document.getElementById(id);
-            if (lb) {
-              const opts = findOptions(lb);
-              if (opts) return JSON.stringify(opts);
-            }
-          }
-        }
-
-        // 2. Search nearby listbox in siblings/parent
-        let container = this.parentElement;
-        let depth = 0;
-        while (container && depth < 4) {
-          const listbox = container.querySelector('[role="listbox"]');
-          if (listbox && !this.contains(listbox)) {
-            const opts = findOptions(listbox);
-            if (opts) return JSON.stringify(opts);
-          }
-          const opts = findOptions(container);
-          if (opts) return JSON.stringify(opts);
-          container = container.parentElement;
-          depth++;
-        }
-
-        // 3. Broad document search for any visible listbox
-        const allListboxes = document.querySelectorAll('[role="listbox"]');
-        for (const lb of allListboxes) {
-          const style = window.getComputedStyle(lb);
-          if (style.display === 'none' || style.visibility === 'hidden') continue;
-          const opts = findOptions(lb);
-          if (opts) return JSON.stringify(opts);
-        }
-
-        return '[]';
-      }`,
-      returnByValue: true,
-    });
-
-    if (result?.result?.value) {
-      return JSON.parse(result.result.value as string);
-    }
     return [];
   } catch {
     return [];
