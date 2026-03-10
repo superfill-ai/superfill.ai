@@ -41,6 +41,25 @@ import { createEmptyMapping } from "./mapping-utils";
 
 const logger = createLogger("autofill-service");
 
+const MAX_LABEL_LENGTH = 100;
+
+function deduplicateLabels(labels: string[]): string[] {
+  const truncated = labels.map((l) =>
+    l.length > MAX_LABEL_LENGTH ? `${l.slice(0, MAX_LABEL_LENGTH)}...` : l,
+  );
+  const result: string[] = [];
+  for (const label of truncated) {
+    const lowerLabel = label.toLowerCase();
+    const isSubstring = result.some((existing) =>
+      existing.toLowerCase().includes(lowerLabel),
+    );
+    if (!isSubstring) {
+      result.push(label);
+    }
+  }
+  return result;
+}
+
 class AutofillService {
   private aiMatcher: AIMatcher;
   private fallbackMatcher: FallbackMatcher;
@@ -529,18 +548,28 @@ class AutofillService {
       field.description,
       dm?.ariaDescribedByText,
     ];
-    const labels = Array.from(
+    const rawLabels = Array.from(
       new Set(labelSources.filter((s): s is string => !!s && s.length > 0)),
     );
 
-    const contextParts = [dm?.placeholder, dm?.helperText, field.description];
+    const labels = deduplicateLabels(rawLabels);
+
+    const contextParts = [dm?.placeholder, dm?.helperText];
+
+    if (
+      field.description &&
+      !labels.some((l) => l.includes(field.description))
+    ) {
+      contextParts.push(field.description);
+    }
     if (dm?.htmlName && !isCrypticString(dm.htmlName)) {
       contextParts.push(dm.htmlName);
     }
     if (dm?.htmlId && !isCrypticString(dm.htmlId)) {
       contextParts.push(dm.htmlId);
     }
-    const context = contextParts.filter(Boolean).join(" ");
+
+    const context = contextParts.filter(Boolean).join(" ").slice(0, 300);
 
     const purpose = inferFieldPurpose({
       fieldType: type,

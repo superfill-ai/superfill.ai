@@ -79,6 +79,8 @@ async function fillTextField(
   backendNodeId: number,
   value: string,
 ): Promise<void> {
+  await waitForStability(tabId, backendNodeId);
+
   const wasSetViaRuntime = await setNodeValueViaRuntime(
     tabId,
     backendNodeId,
@@ -234,11 +236,59 @@ async function fillRadioGroup(
   await clickNodeDirect(tabId, target.backendNodeId);
 }
 
+async function waitForStability(
+  tabId: number,
+  backendNodeId: number,
+  timeout = 1000,
+): Promise<void> {
+  try {
+    const resolved = await sendCommand<{ object: { objectId: string } }>(
+      tabId,
+      "DOM.resolveNode",
+      { backendNodeId },
+    );
+    if (!resolved?.object?.objectId) return;
+
+    await sendCommand<{ result: { value?: boolean } }>(
+      tabId,
+      "Runtime.callFunctionOn",
+      {
+        objectId: resolved.object.objectId,
+        functionDeclaration: `function(timeoutMs) {
+          return new Promise((resolve) => {
+            let last = this.getBoundingClientRect();
+            const start = Date.now();
+            const check = () => {
+              const cur = this.getBoundingClientRect();
+              if (!cur.width && !cur.height) { resolve(true); return; }
+              const stable = Math.abs(last.x - cur.x) < 2
+                && Math.abs(last.y - cur.y) < 2
+                && Math.abs(last.width - cur.width) < 2
+                && Math.abs(last.height - cur.height) < 2;
+              if (stable || Date.now() - start > timeoutMs) { resolve(true); return; }
+              last = cur;
+              setTimeout(check, 50);
+            };
+            setTimeout(check, 50);
+          });
+        }`,
+        arguments: [{ value: timeout }],
+        awaitPromise: true,
+        returnByValue: true,
+      },
+    );
+  } catch {
+    // Non-critical; proceed even if stability check fails
+  }
+}
+
 async function clickNodeDirect(
   tabId: number,
   backendNodeId: number,
 ): Promise<void> {
   try {
+    await waitForStability(tabId, backendNodeId);
+
     const resolved = await sendCommand<{ object: { objectId: string } }>(
       tabId,
       "DOM.resolveNode",

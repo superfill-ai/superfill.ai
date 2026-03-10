@@ -308,7 +308,9 @@ export interface CDPDOMMetadata {
   formAction: string | null;
   formName: string | null;
   isVisible: boolean;
+  isTopElement: boolean;
   isContentEditable: boolean;
+  isShadowHost: boolean;
   cssSelector: string | null;
 }
 

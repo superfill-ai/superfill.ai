@@ -32,6 +32,7 @@ const ROW_THRESHOLD_PX = 10;
 interface AXNode {
   nodeId: string;
   backendDOMNodeId?: number;
+  frameId?: string;
   role?: { type: string; value: string };
   name?: { type: string; value: string; sources?: unknown[] };
   description?: { type: string; value: string };
@@ -92,15 +93,20 @@ export async function detectFormFields(
   logger.info(`AX tree has ${axTree.nodes.length} nodes`);
 
   const nodeMap = new Map<string, AXNode>();
+
   for (const node of axTree.nodes) {
     nodeMap.set(node.nodeId, node);
   }
+
+  const mainFrameId = axTree.nodes.find((n) => n.frameId)?.frameId;
 
   const fields: CDPDetectedField[] = [];
   const orphanRadios: AXNode[] = [];
 
   for (const node of axTree.nodes) {
     if (node.ignored) continue;
+
+    if (mainFrameId && node.frameId && node.frameId !== mainFrameId) continue;
 
     const role = node.role?.value;
     if (!role || !INTERACTIVE_ROLES.has(role)) continue;
@@ -134,6 +140,7 @@ export async function detectFormFields(
 
   const visibleFields = enrichedFields.filter((f) => {
     if (f.domMetadata && !f.domMetadata.isVisible) return false;
+    if (f.domMetadata && !f.domMetadata.isTopElement) return false;
     if (f.domMetadata?.inputType === "password") return false;
     if (f.domMetadata?.inputType === "hidden") return false;
     return true;
@@ -539,6 +546,32 @@ async function enrichFieldFromDOM(
           !el.closest('[aria-hidden="true"]')
         );
 
+        let isTopElement = true;
+        if (isVisible) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const inViewport = cy >= 0 && cy <= window.innerHeight && cx >= 0 && cx <= window.innerWidth;
+            if (inViewport) {
+              try {
+                const topEl = document.elementFromPoint(cx, cy);
+                if (topEl) {
+                  let current = topEl;
+                  let found = false;
+                  while (current) {
+                    if (current === el) { found = true; break; }
+                    current = current.parentElement;
+                  }
+                  isTopElement = found;
+                }
+              } catch (e) {}
+            }
+          }
+        }
+
+        const isShadowHost = !!el.getRootNode()?.host;
+
         const cleanText = (s) => {
           if (!s) return null;
           const c = s.replace(/[\\n\\r\\t]+/g, ' ').replace(/\\s+/g, ' ').trim();
@@ -703,7 +736,9 @@ async function enrichFieldFromDOM(
           formAction: form ? (form.action || null) : null,
           formName: form ? (form.getAttribute('name') || form.id || null) : null,
           isVisible: isVisible,
+          isTopElement: isTopElement,
           isContentEditable: el.isContentEditable || false,
+          isShadowHost: isShadowHost,
           cssSelector: cssSelector
         });
       }`,
