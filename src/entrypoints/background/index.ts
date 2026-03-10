@@ -180,7 +180,6 @@ export default defineBackground({
           return;
         }
 
-        // Check if any fields are CDP-detected (opid starts with "cdp-")
         const cdpFields = data.fieldsToFill.filter((f) =>
           f.fieldOpid.startsWith("cdp-"),
         );
