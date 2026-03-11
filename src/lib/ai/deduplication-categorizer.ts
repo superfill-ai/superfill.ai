@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { CategoryEnum, TagSchema } from "@/lib/ai/categorization";
-import { createLogger, DEBUG } from "@/lib/logger";
+import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
@@ -138,15 +138,6 @@ export class DeduplicationCategorizer {
         schemaDescription:
           "Deduplication and categorization results for captured fields",
         temperature: 0.3,
-        experimental_telemetry: {
-          isEnabled: DEBUG,
-          functionId: "memory-deduplication-categorization",
-          metadata: {
-            newFieldsCount: newFields.length,
-            existingMemoriesCount: existingMemories.length,
-            provider,
-          },
-        },
       });
 
       logger.info("Deduplication + Categorization result:", {
