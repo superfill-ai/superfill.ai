@@ -20,7 +20,7 @@ export const AnalysisResultSchema = z.object({
   category: CategoryEnum,
   tags: z.array(TagSchema).min(1).max(5),
   confidence: z.number().min(0).max(1),
-  reasoning: z.string().optional(),
+  reasoning: z.string().nullable(),
 });
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
@@ -50,7 +50,7 @@ export const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     category: CategoryEnum,
     tags: z.array(z.string().min(2).max(50)).min(1).max(5),
     confidence: z.number().min(0).max(1),
-    reasoning: z.string().optional(),
+    reasoning: z.string().nullable(),
   }),
   z.object({
     action: z.literal("update"),
@@ -60,13 +60,13 @@ export const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     category: CategoryEnum,
     tags: z.array(z.string().min(2).max(50)).min(1).max(5),
     confidence: z.number().min(0).max(1),
-    reasoning: z.string().optional(),
+    reasoning: z.string().nullable(),
   }),
   z.object({
     action: z.literal("skip"),
     fieldIndex: z.number().int().min(0),
     existingMemoryId: z.uuid(),
-    reasoning: z.string().optional(),
+    reasoning: z.string().nullable(),
   }),
 ]);
 export type DeduplicationOperation = z.infer<

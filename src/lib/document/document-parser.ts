@@ -1,7 +1,7 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { createLogger } from "@/lib/logger";
-import { getAIModel } from "@/lib/providers/model-factory";
+import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AllowedCategory } from "@/types/memory";
@@ -198,18 +198,21 @@ async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
 
   logger.debug("Parsing document with AI, text length:", text.length);
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model,
-    schema: ExtractedInfoSchema,
-    schemaName: "ExtractedInfo",
-    schemaDescription: "Information extracted from a document for form filling",
+    output: Output.object({
+      schema: ExtractedInfoSchema,
+      name: "ExtractedInfo",
+      description: "Information extracted from a document for form filling",
+    }),
     system: DOCUMENT_PARSING_PROMPT,
     prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
     temperature: 0.1,
+    providerOptions: getProviderOptions(selectedProvider),
   });
 
-  logger.debug("AI extracted items:", object.items.length);
-  return object.items;
+  logger.debug("AI extracted items:", output.items.length);
+  return output.items;
 }
 
 export async function parseDocument(file: File): Promise<DocumentParseResult> {

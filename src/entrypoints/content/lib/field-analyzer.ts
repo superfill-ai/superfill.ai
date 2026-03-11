@@ -497,6 +497,8 @@ export class FieldAnalyzer {
         password: "password",
         number: "number",
         date: "date",
+        radio: "radio",
+        checkbox: "checkbox",
       };
 
       return typeMap[type] || "text";

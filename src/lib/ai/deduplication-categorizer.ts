@@ -1,11 +1,11 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { CategoryEnum, TagSchema } from "@/lib/ai/categorization";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import type { MemoryEntry } from "@/types/memory";
-import { getAIModel } from "../providers/model-factory";
+import { getAIModel, getProviderOptions } from "../providers/model-factory";
 import { cloudDeduplicate, shouldUseCloudAI } from "./cloud-client";
 
 const logger = createLogger("ai:deduplication-categorizer");
@@ -19,7 +19,7 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     category: CategoryEnum,
     tags: z.array(TagSchema).min(1).max(5),
     confidence: z.number().min(0).max(1),
-    reasoning: z.string().optional(),
+    reasoning: z.string().nullable(),
   }),
   z.object({
     action: z.literal("update"),
@@ -31,7 +31,7 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     category: CategoryEnum,
     tags: z.array(TagSchema).min(1).max(5),
     confidence: z.number().min(0).max(1),
-    reasoning: z.string().optional(),
+    reasoning: z.string().nullable(),
   }),
   z.object({
     action: z.literal("skip"),
@@ -39,7 +39,7 @@ const DeduplicationOperationSchema = z.discriminatedUnion("action", [
     existingMemoryId: z.uuid({
       version: "v7",
     }),
-    reasoning: z.string().optional(),
+    reasoning: z.string().nullable(),
   }),
 ]);
 
@@ -129,15 +129,18 @@ export class DeduplicationCategorizer {
         provider,
       });
 
-      const { object: result } = await generateObject({
+      const { output: result } = await generateText({
         model,
+        output: Output.object({
+          schema: DeduplicationResultSchema,
+          name: "DeduplicationResult",
+          description:
+            "Deduplication and categorization results for captured fields",
+        }),
         system: systemPrompt,
         prompt: userPrompt,
-        schema: DeduplicationResultSchema,
-        schemaName: "DeduplicationResult",
-        schemaDescription:
-          "Deduplication and categorization results for captured fields",
         temperature: 0.3,
+        providerOptions: getProviderOptions(provider),
       });
 
       logger.info("Deduplication + Categorization result:", {

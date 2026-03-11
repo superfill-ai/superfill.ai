@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { FallbackMatcher } from "@/lib/autofill/fallback-matcher";
@@ -7,7 +7,7 @@ import {
   roundConfidence,
 } from "@/lib/autofill/mapping-utils";
 import { createLogger } from "@/lib/logger";
-import { getAIModel } from "@/lib/providers/model-factory";
+import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CompressedFieldData,
@@ -42,7 +42,7 @@ const AIBatchMatchSchema = z.object({
   matches: z.array(AIMatchSchema).describe("Array of field-to-memory matches"),
   reasoning: z
     .string()
-    .optional()
+    .nullable()
     .describe("Overall reasoning about the matching strategy used"),
 });
 
@@ -210,18 +210,21 @@ export class AIMatcher {
         websiteContext,
       });
 
-      const result = await generateObject({
+      const result = await generateText({
         model,
-        schema: AIBatchMatchSchema,
-        schemaName: "FieldMemoryMatches",
-        schemaDescription:
-          "Mapping of form fields to stored memory entries based on semantic similarity",
+        output: Output.object({
+          schema: AIBatchMatchSchema,
+          name: "FieldMemoryMatches",
+          description:
+            "Mapping of form fields to stored memory entries based on semantic similarity",
+        }),
         system: systemPrompt,
         prompt: userPrompt,
         temperature: 0.3,
+        providerOptions: getProviderOptions(provider),
       });
 
-      return result.object;
+      return result.output;
     } catch (error) {
       logger.error("AI matching failed:", error);
       throw error;

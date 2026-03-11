@@ -1,7 +1,7 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { createLogger } from "@/lib/logger";
-import { getAIModel } from "@/lib/providers/model-factory";
+import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type { CompressedFieldData } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
@@ -23,7 +23,7 @@ export const AnalysisResultSchema = z.object({
   category: CategoryEnum,
   tags: z.array(TagSchema).min(1).max(5),
   confidence: z.number().min(0).max(1),
-  reasoning: z.string().optional(),
+  reasoning: z.string().nullable(),
 });
 
 export const RephrasedAnswerSchema = z.object({
@@ -141,17 +141,20 @@ Be precise and consider context. For example:
       ? `Question: ${question}\nAnswer: ${answer}`
       : `Information: ${answer}`;
 
-    const result = await generateObject({
+    const result = await generateText({
       model,
+      output: Output.object({
+        schema: AnalysisResultSchema,
+        name: "CategorizationResult",
+        description: "Categorization and tagging result for user data",
+      }),
       system: systemPrompt,
       prompt: userPrompt,
-      schema: AnalysisResultSchema,
-      schemaName: "CategorizationResult",
-      schemaDescription: "Categorization and tagging result for user data",
       temperature: 0.3,
+      providerOptions: getProviderOptions(provider),
     });
 
-    return result.object;
+    return result.output;
   } catch (error) {
     logger.error("AI categorization failed:", error);
     return fallbackCategorization(answer, question);
@@ -231,15 +234,18 @@ Rephrase the following answer based on the provided context.
 - Field Type: ${field.type}
 `;
 
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model,
+      output: Output.object({
+        schema: RephrasedAnswerSchema,
+      }),
       system: systemPrompt,
       prompt: userPrompt,
-      schema: RephrasedAnswerSchema,
       temperature: 0.4,
+      providerOptions: getProviderOptions(provider),
     });
 
-    return object.rephrasedAnswer;
+    return output.rephrasedAnswer;
   } catch (error) {
     logger.error(
       "Contextual rephrasing failed, returning original answer:",
@@ -267,17 +273,20 @@ export const rephraseAgent = async (
 
     const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
 
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model,
+      output: Output.object({
+        schema: RephraseResultSchema,
+        name: "RephraseResult",
+        description: "Rephrased question and answer for user data",
+      }),
       system: systemPrompt,
       prompt: userPrompt,
-      schema: RephraseResultSchema,
-      schemaName: "RephraseResult",
-      schemaDescription: "Rephrased question and answer for user data",
       temperature: 0.5,
+      providerOptions: getProviderOptions(provider),
     });
 
-    return object;
+    return output;
   } catch (error) {
     logger.error("AI rephrasing failed:", error);
     throw new Error("Failed to rephrase content with AI.");
