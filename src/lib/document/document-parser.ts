@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
-import { z } from "zod";
 import type * as PdfjsDist from "pdfjs-dist";
+import { z } from "zod";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";

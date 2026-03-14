@@ -98,100 +98,102 @@ export function DocumentImportDialog({
 
   const progress = PROGRESS_BY_STATUS[status];
 
-  const handleFileSelect = useCallback(async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleFileSelect = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    const isPdf =
-      file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf");
-    const isTxt =
-      file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
+      const isPdf =
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf");
+      const isTxt =
+        file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
 
-    if (!isPdf && !isTxt) {
-      setError("Please select a PDF or text file");
-      setStatus("error");
-      event.target.value = "";
-      return;
-    }
-
-    // Debounce: skip if the same file (name+size) was already kicked off within 5 seconds
-    const importKey = `${file.name}:${file.size}`;
-    const now = Date.now();
-    if (
-      importKey === lastImportKeyRef.current &&
-      now - lastImportTimeRef.current < 5_000
-    ) {
-      logger.debug("Skipping duplicate import for:", file.name);
-      event.target.value = "";
-      return;
-    }
-    lastImportKeyRef.current = importKey;
-    lastImportTimeRef.current = now;
-
-    // Cancel any previously in-flight parse
-    abortControllerRef.current?.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    setFileName(file.name);
-    setStatus("reading");
-    setError(null);
-    setImportItems([]);
-
-    const currentRequestId = ++requestIdRef.current;
-    const requestId = String(currentRequestId);
-
-    try {
-      const result = await parseDocument(file, {
-        requestId,
-        signal: controller.signal,
-        onStageChange: (stage) => {
-          if (requestIdRef.current !== currentRequestId) return;
-          setStatus(stage);
-        },
-      });
-
-      if (requestIdRef.current !== currentRequestId) return;
-
-      if (!result.success || !result.items) {
-        // Silently ignore user-driven cancellation
-        if (result.error === "cancelled") return;
-        const errorMsg = result.error || "Failed to extract data from document";
+      if (!isPdf && !isTxt) {
+        setError("Please select a PDF or text file");
         setStatus("error");
-        setError(errorMsg);
-        toast.error(errorMsg);
+        event.target.value = "";
         return;
       }
 
-      const items = convertToImportItems(result.items);
-      setImportItems(items);
-      setStatus("success");
+      // Debounce: skip if the same file (name+size) was already kicked off within 5 seconds
+      const importKey = `${file.name}:${file.size}`;
+      const now = Date.now();
+      if (
+        importKey === lastImportKeyRef.current &&
+        now - lastImportTimeRef.current < 5_000
+      ) {
+        logger.debug("Skipping duplicate import for:", file.name);
+        event.target.value = "";
+        return;
+      }
+      lastImportKeyRef.current = importKey;
+      lastImportTimeRef.current = now;
 
-      logger.debug(
-        `[req:${requestId}] Successfully extracted document data:`,
-        items.length,
-        "items",
-      );
-    } catch (err) {
-      if (requestIdRef.current !== currentRequestId) return;
-      // Swallow AbortError — dialog was closed intentionally
-      if (err instanceof Error && err.name === "AbortError") return;
+      // Cancel any previously in-flight parse
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-      const errMsg =
-        err instanceof Error ? err.message : "An unexpected error occurred";
-      logger.error(`[req:${requestId}] Import error:`, err);
-      setStatus("error");
-      setError(errMsg);
-      toast.error(errMsg);
-    }
+      setFileName(file.name);
+      setStatus("reading");
+      setError(null);
+      setImportItems([]);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }, [requestIdRef, setStatus, setError, setImportItems]);
+      const currentRequestId = ++requestIdRef.current;
+      const requestId = String(currentRequestId);
+
+      try {
+        const result = await parseDocument(file, {
+          requestId,
+          signal: controller.signal,
+          onStageChange: (stage) => {
+            if (requestIdRef.current !== currentRequestId) return;
+            setStatus(stage);
+          },
+        });
+
+        if (requestIdRef.current !== currentRequestId) return;
+
+        if (!result.success || !result.items) {
+          // Silently ignore user-driven cancellation
+          if (result.error === "cancelled") return;
+          const errorMsg =
+            result.error || "Failed to extract data from document";
+          setStatus("error");
+          setError(errorMsg);
+          toast.error(errorMsg);
+          return;
+        }
+
+        const items = convertToImportItems(result.items);
+        setImportItems(items);
+        setStatus("success");
+
+        logger.debug(
+          `[req:${requestId}] Successfully extracted document data:`,
+          items.length,
+          "items",
+        );
+      } catch (err) {
+        if (requestIdRef.current !== currentRequestId) return;
+        // Swallow AbortError — dialog was closed intentionally
+        if (err instanceof Error && err.name === "AbortError") return;
+
+        const errMsg =
+          err instanceof Error ? err.message : "An unexpected error occurred";
+        logger.error(`[req:${requestId}] Import error:`, err);
+        setStatus("error");
+        setError(errMsg);
+        toast.error(errMsg);
+      }
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [requestIdRef, setStatus, setError, setImportItems],
+  );
 
   const handleCloseWrapper = (open: boolean) => {
     if (!open) {
