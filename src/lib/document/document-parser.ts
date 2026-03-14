@@ -1,12 +1,27 @@
+import { generateObject } from "ai";
+import { z } from "zod";
+import type * as PdfjsDist from "pdfjs-dist";
 import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AllowedCategory } from "@/types/memory";
-import { generateObject } from "ai";
-import { z } from "zod";
 
 const logger = createLogger("document-parser");
+
+// Cached pdfjs module — initialized once, reused on subsequent calls
+let _pdfjsLib: typeof PdfjsDist | null = null;
+
+class AbortError extends Error {
+  constructor() {
+    super("Document parsing was cancelled");
+    this.name = "AbortError";
+  }
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new AbortError();
+}
 
 const ExtractedInfoSchema = z.object({
   items: z.array(
@@ -63,10 +78,13 @@ interface PDFAnnotation {
 }
 
 export async function extractTextFromPDF(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist");
-
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    browser.runtime.getURL("/pdf.worker.mjs");
+  // Cache pdfjs module + worker URL so it's only initialized once per session
+  if (!_pdfjsLib) {
+    _pdfjsLib = await import("pdfjs-dist");
+    _pdfjsLib.GlobalWorkerOptions.workerSrc =
+      browser.runtime.getURL("/pdf.worker.mjs");
+  }
+  const pdfjsLib = _pdfjsLib;
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -178,6 +196,7 @@ Be thorough - users want to capture as much useful information as possible from 
 async function parseDocumentWithAI(
   text: string,
   logPrefix: string,
+  signal?: AbortSignal,
 ): Promise<ExtractedItem[]> {
   const aiSettings = await storage.aiSettings.getValue();
   const { selectedProvider, selectedModels } = aiSettings;
@@ -187,6 +206,8 @@ async function parseDocumentWithAI(
       "AI provider not configured. Please set up an AI provider in settings.",
     );
   }
+
+  throwIfAborted(signal);
 
   const keyVaultService = getKeyVaultService();
   const apiKey = await keyVaultService.getKey(selectedProvider);
@@ -302,17 +323,20 @@ export interface ParseDocumentOptions {
   requestId?: string;
   /** Called when the parse stage transitions from file I/O to AI extraction. */
   onStageChange?: (stage: "reading" | "parsing") => void;
+  /** Optional AbortSignal — abort mid-parse (e.g. dialog closed). */
+  signal?: AbortSignal;
 }
 
 export async function parseDocument(
   file: File,
   options: ParseDocumentOptions = {},
 ): Promise<DocumentParseResult> {
-  const { requestId, onStageChange } = options;
+  const { requestId, onStageChange, signal } = options;
   const logPrefix = requestId ? `[req:${requestId}]` : "[req:?]";
   const totalStart = performance.now();
 
   try {
+    throwIfAborted(signal);
     logger.debug(
       `${logPrefix} Starting document parsing — file: ${file.name}, size: ${file.size} bytes`,
     );
@@ -328,6 +352,7 @@ export async function parseDocument(
       onStageChange?.("reading");
       const readStart = performance.now();
       text = await extractTextFromPDF(file);
+      throwIfAborted(signal);
       logger.debug(
         `${logPrefix} PDF text extracted — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`,
       );
@@ -335,6 +360,7 @@ export async function parseDocument(
       onStageChange?.("reading");
       const readStart = performance.now();
       text = await file.text();
+      throwIfAborted(signal);
       logger.debug(
         `${logPrefix} TXT text read — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`,
       );
@@ -358,7 +384,7 @@ export async function parseDocument(
     }
 
     onStageChange?.("parsing");
-    const items = await parseDocumentWithAI(text, logPrefix);
+    const items = await parseDocumentWithAI(text, logPrefix, signal);
 
     logger.debug(
       `${logPrefix} Parse complete — total: ${Math.round(performance.now() - totalStart)}ms, items: ${items.length}`,
@@ -370,6 +396,10 @@ export async function parseDocument(
       rawText: text,
     };
   } catch (error) {
+    if (error instanceof AbortError) {
+      logger.debug(`${logPrefix} Parsing cancelled by caller`);
+      return { success: false, error: "cancelled" };
+    }
     logger.error(
       `${logPrefix} Document parsing error (${Math.round(performance.now() - totalStart)}ms):`,
       error,

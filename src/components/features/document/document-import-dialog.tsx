@@ -1,5 +1,5 @@
 import { FileTextIcon, UploadIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ImportDialogFooter,
@@ -65,6 +65,11 @@ export function DocumentImportDialog({
 }: DocumentImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  // Tracks the last successfully initiated import to debounce same-file re-imports
+  const lastImportKeyRef = useRef<string | null>(null);
+  const lastImportTimeRef = useRef<number>(0);
+  // AbortController for cancelling an in-flight parse when the dialog closes
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const {
     status,
@@ -93,7 +98,7 @@ export function DocumentImportDialog({
 
   const progress = PROGRESS_BY_STATUS[status];
 
-  const handleFileSelect = async (
+  const handleFileSelect = useCallback(async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
@@ -112,6 +117,25 @@ export function DocumentImportDialog({
       return;
     }
 
+    // Debounce: skip if the same file (name+size) was already kicked off within 5 seconds
+    const importKey = `${file.name}:${file.size}`;
+    const now = Date.now();
+    if (
+      importKey === lastImportKeyRef.current &&
+      now - lastImportTimeRef.current < 5_000
+    ) {
+      logger.debug("Skipping duplicate import for:", file.name);
+      event.target.value = "";
+      return;
+    }
+    lastImportKeyRef.current = importKey;
+    lastImportTimeRef.current = now;
+
+    // Cancel any previously in-flight parse
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setFileName(file.name);
     setStatus("reading");
     setError(null);
@@ -123,6 +147,7 @@ export function DocumentImportDialog({
     try {
       const result = await parseDocument(file, {
         requestId,
+        signal: controller.signal,
         onStageChange: (stage) => {
           if (requestIdRef.current !== currentRequestId) return;
           setStatus(stage);
@@ -132,6 +157,8 @@ export function DocumentImportDialog({
       if (requestIdRef.current !== currentRequestId) return;
 
       if (!result.success || !result.items) {
+        // Silently ignore user-driven cancellation
+        if (result.error === "cancelled") return;
         const errorMsg = result.error || "Failed to extract data from document";
         setStatus("error");
         setError(errorMsg);
@@ -150,6 +177,8 @@ export function DocumentImportDialog({
       );
     } catch (err) {
       if (requestIdRef.current !== currentRequestId) return;
+      // Swallow AbortError — dialog was closed intentionally
+      if (err instanceof Error && err.name === "AbortError") return;
 
       const errMsg =
         err instanceof Error ? err.message : "An unexpected error occurred";
@@ -162,10 +191,13 @@ export function DocumentImportDialog({
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  };
+  }, [requestIdRef, setStatus, setError, setImportItems]);
 
   const handleCloseWrapper = (open: boolean) => {
     if (!open) {
+      // Cancel any in-flight parse
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
       setFileName(null);
     }
     handleClose(open);
