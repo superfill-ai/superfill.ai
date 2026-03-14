@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/cn";
 import type { BaseImportItem } from "@/types/import";
 import type { AllowedCategory } from "@/types/memory";
 
@@ -79,6 +80,7 @@ export function ImportItemsList<T extends BaseImportItem>({
   );
 
   const allSelected = items.every((item) => item.selected);
+  const duplicateCount = items.filter((item) => item.existingDuplicate).length;
 
   return (
     <div className="space-y-4">
@@ -88,6 +90,15 @@ export function ImportItemsList<T extends BaseImportItem>({
           <span className="text-sm font-medium">
             Found {items.length} items
           </span>
+          {duplicateCount > 0 && (
+            <Badge
+              variant="outline"
+              size="sm"
+              className="border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/30"
+            >
+              {duplicateCount} duplicate{duplicateCount > 1 ? "s" : ""}
+            </Badge>
+          )}
           {headerExtra}
         </div>
         <Button
@@ -122,7 +133,11 @@ export function ImportItemsList<T extends BaseImportItem>({
                 {categoryItems?.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors w-full"
+                    className={cn(
+                      "flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors w-full",
+                      item.existingDuplicate &&
+                        "border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/10",
+                    )}
                   >
                     <Checkbox
                       id={`${itemIdPrefix}-${item.id}`}
@@ -134,9 +149,20 @@ export function ImportItemsList<T extends BaseImportItem>({
                       htmlFor={`${itemIdPrefix}-${item.id}`}
                       className="flex-1 min-w-0 cursor-pointer"
                     >
-                      <p className="text-sm font-medium truncate">
-                        {item.label}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-medium truncate">
+                          {item.label}
+                        </p>
+                        {item.existingDuplicate && (
+                          <Badge
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/30"
+                          >
+                            duplicate
+                          </Badge>
+                        )}
+                      </div>
                       {item.question &&
                         item.question.toLowerCase() !==
                           item.label.toLowerCase() && (
@@ -144,9 +170,68 @@ export function ImportItemsList<T extends BaseImportItem>({
                             {item.question}
                           </p>
                         )}
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {item.answer}
-                      </p>
+                      {/* New value from document */}
+                      <div
+                        className={cn(
+                          "mt-0.5",
+                          item.existingDuplicate && "space-y-1.5",
+                        )}
+                      >
+                        {item.existingDuplicate && (
+                          <p className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wide">
+                            New
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {item.answer}
+                        </p>
+                        {/* Existing saved value */}
+                        {item.existingDuplicate && (
+                          <>
+                            <p className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wide mt-1">
+                              Currently saved
+                            </p>
+                            <p className="text-xs text-muted-foreground/70 line-clamp-2 italic">
+                              {item.existingDuplicate.answer}
+                            </p>
+                            {/* Use new / Keep existing toggle buttons */}
+                            <div className="flex gap-1.5 mt-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!item.selected) onToggleItem(item.id);
+                                }}
+                                className={cn(
+                                  "text-[11px] px-2 py-0.5 rounded border font-medium transition-colors",
+                                  item.selected
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary",
+                                )}
+                              >
+                                Use new
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (item.selected) onToggleItem(item.id);
+                                }}
+                                className={cn(
+                                  "text-[11px] px-2 py-0.5 rounded border font-medium transition-colors",
+                                  !item.selected
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary",
+                                )}
+                              >
+                                Keep existing
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </label>
                   </div>
                 ))}

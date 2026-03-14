@@ -183,6 +183,43 @@ export const addEntries = async (entries: CreateMemoryEntry[]) => {
   }
 };
 
+/**
+ * Given a list of candidate entries (e.g. freshly extracted from a document),
+ * returns a Map from candidate index → the existing MemoryEntry that would be
+ * overwritten if the candidate were saved.  Uses the same matching logic as
+ * addEntries: contentHash first, then answerKey fallback.
+ */
+export const findDuplicates = async (
+  candidates: Array<{ question: string; answer: string; category: string }>,
+  existing: MemoryEntry[],
+): Promise<Map<number, MemoryEntry>> => {
+  const hashToEntry = new Map<string, MemoryEntry>();
+  const answerKeyToEntry = new Map<string, MemoryEntry>();
+
+  for (const entry of existing) {
+    const hash =
+      entry.contentHash ||
+      (await computeContentHash(entry.question, entry.answer, entry.category));
+    hashToEntry.set(hash, entry);
+    answerKeyToEntry.set(buildAnswerKey(entry.answer, entry.category), entry);
+  }
+
+  const result = new Map<number, MemoryEntry>();
+
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i];
+    const hash = await computeContentHash(c.question, c.answer, c.category);
+    const answerKey = buildAnswerKey(c.answer, c.category);
+
+    const matched = hashToEntry.get(hash) ?? answerKeyToEntry.get(answerKey);
+    if (matched) {
+      result.set(i, matched);
+    }
+  }
+
+  return result;
+};
+
 export const updateEntry = async (id: string, updates: UpdateMemoryEntry) => {
   try {
     const currentEntries = await storage.memories.getValue();

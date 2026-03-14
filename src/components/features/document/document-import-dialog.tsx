@@ -11,6 +11,7 @@ import {
 } from "@/components/features/import/import-dialog-shared";
 import { Button } from "@/components/ui/button";
 import { useImportDialog } from "@/hooks/use-import-dialog";
+import { useMemories } from "@/hooks/use-memories";
 import {
   convertToImportItems,
   type DocumentImportItem,
@@ -18,6 +19,7 @@ import {
   parseDocument,
 } from "@/lib/document/document-parser";
 import { createLogger } from "@/lib/logger";
+import { findDuplicates } from "@/lib/storage/memories";
 
 const logger = createLogger("component:document-import-dialog");
 
@@ -70,6 +72,8 @@ export function DocumentImportDialog({
   const lastImportTimeRef = useRef<number>(0);
   // AbortController for cancelling an in-flight parse when the dialog closes
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const { entries: existingMemories } = useMemories();
 
   const {
     status,
@@ -167,7 +171,15 @@ export function DocumentImportDialog({
         }
 
         const items = convertToImportItems(result.items);
-        setImportItems(items);
+
+        // Enrich each item with its matching existing memory (if any)
+        const duplicatesMap = await findDuplicates(items, existingMemories);
+        const enrichedItems = items.map((item, i) => {
+          const duplicate = duplicatesMap.get(i);
+          return duplicate ? { ...item, existingDuplicate: duplicate } : item;
+        });
+
+        setImportItems(enrichedItems);
         setStatus("success");
 
         logger.debug(
@@ -192,7 +204,7 @@ export function DocumentImportDialog({
         fileInputRef.current.value = "";
       }
     },
-    [requestIdRef, setStatus, setError, setImportItems],
+    [requestIdRef, setStatus, setError, setImportItems, existingMemories],
   );
 
   const handleCloseWrapper = (open: boolean) => {
