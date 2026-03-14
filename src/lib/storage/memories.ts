@@ -183,12 +183,6 @@ export const addEntries = async (entries: CreateMemoryEntry[]) => {
   }
 };
 
-/**
- * Given a list of candidate entries (e.g. freshly extracted from a document),
- * returns a Map from candidate index → the existing MemoryEntry that would be
- * overwritten if the candidate were saved.  Uses the same matching logic as
- * addEntries: contentHash first, then answerKey fallback.
- */
 export const findDuplicates = async (
   candidates: Array<{ question: string; answer: string; category: string }>,
   existing: MemoryEntry[],
