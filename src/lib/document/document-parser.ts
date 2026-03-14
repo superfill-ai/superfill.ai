@@ -1,10 +1,10 @@
-import { generateObject } from "ai";
-import { z } from "zod";
 import { createLogger } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AllowedCategory } from "@/types/memory";
+import { generateObject } from "ai";
+import { z } from "zod";
 
 const logger = createLogger("document-parser");
 
@@ -162,8 +162,9 @@ Guidelines:
 5. Add relevant lowercase tags for each item (e.g., "email", "phone", "name", "job", "degree")
 6. If something could answer multiple common form questions, include it
 7. Don't include generic document metadata or irrelevant content
-8. For work experience, extract both summary entries and individual details (title, company, dates)
-9. For education, extract both combined entries and individual fields (school, degree, major)
+8. Do not produce duplicate or overlapping memories; merge identical facts instead of repeating them
+9. Work history: for each job/role/company, emit exactly one memory that includes role, company, location (if present), and the work period (start–end or start–present) in the answer. Do not split a single job into multiple memories
+10. Education: emit one memory per distinct qualification. Each education memory must include the institution, degree/program, and its dates/period in the same memory. Use distinct labels/questions so multiple educations are clearly differentiated
 
 IMPORTANT - Hyperlinks:
 - The document may have a "HYPERLINKS FOUND IN DOCUMENT" section at the end
