@@ -170,7 +170,6 @@ export function ImportItemsList<T extends BaseImportItem>({
                             {item.question}
                           </p>
                         )}
-                      {/* New value from document */}
                       <div
                         className={cn(
                           "mt-0.5",
@@ -185,7 +184,6 @@ export function ImportItemsList<T extends BaseImportItem>({
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {item.answer}
                         </p>
-                        {/* Existing saved value */}
                         {item.existingDuplicate && (
                           <>
                             <p className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wide mt-1">
@@ -194,7 +192,6 @@ export function ImportItemsList<T extends BaseImportItem>({
                             <p className="text-xs text-muted-foreground/70 line-clamp-2 italic">
                               {item.existingDuplicate.answer}
                             </p>
-                            {/* Use new / Keep existing toggle buttons */}
                             <div className="flex gap-1.5 mt-2">
                               <button
                                 type="button"
