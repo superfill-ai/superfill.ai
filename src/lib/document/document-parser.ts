@@ -268,10 +268,60 @@ export interface DocumentImportItem extends ExtractedItem {
   selected: boolean;
 }
 
+function normalizeTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  for (const tag of tags) {
+    const normalized = tag.trim().toLowerCase();
+    if (normalized) {
+      seen.add(normalized);
+    }
+  }
+  return [...seen];
+}
+
+function normalizeKey(item: ExtractedItem): string {
+  const safe = (value: string) => value.trim().toLowerCase();
+  return [
+    safe(item.label),
+    safe(item.question),
+    safe(item.answer),
+    item.category,
+  ]
+    .map((part) => part || "")
+    .join("|");
+}
+
+function deduplicateItems(items: ExtractedItem[]): ExtractedItem[] {
+  const byKey = new Map<string, ExtractedItem>();
+
+  for (const item of items) {
+    if (!item.label?.trim() || !item.question?.trim() || !item.answer?.trim()) {
+      continue;
+    }
+
+    const key = normalizeKey(item);
+    const existing = byKey.get(key);
+
+    if (existing) {
+      const mergedTags = normalizeTags([
+        ...(existing.tags || []),
+        ...(item.tags || []),
+      ]);
+      byKey.set(key, { ...existing, tags: mergedTags });
+    } else {
+      byKey.set(key, { ...item, tags: normalizeTags(item.tags || []) });
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
 export function convertToImportItems(
   items: ExtractedItem[],
 ): DocumentImportItem[] {
-  return items.map((item, index) => ({
+  const deduped = deduplicateItems(items);
+
+  return deduped.map((item, index) => ({
     ...item,
     id: `doc-${index + 1}`,
     selected: true,

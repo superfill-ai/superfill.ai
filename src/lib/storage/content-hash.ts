@@ -6,6 +6,10 @@ const normalizePart = (value: string): string =>
     .trim()
     .replace(/\s+/g, " ");
 
+// Secondary dedup key: answer + category only (ignores question phrasing)
+export const buildAnswerKey = (answer: string, category: string): string =>
+  `${normalizePart(answer)}||${normalizePart(category)}`;
+
 export const buildContentHashInput = (
   question: string | undefined,
   answer: string,
