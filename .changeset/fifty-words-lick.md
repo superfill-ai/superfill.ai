@@ -2,4 +2,4 @@
 "superfill.ai": patch
 ---
 
-add obersvability in the document parser
+add observability in the document parser
