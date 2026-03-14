@@ -77,17 +77,15 @@ interface PDFAnnotation {
 }
 
 export async function extractTextFromPDF(file: File): Promise<string> {
-  // Cache pdfjs module + worker URL so it's only initialized once per session
   if (!_pdfjsLib) {
     _pdfjsLib = await import("pdfjs-dist");
     _pdfjsLib.GlobalWorkerOptions.workerSrc =
       browser.runtime.getURL("/pdf.worker.mjs");
   }
+  
   const pdfjsLib = _pdfjsLib;
-
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
   let fullText = "";
   const allLinks: string[] = [];
 
@@ -111,10 +109,13 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const item of items) {
       if (!item.str) continue;
+      
       const y = Math.round(item.transform[5]);
+      
       if (!lineMap.has(y)) {
         lineMap.set(y, []);
       }
+      
       lineMap.get(y)?.push(item);
     }
 
@@ -122,16 +123,21 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const y of sortedYPositions) {
       const lineItems = lineMap.get(y);
+      
       if (!lineItems) continue;
+      
       lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
 
       let lineText = "";
       let lastX = 0;
+      
       for (const item of lineItems) {
         const x = item.transform[4];
+        
         if (lineText && x - lastX > 5) {
           lineText += " ";
         }
+        
         lineText += item.str;
         lastX = x + item.width;
       }
@@ -146,7 +152,9 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
   if (allLinks.length > 0) {
     const uniqueLinks = [...new Set(allLinks)];
+    
     fullText += "\n--- HYPERLINKS FOUND IN DOCUMENT ---\n";
+    
     for (const link of uniqueLinks) {
       fullText += `${link}\n`;
     }
@@ -318,11 +326,8 @@ async function parseDocumentWithAI(
 }
 
 export interface ParseDocumentOptions {
-  /** Opaque ID used to correlate log lines for this parse request. */
   requestId?: string;
-  /** Called when the parse stage transitions from file I/O to AI extraction. */
   onStageChange?: (stage: "reading" | "parsing") => void;
-  /** Optional AbortSignal — abort mid-parse (e.g. dialog closed). */
   signal?: AbortSignal;
 }
 
@@ -418,8 +423,10 @@ export interface DocumentImportItem extends ExtractedItem {
 
 function normalizeTags(tags: string[]): string[] {
   const seen = new Set<string>();
+  
   for (const tag of tags) {
     const normalized = tag.trim().toLowerCase();
+    
     if (normalized) {
       seen.add(normalized);
     }
@@ -429,6 +436,7 @@ function normalizeTags(tags: string[]): string[] {
 
 function normalizeKey(item: ExtractedItem): string {
   const safe = (value: string) => value.trim().toLowerCase();
+  
   return [
     safe(item.label),
     safe(item.question),
