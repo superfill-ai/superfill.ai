@@ -1,5 +1,3 @@
-import { FileTextIcon, UploadIcon } from "lucide-react";
-import { useRef, useState } from "react";
 import {
   ImportDialogFooter,
   ImportDialogShell,
@@ -17,6 +15,9 @@ import {
   parseDocument,
 } from "@/lib/document/document-parser";
 import { createLogger } from "@/lib/logger";
+import { FileTextIcon, UploadIcon } from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 
 const logger = createLogger("component:document-import-dialog");
 
@@ -43,6 +44,7 @@ function getDescription(status: DocumentParserStatus): string {
     case "success":
       return "Select the information you want to import.";
     case "reading":
+      return "Reading your document...";
     case "parsing":
       return "AI is extracting your information...";
     case "error":
@@ -111,20 +113,29 @@ export function DocumentImportDialog({
     }
 
     setFileName(file.name);
-    setStatus("parsing");
+    setStatus("reading");
     setError(null);
     setImportItems([]);
 
     const currentRequestId = ++requestIdRef.current;
+    const requestId = String(currentRequestId);
 
     try {
-      const result = await parseDocument(file);
+      const result = await parseDocument(file, {
+        requestId,
+        onStageChange: (stage) => {
+          if (requestIdRef.current !== currentRequestId) return;
+          setStatus(stage);
+        },
+      });
 
       if (requestIdRef.current !== currentRequestId) return;
 
       if (!result.success || !result.items) {
+        const errorMsg = result.error || "Failed to extract data from document";
         setStatus("error");
-        setError(result.error || "Failed to extract data from document");
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
@@ -132,15 +143,20 @@ export function DocumentImportDialog({
       setImportItems(items);
       setStatus("success");
 
-      logger.debug("Successfully extracted document data:", items.length);
+      logger.debug(
+        `[req:${requestId}] Successfully extracted document data:`,
+        items.length,
+        "items",
+      );
     } catch (err) {
       if (requestIdRef.current !== currentRequestId) return;
 
-      logger.error("Import error:", err);
+      const errMsg =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      logger.error(`[req:${requestId}] Import error:`, err);
       setStatus("error");
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
+      setError(errMsg);
+      toast.error(errMsg);
     }
 
     if (fileInputRef.current) {

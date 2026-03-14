@@ -1,10 +1,10 @@
+import { v7 as uuidv7 } from "uuid";
 import { isAllowedCategory } from "@/lib/copies";
 import { downloadCSV, parseCSV, stringifyToCSV } from "@/lib/csv";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import { buildAnswerKey, computeContentHash } from "@/lib/storage/content-hash";
 import type { MemoryEntry } from "@/types/memory";
-import { v7 as uuidv7 } from "uuid";
 
 const logger = createLogger("storage:memories");
 
@@ -50,7 +50,7 @@ export const addEntry = async (entry: CreateMemoryEntry) => {
 
     if (existingIndex !== -1) {
       const existing = currentEntries[existingIndex];
-      
+
       const updatedEntry: MemoryEntry = {
         ...existing,
         ...entry,
@@ -117,7 +117,10 @@ export const addEntries = async (entries: CreateMemoryEntry[]) => {
       }
 
       hashToIndex.set(existingHash, index);
-      answerKeyToIndex.set(buildAnswerKey(existing.answer, existing.category), index);
+      answerKeyToIndex.set(
+        buildAnswerKey(existing.answer, existing.category),
+        index,
+      );
     }
 
     const createdOrUpdated: MemoryEntry[] = [];

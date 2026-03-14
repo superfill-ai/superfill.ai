@@ -1,10 +1,10 @@
+import { generateObject } from "ai";
+import { z } from "zod";
 import { createLogger } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AllowedCategory } from "@/types/memory";
-import { generateObject } from "ai";
-import { z } from "zod";
 
 const logger = createLogger("document-parser");
 
@@ -175,7 +175,10 @@ IMPORTANT - Hyperlinks:
 
 Be thorough - users want to capture as much useful information as possible from their documents.`;
 
-async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
+async function parseDocumentWithAI(
+  text: string,
+  logPrefix: string,
+): Promise<ExtractedItem[]> {
   const aiSettings = await storage.aiSettings.getValue();
   const { selectedProvider, selectedModels } = aiSettings;
 
@@ -197,8 +200,9 @@ async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
   const selectedModel = selectedModels?.[selectedProvider];
   const model = getAIModel(selectedProvider, apiKey || "", selectedModel);
 
-  logger.debug("Parsing document with AI, text length:", text.length);
+  logger.debug(`${logPrefix} AI call start — provider: ${selectedProvider}, model: ${selectedModel ?? "default"}, text length: ${text.length} chars`);
 
+  const aiStart = performance.now();
   const { object } = await generateObject({
     model,
     schema: ExtractedInfoSchema,
@@ -208,37 +212,58 @@ async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
     prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
     temperature: 0.1,
   });
+  const aiElapsed = Math.round(performance.now() - aiStart);
 
-  logger.debug("AI extracted items:", object.items.length);
+  logger.debug(`${logPrefix} AI call complete — ${aiElapsed}ms, items extracted: ${object.items.length}`);
   return object.items;
 }
 
-export async function parseDocument(file: File): Promise<DocumentParseResult> {
+export interface ParseDocumentOptions {
+  /** Opaque ID used to correlate log lines for this parse request. */
+  requestId?: string;
+  /** Called when the parse stage transitions from file I/O to AI extraction. */
+  onStageChange?: (stage: "reading" | "parsing") => void;
+}
+
+export async function parseDocument(
+  file: File,
+  options: ParseDocumentOptions = {},
+): Promise<DocumentParseResult> {
+  const { requestId, onStageChange } = options;
+  const logPrefix = requestId ? `[req:${requestId}]` : "[req:?]";
+  const totalStart = performance.now();
+
   try {
-    logger.debug("Starting document parsing for:", file.name);
+    logger.debug(`${logPrefix} Starting document parsing — file: ${file.name}, size: ${file.size} bytes`);
 
     let text: string;
-
-    if (
+    const isPdf =
       file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf")
-    ) {
-      text = await extractTextFromPDF(file);
-    } else if (
+      file.name.toLowerCase().endsWith(".pdf");
+    const isTxt =
       file.type === "text/plain" ||
-      file.name.toLowerCase().endsWith(".txt")
-    ) {
+      file.name.toLowerCase().endsWith(".txt");
+
+    if (isPdf) {
+      onStageChange?.("reading");
+      const readStart = performance.now();
+      text = await extractTextFromPDF(file);
+      logger.debug(`${logPrefix} PDF text extracted — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`);
+    } else if (isTxt) {
+      onStageChange?.("reading");
+      const readStart = performance.now();
       text = await file.text();
+      logger.debug(`${logPrefix} TXT text read — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`);
     } else {
+      logger.warn(`${logPrefix} Unsupported file type: ${file.type}`);
       return {
         success: false,
         error: "Unsupported file type. Please upload a PDF or text file.",
       };
     }
 
-    logger.debug("Extracted text length:", text.length);
-
     if (!text || text.trim().length < 50) {
+      logger.warn(`${logPrefix} Document text too short (${text.trim().length} chars) — possibly image-based or empty`);
       return {
         success: false,
         error:
@@ -246,7 +271,10 @@ export async function parseDocument(file: File): Promise<DocumentParseResult> {
       };
     }
 
-    const items = await parseDocumentWithAI(text);
+    onStageChange?.("parsing");
+    const items = await parseDocumentWithAI(text, logPrefix);
+
+    logger.debug(`${logPrefix} Parse complete — total: ${Math.round(performance.now() - totalStart)}ms, items: ${items.length}`);
 
     return {
       success: true,
@@ -254,7 +282,7 @@ export async function parseDocument(file: File): Promise<DocumentParseResult> {
       rawText: text,
     };
   } catch (error) {
-    logger.error("Document parsing error:", error);
+    logger.error(`${logPrefix} Document parsing error (${Math.round(performance.now() - totalStart)}ms):`, error);
     return {
       success: false,
       error:

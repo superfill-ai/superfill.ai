@@ -137,6 +137,13 @@ export function ImportItemsList<T extends BaseImportItem>({
                       <p className="text-sm font-medium truncate">
                         {item.label}
                       </p>
+                      {item.question &&
+                        item.question.toLowerCase() !==
+                          item.label.toLowerCase() && (
+                          <p className="text-xs text-muted-foreground/70 italic truncate">
+                            {item.question}
+                          </p>
+                        )}
                       <p className="text-xs text-muted-foreground line-clamp-2">
                         {item.answer}
                       </p>
