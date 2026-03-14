@@ -9,7 +9,6 @@ import type { AllowedCategory } from "@/types/memory";
 
 const logger = createLogger("document-parser");
 
-// Cached pdfjs module — initialized once, reused on subsequent calls
 let _pdfjsLib: typeof PdfjsDist | null = null;
 
 class AbortError extends Error {
