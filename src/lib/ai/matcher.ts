@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { FallbackMatcher } from "@/lib/autofill/fallback-matcher";
 import {
@@ -222,6 +223,7 @@ export class AIMatcher {
         prompt: userPrompt,
         temperature: 0.3,
         providerOptions: getProviderOptions(provider),
+        ...getTelemetryConfig("field-matching"),
       });
 
       return result.output;

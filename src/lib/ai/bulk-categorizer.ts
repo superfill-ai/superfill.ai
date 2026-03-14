@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
 import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
 import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
@@ -92,6 +93,7 @@ export class BulkCategorizer {
         system: systemPrompt,
         prompt: userPrompt,
         providerOptions: getProviderOptions(provider),
+        ...getTelemetryConfig("bulk-categorization"),
       });
 
       const categorized = this.mapResultsToFields(result, fields);

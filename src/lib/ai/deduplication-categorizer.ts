@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { CategoryEnum, TagSchema } from "@/lib/ai/categorization";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
 import { createLogger } from "@/lib/logger";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
@@ -141,6 +142,7 @@ export class DeduplicationCategorizer {
         prompt: userPrompt,
         temperature: 0.3,
         providerOptions: getProviderOptions(provider),
+        ...getTelemetryConfig("deduplication"),
       });
 
       logger.info("Deduplication + Categorization result:", {

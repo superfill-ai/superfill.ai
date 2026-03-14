@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
 import { createLogger } from "@/lib/logger";
 import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
@@ -209,6 +210,7 @@ async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
     prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
     temperature: 0.1,
     providerOptions: getProviderOptions(selectedProvider),
+    ...getTelemetryConfig("document-parsing"),
   });
 
   logger.debug("AI extracted items:", output.items.length);

@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
 import { createLogger } from "@/lib/logger";
 import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
@@ -152,6 +153,7 @@ Be precise and consider context. For example:
       prompt: userPrompt,
       temperature: 0.3,
       providerOptions: getProviderOptions(provider),
+      ...getTelemetryConfig("categorization"),
     });
 
     return result.output;
@@ -243,6 +245,7 @@ Rephrase the following answer based on the provided context.
       prompt: userPrompt,
       temperature: 0.4,
       providerOptions: getProviderOptions(provider),
+      ...getTelemetryConfig("rephrase-context"),
     });
 
     return output.rephrasedAnswer;
@@ -284,6 +287,7 @@ export const rephraseAgent = async (
       prompt: userPrompt,
       temperature: 0.5,
       providerOptions: getProviderOptions(provider),
+      ...getTelemetryConfig("rephrase"),
     });
 
     return output;
