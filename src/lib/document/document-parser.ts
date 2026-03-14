@@ -1,10 +1,10 @@
-import { generateObject } from "ai";
-import { z } from "zod";
-import { createLogger } from "@/lib/logger";
+import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AllowedCategory } from "@/types/memory";
+import { generateObject } from "ai";
+import { z } from "zod";
 
 const logger = createLogger("document-parser");
 
@@ -200,21 +200,100 @@ async function parseDocumentWithAI(
   const selectedModel = selectedModels?.[selectedProvider];
   const model = getAIModel(selectedProvider, apiKey || "", selectedModel);
 
-  logger.debug(`${logPrefix} AI call start — provider: ${selectedProvider}, model: ${selectedModel ?? "default"}, text length: ${text.length} chars`);
+  logger.debug(
+    `${logPrefix} AI call start — provider: ${selectedProvider}, model: ${selectedModel ?? "default"}, text length: ${text.length} chars`,
+  );
+
+  if (DEBUG) {
+    try {
+      const { updateObservation, updateTrace } = await import(
+        "@/lib/observability/telemetry-helpers"
+      );
+      await updateObservation({ input: { textLength: text.length } });
+      await updateTrace({
+        name: "superfill:document-parsing",
+        input: {
+          provider: selectedProvider,
+          model: selectedModel ?? "default",
+          textLength: text.length,
+        },
+      });
+    } catch (telemetryError) {
+      logger.warn("Telemetry error before document AI call:", telemetryError);
+    }
+  }
 
   const aiStart = performance.now();
-  const { object } = await generateObject({
-    model,
-    schema: ExtractedInfoSchema,
-    schemaName: "ExtractedInfo",
-    schemaDescription: "Information extracted from a document for form filling",
-    system: DOCUMENT_PARSING_PROMPT,
-    prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
-    temperature: 0.1,
-  });
+  let object: (typeof ExtractedInfoSchema)["_output"];
+
+  try {
+    const result = await generateObject({
+      model,
+      schema: ExtractedInfoSchema,
+      schemaName: "ExtractedInfo",
+      schemaDescription:
+        "Information extracted from a document for form filling",
+      system: DOCUMENT_PARSING_PROMPT,
+      prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
+      temperature: 0.1,
+      experimental_telemetry: {
+        isEnabled: DEBUG,
+        functionId: "document-parsing",
+        metadata: {
+          provider: selectedProvider,
+          textLength: text.length,
+        },
+      },
+    });
+    object = result.object;
+  } catch (error) {
+    if (DEBUG) {
+      try {
+        const { updateObservation, updateTrace, endActiveSpan } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
+        await updateObservation({ output: error, level: "ERROR" });
+        await updateTrace({ output: error });
+        await endActiveSpan();
+      } catch (telemetryError) {
+        logger.warn("Telemetry error in document AI catch:", telemetryError);
+      }
+    }
+    throw error;
+  } finally {
+    if (DEBUG) {
+      try {
+        const { flushSpanProcessor } = await import(
+          "@/lib/observability/telemetry-helpers"
+        );
+        await flushSpanProcessor();
+      } catch (telemetryError) {
+        logger.warn(
+          "Telemetry flush error in document parsing:",
+          telemetryError,
+        );
+      }
+    }
+  }
+
   const aiElapsed = Math.round(performance.now() - aiStart);
 
-  logger.debug(`${logPrefix} AI call complete — ${aiElapsed}ms, items extracted: ${object.items.length}`);
+  if (DEBUG) {
+    try {
+      const { updateObservation, updateTrace, endActiveSpan } = await import(
+        "@/lib/observability/telemetry-helpers"
+      );
+      await updateObservation({ output: { itemCount: object.items.length } });
+      await updateTrace({ output: { itemCount: object.items.length } });
+      await endActiveSpan();
+    } catch (telemetryError) {
+      logger.warn("Telemetry error after document AI call:", telemetryError);
+    }
+  }
+
+  logger.debug(
+    `${logPrefix} AI call complete — ${aiElapsed}ms, items extracted: ${object.items.length}`,
+  );
   return object.items;
 }
 
@@ -234,26 +313,31 @@ export async function parseDocument(
   const totalStart = performance.now();
 
   try {
-    logger.debug(`${logPrefix} Starting document parsing — file: ${file.name}, size: ${file.size} bytes`);
+    logger.debug(
+      `${logPrefix} Starting document parsing — file: ${file.name}, size: ${file.size} bytes`,
+    );
 
     let text: string;
     const isPdf =
       file.type === "application/pdf" ||
       file.name.toLowerCase().endsWith(".pdf");
     const isTxt =
-      file.type === "text/plain" ||
-      file.name.toLowerCase().endsWith(".txt");
+      file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
 
     if (isPdf) {
       onStageChange?.("reading");
       const readStart = performance.now();
       text = await extractTextFromPDF(file);
-      logger.debug(`${logPrefix} PDF text extracted — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`);
+      logger.debug(
+        `${logPrefix} PDF text extracted — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`,
+      );
     } else if (isTxt) {
       onStageChange?.("reading");
       const readStart = performance.now();
       text = await file.text();
-      logger.debug(`${logPrefix} TXT text read — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`);
+      logger.debug(
+        `${logPrefix} TXT text read — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`,
+      );
     } else {
       logger.warn(`${logPrefix} Unsupported file type: ${file.type}`);
       return {
@@ -263,7 +347,9 @@ export async function parseDocument(
     }
 
     if (!text || text.trim().length < 50) {
-      logger.warn(`${logPrefix} Document text too short (${text.trim().length} chars) — possibly image-based or empty`);
+      logger.warn(
+        `${logPrefix} Document text too short (${text.trim().length} chars) — possibly image-based or empty`,
+      );
       return {
         success: false,
         error:
@@ -274,7 +360,9 @@ export async function parseDocument(
     onStageChange?.("parsing");
     const items = await parseDocumentWithAI(text, logPrefix);
 
-    logger.debug(`${logPrefix} Parse complete — total: ${Math.round(performance.now() - totalStart)}ms, items: ${items.length}`);
+    logger.debug(
+      `${logPrefix} Parse complete — total: ${Math.round(performance.now() - totalStart)}ms, items: ${items.length}`,
+    );
 
     return {
       success: true,
@@ -282,7 +370,10 @@ export async function parseDocument(
       rawText: text,
     };
   } catch (error) {
-    logger.error(`${logPrefix} Document parsing error (${Math.round(performance.now() - totalStart)}ms):`, error);
+    logger.error(
+      `${logPrefix} Document parsing error (${Math.round(performance.now() - totalStart)}ms):`,
+      error,
+    );
     return {
       success: false,
       error:

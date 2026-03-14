@@ -1,3 +1,6 @@
+import { FileTextIcon, UploadIcon } from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   ImportDialogFooter,
   ImportDialogShell,
@@ -15,9 +18,6 @@ import {
   parseDocument,
 } from "@/lib/document/document-parser";
 import { createLogger } from "@/lib/logger";
-import { FileTextIcon, UploadIcon } from "lucide-react";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
 
 const logger = createLogger("component:document-import-dialog");
 
