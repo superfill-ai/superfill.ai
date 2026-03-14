@@ -232,25 +232,6 @@ async function parseDocumentWithAI(
     `${logPrefix} AI call start — provider: ${selectedProvider}, model: ${selectedModel ?? "default"}, text length: ${text.length} chars`,
   );
 
-  if (DEBUG) {
-    try {
-      const { updateObservation, updateTrace } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({ input: { textLength: text.length } });
-      await updateTrace({
-        name: "superfill:document-parsing",
-        input: {
-          provider: selectedProvider,
-          model: selectedModel ?? "default",
-          textLength: text.length,
-        },
-      });
-    } catch (telemetryError) {
-      logger.warn("Telemetry error before document AI call:", telemetryError);
-    }
-  }
-
   const aiStart = performance.now();
   let object: (typeof ExtractedInfoSchema)["_output"];
 
@@ -275,49 +256,10 @@ async function parseDocumentWithAI(
     });
     object = result.object;
   } catch (error) {
-    if (DEBUG) {
-      try {
-        const { updateObservation, updateTrace, endActiveSpan } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({ output: error, level: "ERROR" });
-        await updateTrace({ output: error });
-        await endActiveSpan();
-      } catch (telemetryError) {
-        logger.warn("Telemetry error in document AI catch:", telemetryError);
-      }
-    }
     throw error;
-  } finally {
-    if (DEBUG) {
-      try {
-        const { flushSpanProcessor } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await flushSpanProcessor();
-      } catch (telemetryError) {
-        logger.warn(
-          "Telemetry flush error in document parsing:",
-          telemetryError,
-        );
-      }
-    }
   }
 
   const aiElapsed = Math.round(performance.now() - aiStart);
-
-  if (DEBUG) {
-    try {
-      const { updateObservation, updateTrace, endActiveSpan } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({ output: { itemCount: object.items.length } });
-      await updateTrace({ output: { itemCount: object.items.length } });
-      await endActiveSpan();
-    } catch (telemetryError) {
-      logger.warn("Telemetry error after document AI call:", telemetryError);
-    }
-  }
 
   logger.debug(
     `${logPrefix} AI call complete — ${aiElapsed}ms, items extracted: ${object.items.length}`,
