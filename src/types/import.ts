@@ -8,7 +8,6 @@ export interface BaseImportItem {
   category: AllowedCategory;
   tags: string[];
   selected: boolean;
-  /** Populated only for document imports when an existing memory matches this item */
   existingDuplicate?: MemoryEntry;
 }
 
