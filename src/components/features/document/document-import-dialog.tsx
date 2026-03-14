@@ -67,10 +67,8 @@ export function DocumentImportDialog({
 }: DocumentImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  // Tracks the last successfully initiated import to debounce same-file re-imports
   const lastImportKeyRef = useRef<string | null>(null);
   const lastImportTimeRef = useRef<number>(0);
-  // AbortController for cancelling an in-flight parse when the dialog closes
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const { entries: existingMemories } = useMemories();
@@ -120,9 +118,9 @@ export function DocumentImportDialog({
         return;
       }
 
-      // Debounce: skip if the same file (name+size) was already kicked off within 5 seconds
       const importKey = `${file.name}:${file.size}`;
       const now = Date.now();
+      
       if (
         importKey === lastImportKeyRef.current &&
         now - lastImportTimeRef.current < 5_000
@@ -131,10 +129,9 @@ export function DocumentImportDialog({
         event.target.value = "";
         return;
       }
+      
       lastImportKeyRef.current = importKey;
       lastImportTimeRef.current = now;
-
-      // Cancel any previously in-flight parse
       abortControllerRef.current?.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -160,8 +157,8 @@ export function DocumentImportDialog({
         if (requestIdRef.current !== currentRequestId) return;
 
         if (!result.success || !result.items) {
-          // Silently ignore user-driven cancellation
           if (result.error === "cancelled") return;
+          
           const errorMsg =
             result.error || "Failed to extract data from document";
           setStatus("error");
@@ -171,8 +168,6 @@ export function DocumentImportDialog({
         }
 
         const items = convertToImportItems(result.items);
-
-        // Enrich each item with its matching existing memory (if any)
         const duplicatesMap = await findDuplicates(items, existingMemories);
         const enrichedItems = items.map((item, i) => {
           const duplicate = duplicatesMap.get(i);
@@ -189,7 +184,6 @@ export function DocumentImportDialog({
         );
       } catch (err) {
         if (requestIdRef.current !== currentRequestId) return;
-        // Swallow AbortError — dialog was closed intentionally
         if (err instanceof Error && err.name === "AbortError") return;
 
         const errMsg =
@@ -209,7 +203,6 @@ export function DocumentImportDialog({
 
   const handleCloseWrapper = (open: boolean) => {
     if (!open) {
-      // Cancel any in-flight parse
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
       setFileName(null);
