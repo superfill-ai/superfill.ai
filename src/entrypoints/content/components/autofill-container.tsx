@@ -83,6 +83,13 @@ const FieldRow = ({
 
   const [isEditing, setIsEditing] = useState(false);
 
+  const handleSetEditing = (next: boolean) => {
+    setIsEditing(next);
+    if (next) {
+      onUnhighlight?.();
+    }
+  };
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: highlighting only
     <div
@@ -90,8 +97,8 @@ const FieldRow = ({
         "flex flex-col gap-2 rounded-lg border bg-card/80 p-3 transition hover:border-primary/70",
         selected && "border-primary shadow-sm",
       )}
-      onMouseEnter={() => onHighlight?.(field.fieldOpid)}
-      onMouseLeave={() => onUnhighlight?.()}
+      onMouseEnter={() => !isEditing && onHighlight?.(field.fieldOpid)}
+      onMouseLeave={() => !isEditing && onUnhighlight?.()}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -141,7 +148,7 @@ const FieldRow = ({
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={() => setIsEditing(true)}
+              onClick={() => handleSetEditing(true)}
             >
               <PlusIcon className="mr-2 size-3" />
               Add value for this field
@@ -161,10 +168,10 @@ const FieldRow = ({
                 }}
                 onSuccess={async (data) => {
                   await onMemoryAddition(field.fieldOpid, data);
-                  setIsEditing(false);
+                  handleSetEditing(false);
                 }}
                 onCancel={() => {
-                  setIsEditing(false);
+                  handleSetEditing(false);
                 }}
               />
             </div>
