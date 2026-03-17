@@ -1,9 +1,3 @@
-import { useForm, useStore } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
-import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
@@ -29,6 +23,12 @@ import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { FieldMetadataSnapshot } from "@/types/autofill";
 import type { MemoryEntry } from "@/types/memory";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
+import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
 
 const logger = createLogger("component:entry-form");
 
@@ -251,14 +251,8 @@ export function EntryForm({
     };
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: need to run when isPreviewMode changes
   useEffect(() => {
-    const formElement = formRef.current;
-
-    if (isPreviewMode && formElement) {
-      setPortalContainer(formElement.parentElement ?? null);
-      return;
-    }
-
     setPortalContainer(null);
   }, [isPreviewMode]);
 
