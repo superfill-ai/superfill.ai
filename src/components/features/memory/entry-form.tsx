@@ -1,7 +1,7 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2Icon, SparklesIcon, TagsIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -15,13 +15,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { InputBadge } from "@/components/ui/input-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryMutations, useTopUsedTags } from "@/hooks/use-memories";
 import { getCategorizationService } from "@/lib/ai/categorization-service";
@@ -63,6 +56,10 @@ export function EntryForm({
   onCancel,
 }: EntryFormProps) {
   const isPreviewMode = layout === "preview";
+  const formRef = useRef<HTMLFormElement>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
+    null,
+  );
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
@@ -255,6 +252,17 @@ export function EntryForm({
   }, []);
 
   useEffect(() => {
+    const formElement = formRef.current;
+
+    if (isPreviewMode && formElement) {
+      setPortalContainer(formElement);
+      return;
+    }
+
+    setPortalContainer(null);
+  }, [isPreviewMode]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
@@ -313,6 +321,7 @@ export function EntryForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
         form.handleSubmit();
@@ -446,43 +455,18 @@ export function EntryForm({
                     <SparklesIcon className="size-3 animate-pulse" />
                   )}
                 </FieldLabel>
-                {!isPreviewMode ? (
-                  <Combobox
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                    options={categoryOptions}
-                    placeholder="Select a category"
-                    searchPlaceholder="Search categories..."
-                    emptyText="No category found."
-                    aria-invalid={isInvalid}
-                  />
-                ) : (
-                  <Select
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                  >
-                    <SelectTrigger
-                      id={field.name}
-                      onBlur={field.handleBlur}
-                      aria-invalid={isInvalid}
-                      aria-describedby={
-                        isInvalid ? `${field.name}-error` : undefined
-                      }
-                      className="w-full"
-                    >
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <Combobox
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  onValueChange={field.handleChange}
+                  options={categoryOptions}
+                  placeholder="Select a category"
+                  searchPlaceholder="Search categories..."
+                  emptyText="No category found."
+                  portalContainer={portalContainer}
+                  aria-invalid={isInvalid}
+                />
                 {isInvalid && (
                   <FieldError
                     id={`${field.name}-error`}
