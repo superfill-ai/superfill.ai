@@ -1,4 +1,5 @@
-import { AlertCircle, CheckCircle, Info, X, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Info, XCircle, XIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { ToastType } from "@/components/ui/sonner";
 
 export interface ToastProps {
@@ -41,23 +42,19 @@ export function Toast({
         <div className="flex-1 space-y-1">
           <p className="text-sm font-medium text-foreground">{message}</p>
           {action && (
-            <button
-              type="button"
-              onClick={action.onClick}
-              className="text-sm font-medium text-primary hover:underline"
-            >
+            <Button variant="outline" size="xs" onClick={action.onClick}>
               {action.label}
-            </button>
+            </Button>
           )}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={onDismiss}
-          className="shrink-0 rounded-md p-1 hover:bg-muted transition-colors"
           aria-label="Dismiss"
         >
-          <X className="h-4 w-4 text-muted-foreground" />
-        </button>
+          <XIcon className="h-4 w-4 text-muted-foreground" />
+        </Button>
       </div>
     </div>
   );
