@@ -6,6 +6,14 @@ import { createLogger } from "@/lib/logger";
 import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import type {
+  DocumentImportItem,
+  DocumentParseResult,
+  ExtractedItem,
+  ParseDocumentOptions,
+  PDFAnnotation,
+  TextItem,
+} from "@/types/document";
 import type { AllowedCategory } from "@/types/memory";
 
 const logger = createLogger("document-parser");
@@ -45,37 +53,6 @@ const ExtractedInfoSchema = z.object({
     }),
   ),
 });
-
-export type ExtractedItem = z.infer<
-  typeof ExtractedInfoSchema
->["items"][number];
-
-export interface DocumentParseResult {
-  success: boolean;
-  items?: ExtractedItem[];
-  rawText?: string;
-  error?: string;
-}
-
-export type DocumentParserStatus =
-  | "idle"
-  | "reading"
-  | "parsing"
-  | "success"
-  | "error";
-
-interface TextItem {
-  str: string;
-  transform: number[];
-  width: number;
-  height: number;
-}
-
-interface PDFAnnotation {
-  subtype: string;
-  url?: string;
-  rect?: number[];
-}
 
 export async function extractTextFromPDF(file: File): Promise<string> {
   if (!_pdfjsLib) {
@@ -252,12 +229,6 @@ async function parseDocumentWithAI(
   return output.items;
 }
 
-export interface ParseDocumentOptions {
-  requestId?: string;
-  onStageChange?: (stage: "reading" | "parsing") => void;
-  signal?: AbortSignal;
-}
-
 export async function parseDocument(
   file: File,
   options: ParseDocumentOptions = {},
@@ -341,11 +312,6 @@ export async function parseDocument(
         error instanceof Error ? error.message : "Failed to parse document",
     };
   }
-}
-
-export interface DocumentImportItem extends ExtractedItem {
-  id: string;
-  selected: boolean;
 }
 
 function normalizeTags(tags: string[]): string[] {

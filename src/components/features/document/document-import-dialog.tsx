@@ -14,12 +14,14 @@ import { useImportDialog } from "@/hooks/use-import-dialog";
 import { useMemories } from "@/hooks/use-memories";
 import {
   convertToImportItems,
-  type DocumentImportItem,
-  type DocumentParserStatus,
   parseDocument,
 } from "@/lib/document/document-parser";
 import { createLogger } from "@/lib/logger";
 import { findDuplicates } from "@/lib/storage/memories";
+import type {
+  DocumentImportItem,
+  DocumentParserStatus,
+} from "@/types/document";
 
 const logger = createLogger("component:document-import-dialog");
 
