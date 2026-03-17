@@ -1,5 +1,6 @@
 import { FileTextIcon, UploadIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   ImportDialogFooter,
   ImportDialogShell,
@@ -10,6 +11,7 @@ import {
 } from "@/components/features/import/import-dialog-shared";
 import { Button } from "@/components/ui/button";
 import { useImportDialog } from "@/hooks/use-import-dialog";
+import { useMemories } from "@/hooks/use-memories";
 import {
   convertToImportItems,
   type DocumentImportItem,
@@ -17,6 +19,7 @@ import {
   parseDocument,
 } from "@/lib/document/document-parser";
 import { createLogger } from "@/lib/logger";
+import { findDuplicates } from "@/lib/storage/memories";
 
 const logger = createLogger("component:document-import-dialog");
 
@@ -43,6 +46,7 @@ function getDescription(status: DocumentParserStatus): string {
     case "success":
       return "Select the information you want to import.";
     case "reading":
+      return "Reading your document...";
     case "parsing":
       return "AI is extracting your information...";
     case "error":
@@ -63,6 +67,11 @@ export function DocumentImportDialog({
 }: DocumentImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const lastImportKeyRef = useRef<string | null>(null);
+  const lastImportTimeRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const { entries: existingMemories } = useMemories();
 
   const {
     status,
@@ -91,65 +100,111 @@ export function DocumentImportDialog({
 
   const progress = PROGRESS_BY_STATUS[status];
 
-  const handleFileSelect = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleFileSelect = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    const isPdf =
-      file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf");
-    const isTxt =
-      file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
+      const isPdf =
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf");
+      const isTxt =
+        file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
 
-    if (!isPdf && !isTxt) {
-      setError("Please select a PDF or text file");
-      setStatus("error");
-      event.target.value = "";
-      return;
-    }
-
-    setFileName(file.name);
-    setStatus("parsing");
-    setError(null);
-    setImportItems([]);
-
-    const currentRequestId = ++requestIdRef.current;
-
-    try {
-      const result = await parseDocument(file);
-
-      if (requestIdRef.current !== currentRequestId) return;
-
-      if (!result.success || !result.items) {
+      if (!isPdf && !isTxt) {
+        setError("Please select a PDF or text file");
         setStatus("error");
-        setError(result.error || "Failed to extract data from document");
+        event.target.value = "";
         return;
       }
 
-      const items = convertToImportItems(result.items);
-      setImportItems(items);
-      setStatus("success");
+      const importKey = `${file.name}:${file.size}`;
+      const now = Date.now();
 
-      logger.debug("Successfully extracted document data:", items.length);
-    } catch (err) {
-      if (requestIdRef.current !== currentRequestId) return;
+      if (
+        importKey === lastImportKeyRef.current &&
+        now - lastImportTimeRef.current < 5_000
+      ) {
+        logger.debug("Skipping duplicate import for:", file.name);
+        event.target.value = "";
+        return;
+      }
 
-      logger.error("Import error:", err);
-      setStatus("error");
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
-    }
+      lastImportKeyRef.current = importKey;
+      lastImportTimeRef.current = now;
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
+      setFileName(file.name);
+      setStatus("reading");
+      setError(null);
+      setImportItems([]);
+
+      const currentRequestId = ++requestIdRef.current;
+      const requestId = String(currentRequestId);
+
+      try {
+        const result = await parseDocument(file, {
+          requestId,
+          signal: controller.signal,
+          onStageChange: (stage) => {
+            if (requestIdRef.current !== currentRequestId) return;
+            setStatus(stage);
+          },
+        });
+
+        if (requestIdRef.current !== currentRequestId) return;
+
+        if (!result.success || !result.items) {
+          if (result.error === "cancelled") return;
+
+          const errorMsg =
+            result.error || "Failed to extract data from document";
+          setStatus("error");
+          setError(errorMsg);
+          toast.error(errorMsg);
+          return;
+        }
+
+        const items = convertToImportItems(result.items);
+        const duplicatesMap = await findDuplicates(items, existingMemories);
+        const enrichedItems = items.map((item, i) => {
+          const duplicate = duplicatesMap.get(i);
+          return duplicate ? { ...item, existingDuplicate: duplicate } : item;
+        });
+
+        setImportItems(enrichedItems);
+        setStatus("success");
+
+        logger.debug(
+          `[req:${requestId}] Successfully extracted document data:`,
+          items.length,
+          "items",
+        );
+      } catch (err) {
+        if (requestIdRef.current !== currentRequestId) return;
+        if (err instanceof Error && err.name === "AbortError") return;
+
+        const errMsg =
+          err instanceof Error ? err.message : "An unexpected error occurred";
+        logger.error(`[req:${requestId}] Import error:`, err);
+        setStatus("error");
+        setError(errMsg);
+        toast.error(errMsg);
+      }
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [requestIdRef, setStatus, setError, setImportItems, existingMemories],
+  );
 
   const handleCloseWrapper = (open: boolean) => {
     if (!open) {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
       setFileName(null);
     }
     handleClose(open);

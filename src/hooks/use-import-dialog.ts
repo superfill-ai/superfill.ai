@@ -108,13 +108,18 @@ export function useImportDialog<
         description: successDescription,
       });
 
-      logger.debug("Successfully imported memories:", entries.length);
+      logger.debug(
+        `Import success — saved: ${entries.length}, total selected: ${selectedItems.length}`,
+      );
 
       resetState();
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {
-      logger.error("Failed to save memories:", err);
+      logger.error(
+        `Import error — attempted: ${importItems.filter((i) => i.selected).length} items —`,
+        err,
+      );
       toast.error(
         err instanceof Error ? err.message : "Failed to save memories",
       );

@@ -3,7 +3,7 @@ import { isAllowedCategory } from "@/lib/copies";
 import { downloadCSV, parseCSV, stringifyToCSV } from "@/lib/csv";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
-import { computeContentHash } from "@/lib/storage/content-hash";
+import { buildAnswerKey, computeContentHash } from "@/lib/storage/content-hash";
 import type { MemoryEntry } from "@/types/memory";
 
 const logger = createLogger("storage:memories");
@@ -13,6 +13,24 @@ type UpdateMemoryEntry = Partial<
   Omit<MemoryEntry, "id" | "metadata" | "contentHash">
 >;
 
+function uniqueTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const tag of tags) {
+    const trimmed = tag.trim();
+    if (!trimmed) continue;
+
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    result.push(trimmed);
+  }
+
+  return result;
+}
+
 export const addEntry = async (entry: CreateMemoryEntry) => {
   try {
     const contentHash = await computeContentHash(
@@ -20,10 +38,45 @@ export const addEntry = async (entry: CreateMemoryEntry) => {
       entry.answer,
       entry.category,
     );
+    const currentEntries = await storage.memories.getValue();
+    const answerKey = buildAnswerKey(entry.answer, entry.category);
+
+    const existingIndex =
+      currentEntries.findIndex((e) => e.contentHash === contentHash) !== -1
+        ? currentEntries.findIndex((e) => e.contentHash === contentHash)
+        : currentEntries.findIndex(
+            (e) => buildAnswerKey(e.answer, e.category) === answerKey,
+          );
+
+    if (existingIndex !== -1) {
+      const existing = currentEntries[existingIndex];
+
+      const updatedEntry: MemoryEntry = {
+        ...existing,
+        ...entry,
+        id: existing.id,
+        contentHash,
+        tags: uniqueTags([...(existing.tags || []), ...entry.tags]),
+        confidence: Math.max(existing.confidence ?? 0, entry.confidence ?? 0),
+        metadata: {
+          ...existing.metadata,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+
+      const updatedEntries = [...currentEntries];
+      updatedEntries[existingIndex] = updatedEntry;
+
+      await storage.memories.setValue(updatedEntries);
+
+      return updatedEntry;
+    }
+
     const newEntry: MemoryEntry = {
       ...entry,
       id: uuidv7(),
       contentHash,
+      tags: uniqueTags(entry.tags),
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -31,7 +84,6 @@ export const addEntry = async (entry: CreateMemoryEntry) => {
       },
     };
 
-    const currentEntries = await storage.memories.getValue();
     const updatedEntries = [...currentEntries, newEntry];
 
     await storage.memories.setValue(updatedEntries);
@@ -45,33 +97,121 @@ export const addEntry = async (entry: CreateMemoryEntry) => {
 
 export const addEntries = async (entries: CreateMemoryEntry[]) => {
   try {
-    const newEntries: MemoryEntry[] = await Promise.all(
-      entries.map(async (entry) => ({
-        ...entry,
-        id: uuidv7(),
-        contentHash: await computeContentHash(
-          entry.question,
-          entry.answer,
-          entry.category,
-        ),
-        metadata: {
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          source: "manual",
-        },
-      })),
-    );
-
     const currentEntries = await storage.memories.getValue();
-    const updatedEntries = [...currentEntries, ...newEntries];
+    const updatedEntries = [...currentEntries];
+    const hashToIndex = new Map<string, number>();
+    const answerKeyToIndex = new Map<string, number>();
+
+    for (let index = 0; index < updatedEntries.length; index++) {
+      const existing = updatedEntries[index];
+      const existingHash =
+        existing.contentHash ||
+        (await computeContentHash(
+          existing.question,
+          existing.answer,
+          existing.category,
+        ));
+
+      if (!existing.contentHash) {
+        updatedEntries[index] = { ...existing, contentHash: existingHash };
+      }
+
+      hashToIndex.set(existingHash, index);
+      answerKeyToIndex.set(
+        buildAnswerKey(existing.answer, existing.category),
+        index,
+      );
+    }
+
+    const createdOrUpdated: MemoryEntry[] = [];
+
+    for (const entry of entries) {
+      const contentHash = await computeContentHash(
+        entry.question,
+        entry.answer,
+        entry.category,
+      );
+      const answerKey = buildAnswerKey(entry.answer, entry.category);
+
+      const existingIndex =
+        hashToIndex.get(contentHash) ?? answerKeyToIndex.get(answerKey);
+
+      if (existingIndex !== undefined) {
+        const existing = updatedEntries[existingIndex];
+        const updatedEntry: MemoryEntry = {
+          ...existing,
+          ...entry,
+          id: existing.id,
+          contentHash,
+          tags: uniqueTags([...(existing.tags || []), ...entry.tags]),
+          confidence: Math.max(existing.confidence ?? 0, entry.confidence ?? 0),
+          metadata: {
+            ...existing.metadata,
+            updatedAt: new Date().toISOString(),
+          },
+        };
+
+        updatedEntries[existingIndex] = updatedEntry;
+        createdOrUpdated.push(updatedEntry);
+      } else {
+        const newEntry: MemoryEntry = {
+          ...entry,
+          id: uuidv7(),
+          contentHash,
+          tags: uniqueTags(entry.tags),
+          metadata: {
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            source: "manual",
+          },
+        };
+
+        const newIndex = updatedEntries.length;
+        hashToIndex.set(contentHash, newIndex);
+        answerKeyToIndex.set(answerKey, newIndex);
+        updatedEntries.push(newEntry);
+        createdOrUpdated.push(newEntry);
+      }
+    }
 
     await storage.memories.setValue(updatedEntries);
 
-    return newEntries;
+    return createdOrUpdated;
   } catch (error) {
     logger.error("Failed to add entries:", error);
     throw error;
   }
+};
+
+export const findDuplicates = async (
+  candidates: Array<{ question: string; answer: string; category: string }>,
+  existing: MemoryEntry[],
+): Promise<Map<number, MemoryEntry>> => {
+  const hashToEntry = new Map<string, MemoryEntry>();
+  const answerKeyToEntry = new Map<string, MemoryEntry>();
+
+  for (const entry of existing) {
+    const hash =
+      entry.contentHash ||
+      (await computeContentHash(entry.question, entry.answer, entry.category));
+    hashToEntry.set(hash, entry);
+    answerKeyToEntry.set(buildAnswerKey(entry.answer, entry.category), entry);
+  }
+
+  const result = new Map<number, MemoryEntry>();
+
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i];
+    const hash = await computeContentHash(c.question, c.answer, c.category);
+    const answerKey = buildAnswerKey(c.answer, c.category);
+
+    const matched = hashToEntry.get(hash) ?? answerKeyToEntry.get(answerKey);
+    if (matched) {
+      result.set(i, matched);
+    }
+  }
+
+  return result;
 };
 
 export const updateEntry = async (id: string, updates: UpdateMemoryEntry) => {
