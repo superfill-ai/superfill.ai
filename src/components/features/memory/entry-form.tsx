@@ -255,7 +255,7 @@ export function EntryForm({
     const formElement = formRef.current;
 
     if (isPreviewMode && formElement) {
-      setPortalContainer(formElement);
+      setPortalContainer(formElement.parentElement ?? null);
       return;
     }
 
