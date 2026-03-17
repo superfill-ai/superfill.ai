@@ -6,6 +6,9 @@ const normalizePart = (value: string): string =>
     .trim()
     .replace(/\s+/g, " ");
 
+export const buildAnswerKey = (answer: string, category: string): string =>
+  `${normalizePart(answer)}||${normalizePart(category)}`;
+
 export const buildContentHashInput = (
   question: string | undefined,
   answer: string,

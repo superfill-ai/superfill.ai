@@ -1,4 +1,4 @@
-import type { AllowedCategory } from "./memory";
+import type { AllowedCategory, MemoryEntry } from "./memory";
 
 export interface BaseImportItem {
   id: string;
@@ -8,6 +8,7 @@ export interface BaseImportItem {
   category: AllowedCategory;
   tags: string[];
   selected: boolean;
+  existingDuplicate?: MemoryEntry;
 }
 
 export type BaseImportStatus =

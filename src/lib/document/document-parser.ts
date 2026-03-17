@@ -1,12 +1,26 @@
 import { generateObject } from "ai";
+import type * as PdfjsDist from "pdfjs-dist";
 import { z } from "zod";
-import { createLogger } from "@/lib/logger";
+import { createLogger, DEBUG } from "@/lib/logger";
 import { getAIModel } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type { AllowedCategory } from "@/types/memory";
 
 const logger = createLogger("document-parser");
+
+let _pdfjsLib: typeof PdfjsDist | null = null;
+
+class AbortError extends Error {
+  constructor() {
+    super("Document parsing was cancelled");
+    this.name = "AbortError";
+  }
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new AbortError();
+}
 
 const ExtractedInfoSchema = z.object({
   items: z.array(
@@ -63,14 +77,15 @@ interface PDFAnnotation {
 }
 
 export async function extractTextFromPDF(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist");
-
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    browser.runtime.getURL("/pdf.worker.mjs");
-
+  if (!_pdfjsLib) {
+    _pdfjsLib = await import("pdfjs-dist");
+    _pdfjsLib.GlobalWorkerOptions.workerSrc =
+      browser.runtime.getURL("/pdf.worker.mjs");
+  }
+  
+  const pdfjsLib = _pdfjsLib;
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
   let fullText = "";
   const allLinks: string[] = [];
 
@@ -94,10 +109,13 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const item of items) {
       if (!item.str) continue;
+      
       const y = Math.round(item.transform[5]);
+      
       if (!lineMap.has(y)) {
         lineMap.set(y, []);
       }
+      
       lineMap.get(y)?.push(item);
     }
 
@@ -105,16 +123,21 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const y of sortedYPositions) {
       const lineItems = lineMap.get(y);
+      
       if (!lineItems) continue;
+      
       lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
 
       let lineText = "";
       let lastX = 0;
+      
       for (const item of lineItems) {
         const x = item.transform[4];
+        
         if (lineText && x - lastX > 5) {
           lineText += " ";
         }
+        
         lineText += item.str;
         lastX = x + item.width;
       }
@@ -129,7 +152,9 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
   if (allLinks.length > 0) {
     const uniqueLinks = [...new Set(allLinks)];
+    
     fullText += "\n--- HYPERLINKS FOUND IN DOCUMENT ---\n";
+    
     for (const link of uniqueLinks) {
       fullText += `${link}\n`;
     }
@@ -162,8 +187,9 @@ Guidelines:
 5. Add relevant lowercase tags for each item (e.g., "email", "phone", "name", "job", "degree")
 6. If something could answer multiple common form questions, include it
 7. Don't include generic document metadata or irrelevant content
-8. For work experience, extract both summary entries and individual details (title, company, dates)
-9. For education, extract both combined entries and individual fields (school, degree, major)
+8. Do not produce duplicate or overlapping memories; merge identical facts instead of repeating them
+9. Work history: for each job/role/company, emit exactly one memory that includes role, company, location (if present), and the work period (start–end or start–present) in the answer. Do not split a single job into multiple memories
+10. Education: emit one memory per distinct qualification. Each education memory must include the institution, degree/program, and its dates/period in the same memory. Use distinct labels/questions so multiple educations are clearly differentiated
 
 IMPORTANT - Hyperlinks:
 - The document may have a "HYPERLINKS FOUND IN DOCUMENT" section at the end
@@ -174,7 +200,11 @@ IMPORTANT - Hyperlinks:
 
 Be thorough - users want to capture as much useful information as possible from their documents.`;
 
-async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
+async function parseDocumentWithAI(
+  text: string,
+  logPrefix: string,
+  signal?: AbortSignal,
+): Promise<ExtractedItem[]> {
   const aiSettings = await storage.aiSettings.getValue();
   const { selectedProvider, selectedModels } = aiSettings;
 
@@ -183,6 +213,8 @@ async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
       "AI provider not configured. Please set up an AI provider in settings.",
     );
   }
+
+  throwIfAborted(signal);
 
   const keyVaultService = getKeyVaultService();
   const apiKey = await keyVaultService.getKey(selectedProvider);
@@ -196,48 +228,100 @@ async function parseDocumentWithAI(text: string): Promise<ExtractedItem[]> {
   const selectedModel = selectedModels?.[selectedProvider];
   const model = getAIModel(selectedProvider, apiKey || "", selectedModel);
 
-  logger.debug("Parsing document with AI, text length:", text.length);
+  logger.debug(
+    `${logPrefix} AI call start — provider: ${selectedProvider}, model: ${selectedModel ?? "default"}, text length: ${text.length} chars`,
+  );
 
-  const { object } = await generateObject({
-    model,
-    schema: ExtractedInfoSchema,
-    schemaName: "ExtractedInfo",
-    schemaDescription: "Information extracted from a document for form filling",
-    system: DOCUMENT_PARSING_PROMPT,
-    prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
-    temperature: 0.1,
-  });
+  const aiStart = performance.now();
+  let object: (typeof ExtractedInfoSchema)["_output"];
 
-  logger.debug("AI extracted items:", object.items.length);
+  try {
+    const result = await generateObject({
+      model,
+      schema: ExtractedInfoSchema,
+      schemaName: "ExtractedInfo",
+      schemaDescription:
+        "Information extracted from a document for form filling",
+      system: DOCUMENT_PARSING_PROMPT,
+      prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
+      temperature: 0.1,
+      experimental_telemetry: {
+        isEnabled: DEBUG,
+        functionId: "document-parsing",
+        metadata: {
+          provider: selectedProvider,
+          textLength: text.length,
+        },
+      },
+    });
+    object = result.object;
+  } catch (error) {
+    throw error;
+  }
+
+  const aiElapsed = Math.round(performance.now() - aiStart);
+
+  logger.debug(
+    `${logPrefix} AI call complete — ${aiElapsed}ms, items extracted: ${object.items.length}`,
+  );
   return object.items;
 }
 
-export async function parseDocument(file: File): Promise<DocumentParseResult> {
+export interface ParseDocumentOptions {
+  requestId?: string;
+  onStageChange?: (stage: "reading" | "parsing") => void;
+  signal?: AbortSignal;
+}
+
+export async function parseDocument(
+  file: File,
+  options: ParseDocumentOptions = {},
+): Promise<DocumentParseResult> {
+  const { requestId, onStageChange, signal } = options;
+  const logPrefix = requestId ? `[req:${requestId}]` : "[req:?]";
+  const totalStart = performance.now();
+
   try {
-    logger.debug("Starting document parsing for:", file.name);
+    throwIfAborted(signal);
+    logger.debug(
+      `${logPrefix} Starting document parsing — file: ${file.name}, size: ${file.size} bytes`,
+    );
 
     let text: string;
-
-    if (
+    const isPdf =
       file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf")
-    ) {
+      file.name.toLowerCase().endsWith(".pdf");
+    const isTxt =
+      file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
+
+    if (isPdf) {
+      onStageChange?.("reading");
+      const readStart = performance.now();
       text = await extractTextFromPDF(file);
-    } else if (
-      file.type === "text/plain" ||
-      file.name.toLowerCase().endsWith(".txt")
-    ) {
+      throwIfAborted(signal);
+      logger.debug(
+        `${logPrefix} PDF text extracted — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`,
+      );
+    } else if (isTxt) {
+      onStageChange?.("reading");
+      const readStart = performance.now();
       text = await file.text();
+      throwIfAborted(signal);
+      logger.debug(
+        `${logPrefix} TXT text read — ${Math.round(performance.now() - readStart)}ms, ${text.length} chars`,
+      );
     } else {
+      logger.warn(`${logPrefix} Unsupported file type: ${file.type}`);
       return {
         success: false,
         error: "Unsupported file type. Please upload a PDF or text file.",
       };
     }
 
-    logger.debug("Extracted text length:", text.length);
-
     if (!text || text.trim().length < 50) {
+      logger.warn(
+        `${logPrefix} Document text too short (${text.trim().length} chars) — possibly image-based or empty`,
+      );
       return {
         success: false,
         error:
@@ -245,7 +329,12 @@ export async function parseDocument(file: File): Promise<DocumentParseResult> {
       };
     }
 
-    const items = await parseDocumentWithAI(text);
+    onStageChange?.("parsing");
+    const items = await parseDocumentWithAI(text, logPrefix, signal);
+
+    logger.debug(
+      `${logPrefix} Parse complete — total: ${Math.round(performance.now() - totalStart)}ms, items: ${items.length}`,
+    );
 
     return {
       success: true,
@@ -253,7 +342,14 @@ export async function parseDocument(file: File): Promise<DocumentParseResult> {
       rawText: text,
     };
   } catch (error) {
-    logger.error("Document parsing error:", error);
+    if (error instanceof AbortError) {
+      logger.debug(`${logPrefix} Parsing cancelled by caller`);
+      return { success: false, error: "cancelled" };
+    }
+    logger.error(
+      `${logPrefix} Document parsing error (${Math.round(performance.now() - totalStart)}ms):`,
+      error,
+    );
     return {
       success: false,
       error:
@@ -267,10 +363,63 @@ export interface DocumentImportItem extends ExtractedItem {
   selected: boolean;
 }
 
+function normalizeTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  
+  for (const tag of tags) {
+    const normalized = tag.trim().toLowerCase();
+    
+    if (normalized) {
+      seen.add(normalized);
+    }
+  }
+  return [...seen];
+}
+
+function normalizeKey(item: ExtractedItem): string {
+  const safe = (value: string) => value.trim().toLowerCase();
+  
+  return [
+    safe(item.label),
+    safe(item.question),
+    safe(item.answer),
+    item.category,
+  ]
+    .map((part) => part || "")
+    .join("|");
+}
+
+function deduplicateItems(items: ExtractedItem[]): ExtractedItem[] {
+  const byKey = new Map<string, ExtractedItem>();
+
+  for (const item of items) {
+    if (!item.label?.trim() || !item.question?.trim() || !item.answer?.trim()) {
+      continue;
+    }
+
+    const key = normalizeKey(item);
+    const existing = byKey.get(key);
+
+    if (existing) {
+      const mergedTags = normalizeTags([
+        ...(existing.tags || []),
+        ...(item.tags || []),
+      ]);
+      byKey.set(key, { ...existing, tags: mergedTags });
+    } else {
+      byKey.set(key, { ...item, tags: normalizeTags(item.tags || []) });
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
 export function convertToImportItems(
   items: ExtractedItem[],
 ): DocumentImportItem[] {
-  return items.map((item, index) => ({
+  const deduped = deduplicateItems(items);
+
+  return deduped.map((item, index) => ({
     ...item,
     id: `doc-${index + 1}`,
     selected: true,
