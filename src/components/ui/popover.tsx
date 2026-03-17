@@ -22,7 +22,9 @@ function PopoverContent({
   portalContainer,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content> & {
-  portalContainer?: React.ComponentProps<typeof PopoverPrimitive.Portal>["container"];
+  portalContainer?: React.ComponentProps<
+    typeof PopoverPrimitive.Portal
+  >["container"];
 }) {
   return (
     <PopoverPrimitive.Portal container={portalContainer}>

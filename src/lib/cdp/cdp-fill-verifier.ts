@@ -35,8 +35,10 @@ function normalize(value: unknown): string {
 function valuesMatch(actual: string, expected: string): boolean {
   const actualNorm = normalize(actual);
   const expectedNorm = normalize(expected);
+
   if (!expectedNorm) return actualNorm.length === 0;
   if (actualNorm === expectedNorm) return true;
+
   return actualNorm.includes(expectedNorm) || expectedNorm.includes(actualNorm);
 }
 

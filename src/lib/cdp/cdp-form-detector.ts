@@ -73,12 +73,20 @@ export async function detectFormFields(
   let axTree: AXTreeResponse | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    axTree = await sendCommand<AXTreeResponse>(
-      tabId,
-      "Accessibility.getFullAXTree",
-    );
+    try {
+      axTree = await sendCommand<AXTreeResponse>(
+        tabId,
+        "Accessibility.getFullAXTree",
+      );
+    } catch (error) {
+      logger.error("Failed to get AX tree:", {
+        error,
+        attempt: attempt + 1,
+      });
+      axTree = null;
+    }
 
-    if (axTree?.nodes?.length > 0) break;
+    if (axTree?.nodes && axTree.nodes.length > 0) break;
 
     logger.warn(
       `AX tree empty on attempt ${attempt + 1}, retrying in ${RETRY_DELAY_MS}ms`,

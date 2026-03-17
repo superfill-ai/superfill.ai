@@ -34,7 +34,9 @@ export interface ComboboxProps {
   className?: string;
   id?: string;
   name?: string;
-  portalContainer?: React.ComponentProps<typeof PopoverContent>["portalContainer"];
+  portalContainer?: React.ComponentProps<
+    typeof PopoverContent
+  >["portalContainer"];
   "aria-invalid"?: boolean;
 }
 
