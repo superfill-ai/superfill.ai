@@ -87,13 +87,13 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const item of items) {
       if (!item.str) continue;
-
+      
       const y = Math.round(item.transform[5]);
-
+      
       if (!lineMap.has(y)) {
         lineMap.set(y, []);
       }
-
+      
       lineMap.get(y)?.push(item);
     }
 
@@ -101,21 +101,21 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const y of sortedYPositions) {
       const lineItems = lineMap.get(y);
-
+      
       if (!lineItems) continue;
-
+      
       lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
 
       let lineText = "";
       let lastX = 0;
-
+      
       for (const item of lineItems) {
         const x = item.transform[4];
-
+        
         if (lineText && x - lastX > 5) {
           lineText += " ";
         }
-
+        
         lineText += item.str;
         lastX = x + item.width;
       }
@@ -130,9 +130,9 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
   if (allLinks.length > 0) {
     const uniqueLinks = [...new Set(allLinks)];
-
+    
     fullText += "\n--- HYPERLINKS FOUND IN DOCUMENT ---\n";
-
+    
     for (const link of uniqueLinks) {
       fullText += `${link}\n`;
     }
@@ -330,6 +330,57 @@ function normalizeTags(tags: string[]): string[] {
 function normalizeKey(item: ExtractedItem): string {
   const safe = (value: string) => value.trim().toLowerCase();
 
+  return [
+    safe(item.label),
+    safe(item.question),
+    safe(item.answer),
+    item.category,
+  ]
+    .map((part) => part || "")
+    .join("|");
+}
+
+function deduplicateItems(items: ExtractedItem[]): ExtractedItem[] {
+  const byKey = new Map<string, ExtractedItem>();
+
+  for (const item of items) {
+    if (!item.label?.trim() || !item.question?.trim() || !item.answer?.trim()) {
+      continue;
+    }
+
+    const key = normalizeKey(item);
+    const existing = byKey.get(key);
+
+    if (existing) {
+      const mergedTags = normalizeTags([
+        ...(existing.tags || []),
+        ...(item.tags || []),
+      ]);
+      byKey.set(key, { ...existing, tags: mergedTags });
+    } else {
+      byKey.set(key, { ...item, tags: normalizeTags(item.tags || []) });
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
+function normalizeTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  
+  for (const tag of tags) {
+    const normalized = tag.trim().toLowerCase();
+    
+    if (normalized) {
+      seen.add(normalized);
+    }
+  }
+  return [...seen];
+}
+
+function normalizeKey(item: ExtractedItem): string {
+  const safe = (value: string) => value.trim().toLowerCase();
+  
   return [
     safe(item.label),
     safe(item.question),

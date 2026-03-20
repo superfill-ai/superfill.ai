@@ -122,7 +122,7 @@ export function DocumentImportDialog({
 
       const importKey = `${file.name}:${file.size}`;
       const now = Date.now();
-
+      
       if (
         importKey === lastImportKeyRef.current &&
         now - lastImportTimeRef.current < 5_000
@@ -131,6 +131,7 @@ export function DocumentImportDialog({
         event.target.value = "";
         return;
       }
+      
 
       lastImportKeyRef.current = importKey;
       lastImportTimeRef.current = now;
@@ -160,7 +161,7 @@ export function DocumentImportDialog({
 
         if (!result.success || !result.items) {
           if (result.error === "cancelled") return;
-
+          
           const errorMsg =
             result.error || "Failed to extract data from document";
           setStatus("error");
