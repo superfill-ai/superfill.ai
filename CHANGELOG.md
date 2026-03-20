@@ -1,5 +1,23 @@
 # superfill.ai
 
+## 1.0.0
+
+### Major Changes
+
+- [#116](https://github.com/superfill-ai/superfill.ai/pull/116) [`eb872ae`](https://github.com/superfill-ai/superfill.ai/commit/eb872ae634cc24f8deea5d9a7638cfbf2f42f22a) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - Updated the deduplication logic to give the preview of the new and existing duplicate memory in the UI
+
+### Minor Changes
+
+- [#116](https://github.com/superfill-ai/superfill.ai/pull/116) [`eb872ae`](https://github.com/superfill-ai/superfill.ai/commit/eb872ae634cc24f8deea5d9a7638cfbf2f42f22a) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - Updated doc parser prompt to stop redundant memory creation and added logic for deduplication of memory
+
+### Patch Changes
+
+- [#115](https://github.com/superfill-ai/superfill.ai/pull/115) [`76f620d`](https://github.com/superfill-ai/superfill.ai/commit/76f620da22276a7efb358404412dd119d5d43e61) Thanks [@mikr13](https://github.com/mikr13)! - feat: refactor telemetry code
+
+- [#116](https://github.com/superfill-ai/superfill.ai/pull/116) [`eb872ae`](https://github.com/superfill-ai/superfill.ai/commit/eb872ae634cc24f8deea5d9a7638cfbf2f42f22a) Thanks [@pratham-kpatil](https://github.com/pratham-kpatil)! - add observability in the document parser
+
+- [#115](https://github.com/superfill-ai/superfill.ai/pull/115) [`76f620d`](https://github.com/superfill-ai/superfill.ai/commit/76f620da22276a7efb358404412dd119d5d43e61) Thanks [@mikr13](https://github.com/mikr13)! - feat: cdp functionality added
+
 ## 0.2.9
 
 ### Patch Changes
