@@ -1,8 +1,9 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
 import { allowedCategories } from "@/lib/copies";
 import { createLogger } from "@/lib/logger";
-import { getAIModel } from "@/lib/providers/model-factory";
+import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import { storage } from "@/lib/storage";
 import { cloudBulkCategorize, shouldUseCloudAI } from "./cloud-client";
@@ -84,11 +85,15 @@ export class BulkCategorizer {
 
       logger.info(`Bulk categorizing ${fields.length} fields with ${provider}`);
 
-      const { object: result } = await generateObject({
+      const { output: result } = await generateText({
         model,
-        schema: BulkCategorizationResultSchema,
+        output: Output.object({
+          schema: BulkCategorizationResultSchema,
+        }),
         system: systemPrompt,
         prompt: userPrompt,
+        providerOptions: getProviderOptions(provider),
+        ...getTelemetryConfig("bulk-categorization"),
       });
 
       const categorized = this.mapResultsToFields(result, fields);

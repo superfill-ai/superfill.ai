@@ -1,13 +1,14 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
 import { getAuthService } from "@/lib/auth/auth-service";
 import { FallbackMatcher } from "@/lib/autofill/fallback-matcher";
 import {
   createEmptyMapping,
   roundConfidence,
 } from "@/lib/autofill/mapping-utils";
-import { createLogger, DEBUG } from "@/lib/logger";
-import { getAIModel } from "@/lib/providers/model-factory";
+import { createLogger } from "@/lib/logger";
+import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type {
   CompressedFieldData,
@@ -42,7 +43,7 @@ const AIBatchMatchSchema = z.object({
   matches: z.array(AIMatchSchema).describe("Array of field-to-memory matches"),
   reasoning: z
     .string()
-    .optional()
+    .nullable()
     .describe("Overall reasoning about the matching strategy used"),
 });
 
@@ -66,6 +67,7 @@ export class AIMatcher {
     apiKey?: string,
     modelName?: string,
     domContext?: string,
+    screenshot?: string,
   ): Promise<FieldMapping[]> {
     if (fields.length === 0) {
       logger.info("No fields to match");
@@ -74,6 +76,7 @@ export class AIMatcher {
 
     if (memories.length === 0) {
       logger.info("No memories available for matching");
+
       return fields.map((field) =>
         createEmptyMapping<CompressedFieldData, FieldMapping>(
           field,
@@ -91,12 +94,15 @@ export class AIMatcher {
           fields,
           memories,
           websiteContext,
+          screenshot,
         );
         const mappings = this.convertAIResultsToMappings(cloudResults, fields);
         const elapsed = performance.now() - startTime;
+
         logger.debug(
           `Cloud AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
         );
+
         return mappings;
       }
 
@@ -114,8 +120,8 @@ export class AIMatcher {
         domContext,
       );
       const mappings = this.convertAIResultsToMappings(aiResults, fields);
-
       const elapsed = performance.now() - startTime;
+
       logger.info(
         `AI matching completed in ${elapsed.toFixed(2)}ms for ${fields.length} fields`,
       );
@@ -131,6 +137,7 @@ export class AIMatcher {
     fields: CompressedFieldData[],
     memories: CompressedMemoryData[],
     websiteContext: WebsiteContext,
+    screenshot?: string,
   ): Promise<AIBatchMatchResult> {
     try {
       const authService = getAuthService();
@@ -157,6 +164,7 @@ export class AIMatcher {
           fields,
           memories,
           websiteContext,
+          ...(screenshot ? { screenshot } : {}),
         }),
       });
 
@@ -191,7 +199,6 @@ export class AIMatcher {
   ): Promise<AIBatchMatchResult> {
     try {
       const model = getAIModel(provider, apiKey, modelName);
-
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(
         fields,
@@ -204,87 +211,25 @@ export class AIMatcher {
         websiteContext,
       });
 
-      if (DEBUG) {
-        const { updateObservation, updateTrace } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          input: { fields, memories, provider },
-        });
-        await updateTrace({
-          name: "superfill:memory-categorization",
-          input: { fields, memories, provider },
-        });
-      }
-
-      const result = await generateObject({
+      const result = await generateText({
         model,
-        schema: AIBatchMatchSchema,
-        schemaName: "FieldMemoryMatches",
-        schemaDescription:
-          "Mapping of form fields to stored memory entries based on semantic similarity",
+        output: Output.object({
+          schema: AIBatchMatchSchema,
+          name: "FieldMemoryMatches",
+          description:
+            "Mapping of form fields to stored memory entries based on semantic similarity",
+        }),
         system: systemPrompt,
         prompt: userPrompt,
         temperature: 0.3,
-        experimental_telemetry: {
-          isEnabled: DEBUG,
-          functionId: "field-matching",
-          metadata: {
-            fieldCount: fields.length,
-            fields: JSON.stringify(fields),
-            memoryCount: memories.length,
-            memories: JSON.stringify(memories),
-            provider,
-          },
-        },
+        providerOptions: getProviderOptions(provider),
+        ...getTelemetryConfig("field-matching"),
       });
 
-      if (DEBUG) {
-        const { updateObservation, updateTrace, endActiveSpan } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          output: result.object,
-        });
-        await updateTrace({
-          output: result.object,
-        });
-        await endActiveSpan();
-      }
-
-      return result.object;
+      return result.output;
     } catch (error) {
       logger.error("AI matching failed:", error);
-
-      if (DEBUG) {
-        try {
-          const { updateObservation, updateTrace, endActiveSpan } =
-            await import("@/lib/observability/telemetry-helpers");
-          await updateObservation({
-            output: error,
-            level: "ERROR",
-          });
-          await updateTrace({
-            output: error,
-          });
-          await endActiveSpan();
-        } catch (telemetryError) {
-          logger.error("Telemetry error in matching catch:", telemetryError);
-        }
-      }
-
       throw error;
-    } finally {
-      if (DEBUG) {
-        try {
-          const { flushSpanProcessor } = await import(
-            "@/lib/observability/telemetry-helpers"
-          );
-          await flushSpanProcessor();
-        } catch (telemetryError) {
-          logger.error("Telemetry flush error in matching:", telemetryError);
-        }
-      }
     }
   }
 
@@ -308,6 +253,24 @@ export class AIMatcher {
     - Match the user's memory to the closest option semantically.
     - If user's memory is "United States", and options are ["USA", "Canada", "UK"], return "USA".
     - If no option matches well or you are uncertain, you MUST set the value to null.
+    
+    ## RADIO BUTTON GROUPS
+    For radio button groups (type: "radiogroup"), you MUST:
+    - Return a value that EXACTLY matches one of the provided options (by value or label).
+    - Match the user's memory to the closest option semantically.
+    - If no option matches, set the value to null.
+    
+    ## CHECKBOXES & SWITCHES
+    For checkbox and switch fields:
+    - Return "true" if the checkbox should be checked, "false" if unchecked.
+    - Infer the correct state from the user's memories and the field's label/context.
+    - Common patterns: "I agree to terms" → "true" if user has accepted terms, newsletter opt-in based on user preferences.
+    - When uncertain, set value to null rather than guessing.
+    
+    ## SLIDERS & SPIN BUTTONS
+    For slider and spinbutton fields:
+    - Return the numeric value as a string.
+    - Match to the user's memory, respecting any min/max constraints implied by the field context.
     
     Important Rules:
     1. **ALWAYS USE MEMORIES**: If a user has stored a memory that matches the field, USE IT. The whole point is to fill forms with user's stored data.

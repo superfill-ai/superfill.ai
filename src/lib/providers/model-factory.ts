@@ -1,6 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import type { JSONValue } from "ai";
 import { ollama } from "ai-sdk-ollama";
 import type { AIProvider } from "@/lib/providers/registry";
 
@@ -70,3 +71,13 @@ const defaults: Record<AIProvider, string> = {
 export const getDefaultModel = (provider: AIProvider): string => {
   return defaults[provider];
 };
+
+export function getProviderOptions(provider: AIProvider) {
+  if (provider === "anthropic") {
+    return {
+      anthropic: { cacheControl: { type: "ephemeral" } },
+    } as Record<string, Record<string, JSONValue>>;
+  }
+
+  return undefined;
+}

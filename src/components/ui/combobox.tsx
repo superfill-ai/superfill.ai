@@ -34,6 +34,9 @@ export interface ComboboxProps {
   className?: string;
   id?: string;
   name?: string;
+  portalContainer?: React.ComponentProps<
+    typeof PopoverContent
+  >["portalContainer"];
   "aria-invalid"?: boolean;
 }
 
@@ -50,6 +53,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
       className,
       id,
       name,
+      portalContainer,
       "aria-invalid": ariaInvalid,
     },
     ref,
@@ -87,6 +91,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
         <PopoverContent
           className="w-(--radix-popover-trigger-width) p-0"
           align="start"
+          portalContainer={portalContainer}
         >
           <Command>
             <CommandInput placeholder={searchPlaceholder} />

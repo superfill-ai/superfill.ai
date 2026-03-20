@@ -8,7 +8,12 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!public/pdf.worker.mjs", "!src/lib/database.types.ts"]
+    "includes": [
+      "**",
+      "!public/pdf.worker.mjs",
+      "!src/lib/database.types.ts",
+      "!.vscode"
+    ]
   },
   "formatter": {
     "enabled": true,

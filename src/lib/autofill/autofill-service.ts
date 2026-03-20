@@ -1,18 +1,31 @@
 import { defineProxyService } from "@webext-core/proxy-service";
 import { AIMatcher } from "@/lib/ai/matcher";
+import { getAuthService } from "@/lib/auth/auth-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { getSessionService } from "@/lib/autofill/session-service";
+import {
+  attachToTab,
+  captureScreenshot,
+  fillAllFields as cdpFillAllFields,
+  detachFromTab,
+  detectFormFields,
+  isCDPSupported,
+} from "@/lib/cdp";
 import { createLogger } from "@/lib/logger";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import type {
   AutofillResult,
+  CDPDetectedField,
+  CDPFieldMapping,
   CompressedFieldData,
   CompressedMemoryData,
   DetectedFieldSnapshot,
   DetectedFormSnapshot,
   DetectFormsResult,
   FieldMapping,
+  FieldOpId,
+  FormOpId,
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
@@ -22,10 +35,30 @@ import { ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED } from "../errors";
 import { aiSettings } from "../storage/ai-settings";
 import { MAX_FIELDS_PER_PAGE, MAX_MEMORIES_FOR_MATCHING } from "./constants";
 import { FallbackMatcher } from "./fallback-matcher";
+import { inferFieldPurpose } from "./field-purpose";
 import { isCrypticString } from "./field-quality";
 import { createEmptyMapping } from "./mapping-utils";
 
 const logger = createLogger("autofill-service");
+
+const MAX_LABEL_LENGTH = 100;
+
+function deduplicateLabels(labels: string[]): string[] {
+  const truncated = labels.map((l) =>
+    l.length > MAX_LABEL_LENGTH ? `${l.slice(0, MAX_LABEL_LENGTH)}...` : l,
+  );
+  const result: string[] = [];
+  for (const label of truncated) {
+    const lowerLabel = label.toLowerCase();
+    const isSubstring = result.some((existing) =>
+      existing.toLowerCase().includes(lowerLabel),
+    );
+    if (!isSubstring) {
+      result.push(label);
+    }
+  }
+  return result;
+}
 
 class AutofillService {
   private aiMatcher: AIMatcher;
@@ -98,6 +131,16 @@ class AutofillService {
       const session = await sessionService.startSession();
       sessionId = session.id;
       logger.info("Started autofill session:", sessionId);
+
+      // Try CDP path (Chrome/Edge) — falls back to DOM path if CDP finds nothing
+      if (isCDPSupported()) {
+        try {
+          const cdpResult = await this.runCDPAutofill(tabId, sessionId);
+          if (cdpResult) return cdpResult;
+        } catch (cdpError) {
+          logger.warn("CDP path failed, falling back to DOM path:", cdpError);
+        }
+      }
 
       const requestId = `autofill-${sessionId}-${Date.now()}`;
       const collectedResults: DetectFormsResult[] = [];
@@ -272,6 +315,391 @@ class AutofillService {
     }
   }
 
+  private async runCDPAutofill(
+    tabId: number,
+    sessionId: string,
+  ): Promise<{
+    success: boolean;
+    fieldsDetected: number;
+    mappingsFound: number;
+    error?: string;
+  } | null> {
+    const sessionService = getSessionService();
+
+    try {
+      await attachToTab(tabId);
+    } catch (attachError) {
+      logger.warn(
+        "CDP attach failed (user denied or unsupported):",
+        attachError,
+      );
+      return null;
+    }
+
+    try {
+      await contentAutofillMessaging.sendMessage(
+        "updateProgress",
+        { state: "detecting", message: "Detecting forms via CDP..." },
+        tabId,
+      );
+
+      const cdpFields = await detectFormFields(tabId);
+
+      if (cdpFields.length === 0) {
+        logger.info("CDP detected no fields");
+        return null;
+      }
+
+      logger.info(`CDP detected ${cdpFields.length} fields`);
+
+      await contentAutofillMessaging.sendMessage(
+        "updateProgress",
+        {
+          state: "analyzing",
+          message: "Analyzing fields...",
+          fieldsDetected: cdpFields.length,
+        },
+        tabId,
+      );
+
+      const settings = this.currentAiSettings;
+      if (!settings) throw new Error("AI settings not loaded");
+
+      const useCloudMode = settings.cloudModelsEnabled;
+      let screenshot: string | undefined;
+
+      if (useCloudMode) {
+        try {
+          screenshot = await captureScreenshot(tabId);
+        } catch (screenshotError) {
+          logger.warn("Screenshot capture failed:", screenshotError);
+        }
+      }
+
+      await contentAutofillMessaging.sendMessage(
+        "updateProgress",
+        {
+          state: "matching",
+          message: "Matching memories...",
+          fieldsDetected: cdpFields.length,
+        },
+        tabId,
+      );
+
+      const limitedFields = cdpFields.slice(0, MAX_FIELDS_PER_PAGE);
+      const compressedFields = limitedFields.map((f) =>
+        this.compressCDPField(f),
+      );
+
+      const allMemories = await storage.memories.getValue();
+      if (allMemories.length === 0) {
+        return {
+          success: true,
+          fieldsDetected: cdpFields.length,
+          mappingsFound: 0,
+        };
+      }
+
+      const memories = allMemories.slice(0, MAX_MEMORIES_FOR_MATCHING);
+      const compressedMemories = memories.map((m) => this.compressMemory(m));
+
+      // Get website context from content script
+      let websiteContext: WebsiteContext = {
+        metadata: {
+          title: "",
+          description: null,
+          keywords: null,
+          ogTitle: null,
+          ogDescription: null,
+          ogSiteName: null,
+          ogType: null,
+          url: "",
+        },
+        websiteType: "unknown",
+        formPurpose: "unknown",
+      };
+
+      try {
+        const detectResult = await contentAutofillMessaging.sendMessage(
+          "detectForms",
+          undefined,
+          tabId,
+        );
+        if (detectResult?.success) {
+          websiteContext = detectResult.websiteContext;
+        }
+      } catch {
+        logger.warn("Could not get website context from content script");
+      }
+
+      const mappings = await this.matchCDPFields(
+        compressedFields,
+        compressedMemories,
+        websiteContext,
+        settings,
+        screenshot,
+      );
+
+      const matchedCount = mappings.filter((m) => m.value !== null).length;
+
+      await sessionService.updateSessionStatus(sessionId, "reviewing");
+
+      // Build a synthetic preview payload to reuse existing preview UI
+      const previewPayload = this.buildCDPPreviewPayload(
+        limitedFields,
+        mappings,
+        sessionId,
+      );
+
+      await contentAutofillMessaging.sendMessage(
+        "updateProgress",
+        {
+          state: "showing-preview",
+          message: "Preparing preview...",
+          fieldsDetected: cdpFields.length,
+          fieldsMatched: matchedCount,
+        },
+        tabId,
+      );
+
+      try {
+        await contentAutofillMessaging.sendMessage(
+          "showPreview",
+          previewPayload,
+          tabId,
+        );
+      } catch (previewError) {
+        logger.error("Failed to send CDP preview payload:", previewError);
+      }
+
+      return {
+        success: true,
+        fieldsDetected: cdpFields.length,
+        mappingsFound: matchedCount,
+      };
+    } catch (error) {
+      logger.error("CDP autofill error:", error);
+      throw error;
+    } finally {
+      await detachFromTab(tabId);
+    }
+  }
+
+  async executeCDPFill(
+    tabId: number,
+    fieldsToFill: Array<{
+      fieldOpid: string;
+      value: string;
+      cdpField?: CDPDetectedField;
+    }>,
+  ): Promise<void> {
+    const cdpMappings: CDPFieldMapping[] = fieldsToFill
+      .filter(
+        (item): item is typeof item & { cdpField: CDPDetectedField } =>
+          item.cdpField != null,
+      )
+      .map((item) => ({
+        field: item.cdpField,
+        value: item.value,
+        confidence: 1,
+      }));
+
+    if (cdpMappings.length === 0) {
+      logger.warn("executeCDPFill: no CDP fields provided in fill payload");
+      return;
+    }
+
+    try {
+      await attachToTab(tabId);
+      const summary = await cdpFillAllFields(tabId, cdpMappings);
+      logger.info("CDP fill summary:", summary);
+    } finally {
+      await detachFromTab(tabId);
+    }
+  }
+
+  private compressCDPField(field: CDPDetectedField): CompressedFieldData {
+    const roleToFieldType: Record<string, CompressedFieldData["type"]> = {
+      textbox: "text",
+      searchbox: "text",
+      textarea: "textarea",
+      combobox: "select",
+      listbox: "select",
+      checkbox: "checkbox",
+      switch: "checkbox",
+      menuitemcheckbox: "checkbox",
+      radiogroup: "radio",
+      spinbutton: "number",
+      slider: "number",
+    };
+
+    const dm = field.domMetadata;
+
+    let type = roleToFieldType[field.role] ?? "text";
+    if (dm?.inputType) {
+      const inputTypeMap: Record<string, CompressedFieldData["type"]> = {
+        email: "email",
+        tel: "tel",
+        url: "url",
+        number: "number",
+        date: "date",
+      };
+      type = inputTypeMap[dm.inputType] ?? type;
+    }
+
+    const labelSources = [
+      field.name,
+      dm?.labelText,
+      field.description,
+      dm?.ariaDescribedByText,
+    ];
+    const rawLabels = Array.from(
+      new Set(labelSources.filter((s): s is string => !!s && s.length > 0)),
+    );
+
+    const labels = deduplicateLabels(rawLabels);
+
+    const contextParts = [dm?.placeholder, dm?.helperText];
+
+    if (
+      field.description &&
+      !labels.some((l) => l.includes(field.description))
+    ) {
+      contextParts.push(field.description);
+    }
+    if (dm?.htmlName && !isCrypticString(dm.htmlName)) {
+      contextParts.push(dm.htmlName);
+    }
+    if (dm?.htmlId && !isCrypticString(dm.htmlId)) {
+      contextParts.push(dm.htmlId);
+    }
+
+    const context = contextParts.filter(Boolean).join(" ").slice(0, 300);
+
+    const purpose = inferFieldPurpose({
+      fieldType: type,
+      autocomplete: dm?.autocomplete ?? null,
+      labels: [field.name, dm?.labelText, field.description],
+      placeholder: dm?.placeholder ?? null,
+      htmlName: dm?.htmlName ?? null,
+      htmlId: dm?.htmlId ?? null,
+    });
+
+    return {
+      opid: field.opid,
+      highlightIndex: field.highlightIndex,
+      type,
+      purpose,
+      labels,
+      context,
+      ...(field.options?.length
+        ? {
+            options: field.options.map((o) => ({
+              value: o.value,
+              label: o.label,
+            })),
+          }
+        : {}),
+    };
+  }
+
+  private async matchCDPFields(
+    fields: CompressedFieldData[],
+    memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
+    settings: AISettings,
+    screenshot?: string,
+  ): Promise<FieldMapping[]> {
+    return this.runMatchingPipeline(
+      fields,
+      memories,
+      websiteContext,
+      settings,
+      screenshot,
+      "CDP",
+    );
+  }
+
+  private buildCDPPreviewPayload(
+    fields: CDPDetectedField[],
+    mappings: FieldMapping[],
+    sessionId: string,
+  ): PreviewSidebarPayload {
+    const confidenceThreshold =
+      this.currentAiSettings?.confidenceThreshold ?? 0.6;
+
+    const mappingsWithThreshold = mappings.map((mapping) => ({
+      ...mapping,
+      autoFill:
+        mapping.value !== null && mapping.confidence >= confidenceThreshold,
+    }));
+
+    const isPlaceholderName = (s: string | null | undefined): boolean => {
+      if (!s) return true;
+      return /^(select|choose|pick|enter|type|search|find|none|--|—)\b/i.test(
+        s.trim(),
+      );
+    };
+
+    const syntheticFields: DetectedFieldSnapshot[] = fields.map((f) => {
+      const dm = f.domMetadata;
+      const compressed = this.compressCDPField(f);
+
+      const axName = isPlaceholderName(f.name) ? null : f.name;
+
+      return {
+        opid: f.opid as FieldOpId,
+        formOpid: "__form__cdp" as FormOpId,
+        highlightIndex: f.highlightIndex,
+        frameId: f.frameId,
+        metadata: {
+          id: dm?.htmlId ?? f.opid,
+          name: dm?.htmlName ?? (axName || f.name),
+          className: null,
+          type: dm?.inputType ?? f.role,
+          labelTag: dm?.labelText ?? axName ?? null,
+          labelData: null,
+          labelAria: axName || null,
+          labelLeft: null,
+          labelTop: null,
+          placeholder: dm?.placeholder ?? null,
+          helperText:
+            dm?.helperText ??
+            dm?.ariaDescribedByText ??
+            (f.description || null),
+          autocomplete: dm?.autocomplete ?? null,
+          required: f.required,
+          disabled: f.disabled,
+          readonly: false,
+          maxLength: dm?.maxLength ?? null,
+          rect: f.rect,
+          currentValue: f.value,
+          fieldType: compressed.type as CompressedFieldData["type"],
+          fieldPurpose: compressed.purpose,
+          isVisible: dm?.isVisible ?? true,
+          isTopElement: dm?.isTopElement ?? true,
+          isInteractive: true,
+          options: f.options?.map((o) => ({ value: o.value, label: o.label })),
+        },
+      };
+    });
+
+    const syntheticForm: DetectedFormSnapshot = {
+      opid: "__form__cdp" as FormOpId,
+      action: "",
+      method: "",
+      name: "CDP-detected form",
+      fields: syntheticFields,
+    };
+
+    return {
+      forms: [syntheticForm],
+      mappings: mappingsWithThreshold,
+      sessionId,
+      cdpFields: fields,
+    };
+  }
+
   private async processForms(
     forms: DetectedFormSnapshot[],
     _pageUrl: string,
@@ -363,60 +791,88 @@ class AutofillService {
       throw new Error("AI settings not loaded");
     }
 
+    return this.runMatchingPipeline(
+      compressedFields,
+      compressedMemories,
+      websiteContext,
+      settings,
+      undefined,
+      "DOM",
+    );
+  }
+
+  private async runMatchingPipeline(
+    fields: CompressedFieldData[],
+    memories: CompressedMemoryData[],
+    websiteContext: WebsiteContext,
+    settings: AISettings,
+    screenshot: string | undefined,
+    source: "CDP" | "DOM",
+  ): Promise<FieldMapping[]> {
     const useCloudMode = settings.cloudModelsEnabled;
 
     try {
       if (useCloudMode) {
-        logger.info("AutofillService: Using cloud AI mode");
-        return await this.aiMatcher.matchFields(
-          compressedFields,
-          compressedMemories,
-          websiteContext,
-          true,
+        const authService = getAuthService();
+        const session = await authService.getSession();
+
+        if (session?.access_token) {
+          if (source === "DOM") {
+            logger.info("AutofillService: Using cloud AI mode");
+          }
+          return await this.aiMatcher.matchFields(
+            fields,
+            memories,
+            websiteContext,
+            true,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            screenshot,
+          );
+        }
+
+        logger.warn(
+          "Cloud models enabled but user not authenticated, using BYOK/fallback",
         );
       }
 
       const provider = settings.selectedProvider;
-
       if (!provider) {
         throw new Error(ERROR_MESSAGE_PROVIDER_NOT_CONFIGURED);
       }
 
       const selectedModel = settings.selectedModels?.[provider];
-
-      logger.info(
-        "AutofillService: Using AI provider",
-        provider,
-        "with model",
-        selectedModel,
-      );
+      if (source === "DOM") {
+        logger.info(
+          "AutofillService: Using AI provider",
+          provider,
+          "with model",
+          selectedModel,
+        );
+      }
 
       const keyVaultService = getKeyVaultService();
       const apiKey = await keyVaultService.getKey(provider);
 
       if (!apiKey) {
         logger.warn("No API key found, using fallback matcher");
-        return await this.fallbackMatcher.matchFields(
-          compressedFields,
-          compressedMemories,
-        );
+        return await this.fallbackMatcher.matchFields(fields, memories);
       }
 
       return await this.aiMatcher.matchFields(
-        compressedFields,
-        compressedMemories,
+        fields,
+        memories,
         websiteContext,
         false,
         provider,
         apiKey,
-        settings.selectedModels?.[provider],
+        selectedModel,
       );
     } catch (error) {
-      logger.error("AI matching failed, using fallback:", error);
-      return await this.fallbackMatcher.matchFields(
-        compressedFields,
-        compressedMemories,
-      );
+      logger.error(`${source} AI matching failed, using fallback:`, error);
+      return await this.fallbackMatcher.matchFields(fields, memories);
     }
   }
 
@@ -444,7 +900,10 @@ class AutofillService {
 
     const context = contextParts.filter(Boolean).join(" ");
 
-    const includeOptions = field.metadata.fieldType === "select";
+    const includeOptions =
+      field.metadata.fieldType === "select" ||
+      field.metadata.fieldType === "radio" ||
+      field.metadata.fieldType === "checkbox";
 
     return {
       opid: field.opid,

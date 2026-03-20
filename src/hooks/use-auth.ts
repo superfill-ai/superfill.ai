@@ -45,26 +45,31 @@ export function useAuth(): AuthState & AuthActions {
     setInactiveMessage(null);
   }, []);
 
+  const disableCloudModelsIfEnabled = useCallback(async () => {
+    const currentSettings = await storage.aiSettings.getValue();
+
+    if (currentSettings.cloudModelsEnabled) {
+      await storage.aiSettings.setValue({
+        ...currentSettings,
+        cloudModelsEnabled: false,
+      });
+    }
+  }, []);
+
   const handleInactiveAccount = useCallback(
     async (message?: string) => {
       const authService = getAuthService();
       await authService.clearSession();
       queryClient.setQueryData(["auth", "session"], null);
 
-      const currentSettings = await storage.aiSettings.getValue();
-      if (currentSettings.cloudModelsEnabled) {
-        await storage.aiSettings.setValue({
-          ...currentSettings,
-          cloudModelsEnabled: false,
-        });
-      }
+      await disableCloudModelsIfEnabled();
 
       setPendingApproval(true);
       setInactiveMessage(
         message ?? "Account pending approval. Please contact support.",
       );
     },
-    [queryClient],
+    [queryClient, disableCloudModelsIfEnabled],
   );
 
   const fetchUserStatus = useCallback(
@@ -215,7 +220,10 @@ export function useAuth(): AuthState & AuthActions {
   const signOutMutation = useMutation({
     mutationFn: async () => {
       const authService = getAuthService();
+
       await authService.clearSession();
+      await disableCloudModelsIfEnabled();
+
       logger.debug("Signed out successfully");
     },
     onSuccess: () => {

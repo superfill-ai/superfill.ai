@@ -1,5 +1,5 @@
 import { CheckCircle2, Cloud, Info } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -113,24 +113,33 @@ export const AiProviderSettings = () => {
     await deleteKeyMutation.mutateAsync(provider as AIProvider);
   };
 
-  const handleCloudModelsToggle = async (enabled: boolean) => {
-    if (enabled) {
-      if (
-        cloudUsage &&
-        cloudUsage.remaining !== null &&
-        cloudUsage.remaining === 0
-      ) {
-        return;
+  const handleCloudModelsToggle = useCallback(
+    async (enabled: boolean) => {
+      if (enabled) {
+        if (
+          cloudUsage &&
+          cloudUsage.remaining !== null &&
+          cloudUsage.remaining === 0
+        ) {
+          return;
+        }
       }
-    }
 
-    const currentSettings = await storage.aiSettings.getValue();
-    const updatedSettings: AISettings = {
-      ...currentSettings,
-      cloudModelsEnabled: enabled,
-    };
-    await storage.aiSettings.setValue(updatedSettings);
-  };
+      const currentSettings = await storage.aiSettings.getValue();
+      const updatedSettings: AISettings = {
+        ...currentSettings,
+        cloudModelsEnabled: enabled,
+      };
+      await storage.aiSettings.setValue(updatedSettings);
+    },
+    [cloudUsage],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated && cloudModelsEnabled) {
+      handleCloudModelsToggle(false);
+    }
+  }, [isAuthenticated, cloudModelsEnabled, handleCloudModelsToggle]);
 
   return (
     <Card>

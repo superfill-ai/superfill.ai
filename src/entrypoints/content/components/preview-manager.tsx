@@ -11,6 +11,7 @@ import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
   AutofillProgress,
+  CDPDetectedField,
   DetectedField,
   DetectedFieldSnapshot,
   DetectedForm,
@@ -129,6 +130,7 @@ export class PreviewSidebarManager {
   private reactRoot: Root | null = null;
   private highlightedElement: HTMLElement | null = null;
   private mappingLookup: Map<string, FieldMapping> = new Map();
+  private cdpFieldLookup: Map<string, CDPDetectedField> = new Map();
   private sessionId: string | null = null;
   private currentMode: "loading" | "preview" = "loading";
   private currentProgress: AutofillProgress | null = null;
@@ -146,6 +148,9 @@ export class PreviewSidebarManager {
     }
 
     this.sessionId = payload.sessionId;
+    this.cdpFieldLookup = new Map(
+      payload.cdpFields?.map((f) => [f.opid, f]) ?? [],
+    );
     this.currentMode = "preview";
     this.currentData = renderData;
 
@@ -265,6 +270,7 @@ export class PreviewSidebarManager {
     }
 
     this.mappingLookup.clear();
+    this.cdpFieldLookup.clear();
   }
 
   private async handleFill(
@@ -279,7 +285,10 @@ export class PreviewSidebarManager {
 
       if (frameInfo.isMainFrame) {
         await contentAutofillMessaging.sendMessage("broadcastFillToAllFrames", {
-          fieldsToFill,
+          fieldsToFill: fieldsToFill.map((f) => ({
+            ...f,
+            cdpField: this.cdpFieldLookup.get(f.fieldOpid) ?? undefined,
+          })),
         });
       } else {
         await fillFields(fieldsToFill, frameInfo, {
@@ -410,17 +419,24 @@ export class PreviewSidebarManager {
   }
 
   private highlightField(fieldOpid: FieldOpId) {
-    const detected = this.options.getFieldMetadata(fieldOpid);
-    if (!detected) {
-      return;
-    }
-
     this.clearHighlight();
 
-    const element = detected.element as HTMLElement;
-    if (!element) {
-      return;
+    let element: HTMLElement | null = null;
+
+    const detected = this.options.getFieldMetadata(fieldOpid);
+    if (detected) {
+      element = detected.element as HTMLElement;
     }
+
+    if (!element) {
+      const cdpField = this.cdpFieldLookup.get(fieldOpid);
+      const selector = cdpField?.domMetadata?.cssSelector;
+      if (selector) {
+        element = this.findElementAcrossFrames(selector);
+      }
+    }
+
+    if (!element) return;
 
     if (document.documentElement.classList.contains("dark")) {
       element.classList.add(HIGHLIGHT_DARK_CLASS);
@@ -428,6 +444,43 @@ export class PreviewSidebarManager {
 
     element.classList.add(HIGHLIGHT_CLASS);
     this.highlightedElement = element;
+  }
+
+  private findElementAcrossFrames(
+    selector: string,
+    rootDoc: Document = document,
+    depth = 0,
+  ): HTMLElement | null {
+    if (depth > 4) return null;
+
+    try {
+      const directMatch = rootDoc.querySelector<HTMLElement>(selector);
+
+      if (directMatch) return directMatch;
+    } catch {
+      return null;
+    }
+
+    const frames = rootDoc.querySelectorAll("iframe");
+
+    for (const frame of Array.from(frames)) {
+      try {
+        const childDoc = frame.contentDocument;
+
+        if (!childDoc) continue;
+
+        const nestedMatch = this.findElementAcrossFrames(
+          selector,
+          childDoc,
+          depth + 1,
+        );
+
+        if (nestedMatch) return nestedMatch;
+      } catch {
+        // Cross-origin frame; ignore.
+      }
+    }
+    return null;
   }
 
   private clearHighlight() {

@@ -1,10 +1,19 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import type * as PdfjsDist from "pdfjs-dist";
 import { z } from "zod";
-import { createLogger, DEBUG } from "@/lib/logger";
-import { getAIModel } from "@/lib/providers/model-factory";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
+import { createLogger } from "@/lib/logger";
+import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import { getKeyVaultService } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
+import type {
+  DocumentImportItem,
+  DocumentParseResult,
+  ExtractedItem,
+  ParseDocumentOptions,
+  PDFAnnotation,
+  TextItem,
+} from "@/types/document";
 import type { AllowedCategory } from "@/types/memory";
 
 const logger = createLogger("document-parser");
@@ -45,44 +54,13 @@ const ExtractedInfoSchema = z.object({
   ),
 });
 
-export type ExtractedItem = z.infer<
-  typeof ExtractedInfoSchema
->["items"][number];
-
-export interface DocumentParseResult {
-  success: boolean;
-  items?: ExtractedItem[];
-  rawText?: string;
-  error?: string;
-}
-
-export type DocumentParserStatus =
-  | "idle"
-  | "reading"
-  | "parsing"
-  | "success"
-  | "error";
-
-interface TextItem {
-  str: string;
-  transform: number[];
-  width: number;
-  height: number;
-}
-
-interface PDFAnnotation {
-  subtype: string;
-  url?: string;
-  rect?: number[];
-}
-
 export async function extractTextFromPDF(file: File): Promise<string> {
   if (!_pdfjsLib) {
     _pdfjsLib = await import("pdfjs-dist");
     _pdfjsLib.GlobalWorkerOptions.workerSrc =
       browser.runtime.getURL("/pdf.worker.mjs");
   }
-  
+
   const pdfjsLib = _pdfjsLib;
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -109,13 +87,13 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const item of items) {
       if (!item.str) continue;
-      
+
       const y = Math.round(item.transform[5]);
-      
+
       if (!lineMap.has(y)) {
         lineMap.set(y, []);
       }
-      
+
       lineMap.get(y)?.push(item);
     }
 
@@ -123,21 +101,21 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     for (const y of sortedYPositions) {
       const lineItems = lineMap.get(y);
-      
+
       if (!lineItems) continue;
-      
+
       lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
 
       let lineText = "";
       let lastX = 0;
-      
+
       for (const item of lineItems) {
         const x = item.transform[4];
-        
+
         if (lineText && x - lastX > 5) {
           lineText += " ";
         }
-        
+
         lineText += item.str;
         lastX = x + item.width;
       }
@@ -152,9 +130,9 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
   if (allLinks.length > 0) {
     const uniqueLinks = [...new Set(allLinks)];
-    
+
     fullText += "\n--- HYPERLINKS FOUND IN DOCUMENT ---\n";
-    
+
     for (const link of uniqueLinks) {
       fullText += `${link}\n`;
     }
@@ -232,45 +210,23 @@ async function parseDocumentWithAI(
     `${logPrefix} AI call start — provider: ${selectedProvider}, model: ${selectedModel ?? "default"}, text length: ${text.length} chars`,
   );
 
-  const aiStart = performance.now();
-  let object: (typeof ExtractedInfoSchema)["_output"];
-
-  try {
-    const result = await generateObject({
-      model,
+  const { output } = await generateText({
+    model,
+    output: Output.object({
       schema: ExtractedInfoSchema,
-      schemaName: "ExtractedInfo",
-      schemaDescription:
-        "Information extracted from a document for form filling",
-      system: DOCUMENT_PARSING_PROMPT,
-      prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
-      temperature: 0.1,
-      experimental_telemetry: {
-        isEnabled: DEBUG,
-        functionId: "document-parsing",
-        metadata: {
-          provider: selectedProvider,
-          textLength: text.length,
-        },
-      },
-    });
-    object = result.object;
-  } catch (error) {
-    throw error;
-  }
+      name: "ExtractedInfo",
+      description: "Information extracted from a document for form filling",
+    }),
+    system: DOCUMENT_PARSING_PROMPT,
+    prompt: `Extract all useful personal and professional information from this document:\n\n${text}`,
+    temperature: 0.1,
+    providerOptions: getProviderOptions(selectedProvider),
+    ...getTelemetryConfig("document-parsing"),
+  });
 
-  const aiElapsed = Math.round(performance.now() - aiStart);
+  logger.debug("AI extracted items:", output.items.length);
 
-  logger.debug(
-    `${logPrefix} AI call complete — ${aiElapsed}ms, items extracted: ${object.items.length}`,
-  );
-  return object.items;
-}
-
-export interface ParseDocumentOptions {
-  requestId?: string;
-  onStageChange?: (stage: "reading" | "parsing") => void;
-  signal?: AbortSignal;
+  return output.items;
 }
 
 export async function parseDocument(
@@ -358,17 +314,12 @@ export async function parseDocument(
   }
 }
 
-export interface DocumentImportItem extends ExtractedItem {
-  id: string;
-  selected: boolean;
-}
-
 function normalizeTags(tags: string[]): string[] {
   const seen = new Set<string>();
-  
+
   for (const tag of tags) {
     const normalized = tag.trim().toLowerCase();
-    
+
     if (normalized) {
       seen.add(normalized);
     }
@@ -378,7 +329,7 @@ function normalizeTags(tags: string[]): string[] {
 
 function normalizeKey(item: ExtractedItem): string {
   const safe = (value: string) => value.trim().toLowerCase();
-  
+
   return [
     safe(item.label),
     safe(item.question),

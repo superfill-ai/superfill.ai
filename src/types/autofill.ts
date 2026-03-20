@@ -6,7 +6,9 @@ export type TrackableFieldType = (typeof TRACKABLE_FIELD_TYPES)[number];
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;
 };
-export type FieldOpId = `__${number}` & { readonly __brand: unique symbol };
+export type FieldOpId = (`__${number}` | `cdp-${string}`) & {
+  readonly __brand: unique symbol;
+};
 
 export type DetectFormsResult =
   | {
@@ -61,7 +63,7 @@ export interface FieldMetadataSnapshot
 
 export interface DetectedFieldSnapshot
   extends Omit<DetectedField, "element" | "metadata"> {
-  frameId?: number;
+  frameId?: number | string;
   metadata: FieldMetadataSnapshot;
 }
 
@@ -120,6 +122,7 @@ export type FieldType =
   | "textarea"
   | "select"
   | "checkbox"
+  | "radio"
   | "date"
   | "number"
   | "password";
@@ -187,6 +190,7 @@ export interface PreviewSidebarPayload {
   mappings: FieldMapping[];
   processingTime?: number;
   sessionId: string;
+  cdpFields?: CDPDetectedField[];
 }
 
 export type AutofillProgressState =
@@ -258,4 +262,131 @@ export type FieldsToFillData = Array<{
   fieldOpid: FieldOpId;
   value: string;
   confidence?: number;
+  cdpField?: CDPDetectedField;
 }>;
+
+// --- CDP (Chrome DevTools Protocol) types ---
+
+export interface CDPRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface CDPFieldFingerprint {
+  role: CDPFieldRole;
+  name: string | null;
+  description: string | null;
+  htmlName: string | null;
+  htmlId: string | null;
+  labelText: string | null;
+  placeholder: string | null;
+  inputType: string | null;
+  cssSelector: string | null;
+  frameId: string | null;
+  rect: CDPRect | null;
+}
+
+export interface CDPFieldOption {
+  value: string;
+  label: string;
+}
+
+export type CDPFieldRole =
+  | "textbox"
+  | "searchbox"
+  | "combobox"
+  | "listbox"
+  | "checkbox"
+  | "radio"
+  | "radiogroup"
+  | "spinbutton"
+  | "slider"
+  | "switch"
+  | "menuitemcheckbox"
+  | "menuitemradio"
+  | "textarea";
+
+export interface CDPDOMMetadata {
+  tagName: string;
+  inputType: string | null;
+  placeholder: string | null;
+  autocomplete: string | null;
+  htmlName: string | null;
+  htmlId: string | null;
+  labelText: string | null;
+  ariaDescribedByText: string | null;
+  helperText: string | null;
+  maxLength: number | null;
+  formAction: string | null;
+  formName: string | null;
+  isVisible: boolean;
+  isTopElement: boolean;
+  isContentEditable: boolean;
+  isShadowHost: boolean;
+  cssSelector: string | null;
+}
+
+export interface CDPDetectedField {
+  opid: string;
+  highlightIndex: number;
+  backendNodeId: number;
+  frameId?: string;
+  role: CDPFieldRole;
+  name: string;
+  description: string;
+  value: string;
+  checked?: boolean;
+  required: boolean;
+  disabled: boolean;
+  options?: CDPFieldOption[];
+  rect: CDPRect;
+  /** For radio groups: the child radio options */
+  radioOptions?: CDPRadioOption[];
+  domMetadata?: CDPDOMMetadata;
+  fingerprint?: CDPFieldFingerprint;
+}
+
+export interface CDPRadioOption {
+  backendNodeId: number;
+  label: string;
+  value: string;
+  checked: boolean;
+  rect: CDPRect;
+}
+
+export interface CDPFormDetectionResult {
+  fields: CDPDetectedField[];
+  screenshot?: string;
+}
+
+export interface CDPFieldMapping {
+  field: CDPDetectedField;
+  value: string;
+  confidence: number;
+}
+
+export type CDPFillStatus = "verified" | "recovered" | "failed";
+
+export interface CDPFillOutcome {
+  fieldOpid: string;
+  role: CDPFieldRole;
+  requestedValue: string;
+  status: CDPFillStatus;
+  verified: boolean;
+  attempts: number;
+  backendNodeId: number;
+  recoveredBackendNodeId?: number;
+  reason?: string;
+  actualValue?: string;
+}
+
+export interface CDPFillSummary {
+  total: number;
+  succeeded: number;
+  verified: number;
+  recovered: number;
+  failed: number;
+  outcomes: CDPFillOutcome[];
+}

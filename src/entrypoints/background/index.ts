@@ -13,7 +13,7 @@ import {
   getSessionService,
   registerSessionService,
 } from "@/lib/autofill/session-service";
-import { createLogger, DEBUG } from "@/lib/logger";
+import { createLogger } from "@/lib/logger";
 import { registerModelService } from "@/lib/providers/model-service";
 import { registerKeyValidationService } from "@/lib/security/key-validation-service";
 import {
@@ -32,14 +32,6 @@ const CONTEXT_MENU_ID = "superfill-autofill";
 export default defineBackground({
   type: "module",
   main: () => {
-    if (DEBUG) {
-      (async () => {
-        const { initializeTracerProvider } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await initializeTracerProvider();
-      })();
-    }
     registerAutofillService();
     registerAuthService();
     registerCaptureMemoryService();
@@ -188,15 +180,41 @@ export default defineBackground({
           return;
         }
 
-        logger.info(
-          `Broadcasting fill command to all frames in tab ${tabId} for ${data.fieldsToFill.length} fields`,
+        const cdpFields = data.fieldsToFill.filter((f) =>
+          f.fieldOpid.startsWith("cdp-"),
+        );
+        const domFields = data.fieldsToFill.filter(
+          (f) => !f.fieldOpid.startsWith("cdp-"),
         );
 
-        contentAutofillMessaging
-          .sendMessage("fillFields", { fieldsToFill: data.fieldsToFill }, tabId)
-          .catch((error) => {
-            logger.error("Failed to broadcast fill command:", error);
-          });
+        if (cdpFields.length > 0) {
+          logger.info(`Routing ${cdpFields.length} CDP fields to CDP filler`);
+          try {
+            const autofillService = getAutofillService();
+            await autofillService.executeCDPFill(
+              tabId,
+              cdpFields.map((f) => ({
+                fieldOpid: f.fieldOpid,
+                value: f.value,
+                cdpField: f.cdpField,
+              })),
+            );
+          } catch (error) {
+            logger.error("CDP fill failed:", error);
+          }
+        }
+
+        if (domFields.length > 0) {
+          logger.info(
+            `Broadcasting fill command to all frames in tab ${tabId} for ${domFields.length} fields`,
+          );
+
+          contentAutofillMessaging
+            .sendMessage("fillFields", { fieldsToFill: domFields }, tabId)
+            .catch((error) => {
+              logger.error("Failed to broadcast fill command:", error);
+            });
+        }
       },
     );
 

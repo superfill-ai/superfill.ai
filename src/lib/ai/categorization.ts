@@ -1,7 +1,8 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
-import { createLogger, DEBUG } from "@/lib/logger";
-import { getAIModel } from "@/lib/providers/model-factory";
+import { getTelemetryConfig } from "@/lib/ai/telemetry";
+import { createLogger } from "@/lib/logger";
+import { getAIModel, getProviderOptions } from "@/lib/providers/model-factory";
 import type { AIProvider } from "@/lib/providers/registry";
 import type { CompressedFieldData } from "@/types/autofill";
 import type { WebsiteContext } from "@/types/context";
@@ -23,7 +24,7 @@ export const AnalysisResultSchema = z.object({
   category: CategoryEnum,
   tags: z.array(TagSchema).min(1).max(5),
   confidence: z.number().min(0).max(1),
-  reasoning: z.string().optional(),
+  reasoning: z.string().nullable(),
 });
 
 export const RephrasedAnswerSchema = z.object({
@@ -141,91 +142,24 @@ Be precise and consider context. For example:
       ? `Question: ${question}\nAnswer: ${answer}`
       : `Information: ${answer}`;
 
-    if (DEBUG) {
-      const { updateObservation, updateTrace } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        input: { answer, question },
-      });
-      await updateTrace({
-        name: "superfill:memory-categorization",
-        input: { answer, question },
-      });
-    }
-
-    const result = await generateObject({
+    const result = await generateText({
       model,
+      output: Output.object({
+        schema: AnalysisResultSchema,
+        name: "CategorizationResult",
+        description: "Categorization and tagging result for user data",
+      }),
       system: systemPrompt,
       prompt: userPrompt,
-      schema: AnalysisResultSchema,
-      schemaName: "CategorizationResult",
-      schemaDescription: "Categorization and tagging result for user data",
       temperature: 0.3,
-      experimental_telemetry: {
-        isEnabled: DEBUG,
-        functionId: "memory-categorization",
-        metadata: {
-          hasQuestion: !!question,
-          answerLength: answer.length,
-          provider,
-        },
-      },
+      providerOptions: getProviderOptions(provider),
+      ...getTelemetryConfig("categorization"),
     });
 
-    if (DEBUG) {
-      const { updateObservation, updateTrace, endActiveSpan } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        output: result.object,
-      });
-      await updateTrace({
-        output: result.object,
-      });
-      await endActiveSpan();
-    }
-
-    return result.object;
+    return result.output;
   } catch (error) {
     logger.error("AI categorization failed:", error);
-
-    if (DEBUG) {
-      try {
-        const { updateObservation, updateTrace, endActiveSpan } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          output: error,
-          level: "ERROR",
-        });
-        await updateTrace({
-          output: error,
-        });
-        await endActiveSpan();
-      } catch (telemetryError) {
-        logger.error(
-          "Telemetry error in categorization catch:",
-          telemetryError,
-        );
-      }
-    }
-
     return fallbackCategorization(answer, question);
-  } finally {
-    if (DEBUG) {
-      try {
-        const { flushSpanProcessor } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await flushSpanProcessor();
-      } catch (telemetryError) {
-        logger.error(
-          "Telemetry flush error in categorization:",
-          telemetryError,
-        );
-      }
-    }
   }
 };
 
@@ -302,15 +236,19 @@ Rephrase the following answer based on the provided context.
 - Field Type: ${field.type}
 `;
 
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model,
+      output: Output.object({
+        schema: RephrasedAnswerSchema,
+      }),
       system: systemPrompt,
       prompt: userPrompt,
-      schema: RephrasedAnswerSchema,
       temperature: 0.4,
+      providerOptions: getProviderOptions(provider),
+      ...getTelemetryConfig("rephrase-context"),
     });
 
-    return object.rephrasedAnswer;
+    return output.rephrasedAnswer;
   } catch (error) {
     logger.error(
       "Contextual rephrasing failed, returning original answer:",
@@ -338,75 +276,23 @@ export const rephraseAgent = async (
 
     const userPrompt = `Original Question: "${question || "Not provided"}"\nOriginal Answer: "${answer}"`;
 
-    if (DEBUG) {
-      const { updateObservation, updateTrace } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        input: { answer, question },
-      });
-      await updateTrace({
-        name: "superfill:memory-rephrase",
-        input: { answer, question },
-      });
-    }
-
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model,
+      output: Output.object({
+        schema: RephraseResultSchema,
+        name: "RephraseResult",
+        description: "Rephrased question and answer for user data",
+      }),
       system: systemPrompt,
       prompt: userPrompt,
-      schema: RephraseResultSchema,
-      schemaName: "RephraseResult",
-      schemaDescription: "Rephrased question and answer for user data",
       temperature: 0.5,
+      providerOptions: getProviderOptions(provider),
+      ...getTelemetryConfig("rephrase"),
     });
 
-    if (DEBUG) {
-      const { updateObservation, updateTrace, endActiveSpan } = await import(
-        "@/lib/observability/telemetry-helpers"
-      );
-      await updateObservation({
-        output: object,
-      });
-      await updateTrace({
-        output: object,
-      });
-      await endActiveSpan();
-    }
-
-    return object;
+    return output;
   } catch (error) {
     logger.error("AI rephrasing failed:", error);
-
-    if (DEBUG) {
-      try {
-        const { updateObservation, updateTrace, endActiveSpan } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await updateObservation({
-          output: error,
-          level: "ERROR",
-        });
-        await updateTrace({
-          output: error,
-        });
-        await endActiveSpan();
-      } catch (telemetryError) {
-        logger.error("Telemetry error in rephrase catch:", telemetryError);
-      }
-    }
-
     throw new Error("Failed to rephrase content with AI.");
-  } finally {
-    if (DEBUG) {
-      try {
-        const { flushSpanProcessor } = await import(
-          "@/lib/observability/telemetry-helpers"
-        );
-        await flushSpanProcessor();
-      } catch (telemetryError) {
-        logger.error("Telemetry flush error in rephrase:", telemetryError);
-      }
-    }
   }
 };

@@ -9,6 +9,9 @@ export default defineConfig({
   vite: () => {
     return {
       plugins: [tailwindcss()],
+      build: {
+        modulePreload: { polyfill: false },
+      },
     };
   },
   react: {
@@ -26,7 +29,13 @@ export default defineConfig({
       name: APP_NAME,
       version: "0.2.9",
       description: "AI-powered form filling browser extension",
-      permissions: ["activeTab", "storage", "offscreen", "contextMenus"],
+      permissions: [
+        "activeTab",
+        "storage",
+        "offscreen",
+        "contextMenus",
+        "debugger",
+      ],
       host_permissions: [
         "https://api.openai.com/*",
         "https://api.anthropic.com/*",
