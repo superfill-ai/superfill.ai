@@ -1,10 +1,3 @@
-import { SparklesIcon, X } from "lucide-react";
-import { createRoot, type Root } from "react-dom/client";
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import {
-  createShadowRootUi,
-  type ShadowRootContentScriptUi,
-} from "wxt/utils/content-script-ui/shadow-root";
 import {
   Accordion,
   AccordionContent,
@@ -24,21 +17,47 @@ import {
 } from "@/components/ui/card";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import { createLogger } from "@/lib/logger";
-import { storage } from "@/lib/storage";
+import { storage as storageItems } from "@/lib/storage";
 import { addNeverAskSite } from "@/lib/storage/capture-settings";
 import type { CapturedFieldData } from "@/types/autofill";
 import { Theme } from "@/types/theme";
+import { SparklesIcon, X } from "lucide-react";
+import { createRoot, type Root } from "react-dom/client";
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import {
+  createShadowRootUi,
+  type ShadowRootContentScriptUi,
+} from "wxt/utils/content-script-ui/shadow-root";
 import { CaptureResultLoader } from "./capture-result-loader";
 
 const logger = createLogger("capture-memory-manager");
 
 const HOST_ID = "superfill-capture-memory";
+const STORAGE_KEY = "session:pendingCaptureState";
+const STORAGE_VERSION = 1;
+const MAX_AGE_MS = 10 * 60 * 1000;
+
+const pendingCaptureStorage = storage.defineItem<StoredCaptureState | null>(
+  STORAGE_KEY,
+  {
+    fallback: null,
+    version: STORAGE_VERSION,
+  },
+);
 
 type CaptureResultState = "saving" | "success" | "info" | "error";
 
-interface CaptureMemoryProps {
+interface StoredCaptureState {
+  capturedFields: CapturedFieldData[];
+  siteUrl: string;
   siteTitle: string;
   siteDomain: string;
+  timestamp: number;
+}
+
+interface CaptureMemoryProps {
+  siteTitle: string | undefined;
+  siteDomain: string | undefined;
   capturedFields: CapturedFieldData[];
   onSave: () => void;
   onDismiss: () => void;
@@ -91,7 +110,7 @@ const CaptureMemory = ({
               id="save-memory-title"
             >
               Superfill detected {totalFields} field
-              {totalFields !== 1 ? "s" : ""} you filled on {siteTitle}. Save
+              {totalFields !== 1 ? "s" : ""} you filled on {siteTitle || "this site"}. Save
               them for future use?
             </CardDescription>
             <CardAction>
@@ -158,9 +177,9 @@ const CaptureMemory = ({
             >
               <span
                 className="truncate inline-block max-w-full"
-                title={`Never ask for ${siteDomain}`}
+                title={`Never ask for ${siteDomain || "this site"}`}
               >
-                Never ask for {siteDomain}
+                Never ask for {siteDomain || "this site"}
               </span>
             </Button>
           </CardFooter>
@@ -187,18 +206,29 @@ export class CaptureMemoryManager {
   private resultState: CaptureResultState | null = null;
   private savedCount = 0;
   private skippedCount = 0;
+  private siteTitle: string | undefined = undefined;
+  private siteDomain: string | undefined = undefined;
 
   async show(
     ctx: ContentScriptContext,
     capturedFields: CapturedFieldData[],
+    options?: { skipPersist?: boolean },
   ): Promise<void> {
     this.currentFields = capturedFields;
-    const siteTitle = document.title;
-    const siteDomain = window.location.hostname;
+    if (this.siteTitle === undefined) {
+      this.siteTitle = document.title;
+    }
+    if (this.siteDomain === undefined) {
+      this.siteDomain = window.location.hostname;
+    }
+
+    if (!options?.skipPersist) {
+      await this.savePendingState();
+    }
 
     logger.info("Showing capture memory", {
       fieldsCount: capturedFields.length,
-      siteDomain,
+      siteDomain: this.siteDomain,
     });
 
     try {
@@ -214,7 +244,7 @@ export class CaptureMemoryManager {
 
             void this.applyTheme(shadow);
             this.root = createRoot(container);
-            this.render(siteTitle, siteDomain);
+            this.render();
             return this.root;
           },
           onRemove: (root) => {
@@ -223,16 +253,20 @@ export class CaptureMemoryManager {
           },
         });
         this.ui.mount();
+      } else {
+        this.render();
       }
 
-      this.render(siteTitle, siteDomain);
       this.isVisible = true;
     } catch (error) {
       logger.error("Failed to show capture memory:", error);
+      await this.clearPendingState();
 
       try {
         this.ui?.remove();
-      } catch {}
+      } catch (error) {
+        logger.debug("Error removing UI during cleanup:", error);
+      }
 
       this.ui = null;
       this.root = null;
@@ -244,6 +278,8 @@ export class CaptureMemoryManager {
     if (!this.isVisible) return;
 
     logger.info("Hiding capture memory");
+
+    await this.clearPendingState();
 
     if (this.ui) {
       this.ui.remove();
@@ -257,7 +293,7 @@ export class CaptureMemoryManager {
 
   private async applyTheme(shadow: ShadowRoot): Promise<void> {
     try {
-      const settings = await storage.uiSettings.getValue();
+      const settings = await storageItems.uiSettings.getValue();
       const theme = settings.theme;
 
       const host = shadow.host as HTMLElement;
@@ -278,17 +314,20 @@ export class CaptureMemoryManager {
     }
   }
 
-  private render(siteTitle: string, siteDomain: string): void {
+  private render(): void {
     if (!this.root) return;
 
     this.root.render(
       <CaptureMemory
-        siteTitle={siteTitle}
-        siteDomain={siteDomain}
+        siteTitle={this.siteTitle ?? document.title}
+        siteDomain={this.siteDomain ?? window.location.hostname}
         capturedFields={this.currentFields}
         onSave={() => this.handleSave()}
         onDismiss={() => this.handleDismiss()}
-        onNeverAsk={() => this.handleNeverAsk(siteDomain)}
+        onNeverAsk={() => {
+          const domain = this.siteDomain ?? window.location.hostname;
+          this.handleNeverAsk(domain);
+        }}
         resultState={this.resultState}
         savedCount={this.savedCount}
         skippedCount={this.skippedCount}
@@ -301,19 +340,14 @@ export class CaptureMemoryManager {
     this.resultState = null;
     this.savedCount = 0;
     this.skippedCount = 0;
-    const siteTitle = document.title;
-    const siteDomain = window.location.hostname;
-    this.render(siteTitle, siteDomain);
+    this.render();
   }
 
   private async handleSave(): Promise<void> {
     logger.info("Saving captured memories");
 
-    const siteTitle = document.title;
-    const siteDomain = window.location.hostname;
-
     this.resultState = "saving";
-    this.render(siteTitle, siteDomain);
+    this.render();
 
     try {
       const result = await contentAutofillMessaging.sendMessage(
@@ -335,14 +369,14 @@ export class CaptureMemoryManager {
         );
 
         this.resultState = this.savedCount > 0 ? "success" : "info";
-        this.render(siteTitle, siteDomain);
+        this.render();
 
         await new Promise((resolve) => setTimeout(resolve, 3000));
         await this.hide();
       } else {
         logger.error("Failed to save memories");
         this.resultState = "error";
-        this.render(siteTitle, siteDomain);
+        this.render();
 
         await new Promise((resolve) => setTimeout(resolve, 3000));
         await this.hide();
@@ -350,7 +384,7 @@ export class CaptureMemoryManager {
     } catch (error) {
       logger.error("Error saving memories:", error);
       this.resultState = "error";
-      this.render(siteTitle, siteDomain);
+      this.render();
 
       await new Promise((resolve) => setTimeout(resolve, 3000));
       await this.hide();
@@ -372,5 +406,124 @@ export class CaptureMemoryManager {
     }
 
     await this.hide();
+  }
+
+  private async savePendingState(): Promise<void> {
+    try {
+      const state: StoredCaptureState = {
+        capturedFields: this.currentFields,
+        siteUrl: window.location.href,
+        siteTitle: this.siteTitle ?? document.title,
+        siteDomain: this.siteDomain ?? window.location.hostname,
+        timestamp: Date.now(),
+      };
+      await pendingCaptureStorage.setValue(state);
+      logger.debug(
+        "Saved pending capture modal state to browser.storage.session (extension-isolated)",
+      );
+    } catch (error) {
+      logger.error("Failed to save pending capture state:", error);
+    }
+  }
+
+  private async clearPendingState(): Promise<void> {
+    try {
+      await pendingCaptureStorage.setValue(null);
+      logger.debug(
+        "Cleared pending capture modal state from browser.storage.session",
+      );
+    } catch (error) {
+      logger.error("Failed to clear pending capture state:", error);
+    }
+  }
+
+  static async restoreIfNeeded(
+    ctx: ContentScriptContext,
+  ): Promise<CaptureMemoryManager | null> {
+    try {
+      const pendingState = await pendingCaptureStorage.getValue();
+
+      if (!pendingState) {
+        return null;
+      }
+
+      if (!CaptureMemoryManager.isValidStoredState(pendingState)) {
+        logger.warn("Invalid stored capture state, clearing");
+        await pendingCaptureStorage.setValue(null);
+        return null;
+      }
+
+      const currentUrl = window.location.href;
+      const pendingUrl = new URL(pendingState.siteUrl);
+      const currentUrlObj = new URL(currentUrl);
+
+      if (pendingUrl.hostname !== currentUrlObj.hostname) {
+        await pendingCaptureStorage.setValue(null);
+        logger.info("Cleared stale pending capture from different domain");
+        return null;
+      }
+
+      const ageMs = Date.now() - pendingState.timestamp;
+      if (ageMs > MAX_AGE_MS) {
+        await pendingCaptureStorage.setValue(null);
+        logger.info("Cleared expired pending capture state");
+        return null;
+      }
+
+      logger.info(
+        "Restoring pending capture modal from browser.storage.session (extension-isolated)",
+        {
+          fieldsCount: pendingState.capturedFields.length,
+          extensionIsolated: true,
+          ageSeconds: Math.floor(ageMs / 1000),
+        },
+      );
+
+      const manager = new CaptureMemoryManager();
+      manager.currentFields = pendingState.capturedFields;
+      manager.siteTitle = pendingState.siteTitle;
+      manager.siteDomain = pendingState.siteDomain;
+
+      await manager.show(ctx, pendingState.capturedFields, {
+        skipPersist: true,
+      });
+      return manager;
+    } catch (error) {
+      logger.error("Failed to restore pending capture state:", error);
+      try {
+        await pendingCaptureStorage.setValue(null);
+      } catch (cleanupError) {
+        logger.debug("Error clearing corrupted state:", cleanupError);
+      }
+      return null;
+    }
+  }
+
+  private static isValidStoredState(data: unknown): data is StoredCaptureState {
+    if (typeof data !== "object" || data === null) return false;
+
+    const state = data as Record<string, unknown>;
+
+    return (
+      Array.isArray(state.capturedFields) &&
+      typeof state.siteUrl === "string" &&
+      typeof state.siteTitle === "string" &&
+      typeof state.siteDomain === "string" &&
+      typeof state.timestamp === "number" &&
+      state.capturedFields.length > 0 &&
+      state.capturedFields.every(
+        (f: unknown) =>
+          typeof f === "object" &&
+          f !== null &&
+          typeof (f as Record<string, unknown>).fieldOpid === "string" &&
+          typeof (f as Record<string, unknown>).formOpid === "string" &&
+          typeof (f as Record<string, unknown>).question === "string" &&
+          typeof (f as Record<string, unknown>).answer === "string" &&
+          typeof (f as Record<string, unknown>).timestamp === "number" &&
+          typeof (f as Record<string, unknown>).wasAIFilled === "boolean" &&
+          typeof (f as Record<string, unknown>).fieldMetadata === "object" &&
+          (f as Record<string, unknown>).fieldMetadata !== null,
+      )
+    );
   }
 }
