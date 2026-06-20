@@ -104,13 +104,14 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^11.0.0",
-    "@wxt-dev/module-react": "^1.1.5",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@wxt-dev/module-react": "^1.2.2",
     "autoprefixer": "^10.4.24",
     "babel-plugin-react-compiler": "^1.0.0",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "wxt": "^0.20.17"
+    "wxt": "^0.20.26"
   },
   "simple-git-hooks": {
     "pre-commit": "bun run biome check --staged --write --no-errors-on-unmatched && bun type-check"
