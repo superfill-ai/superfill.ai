@@ -22,6 +22,7 @@ import {
 } from "@/lib/security/key-vault-service";
 import { storage } from "@/lib/storage";
 import { getSyncService, registerSyncService } from "@/lib/sync/sync-service";
+import { hasUpdateTour } from "@/lib/tours/version-updates";
 import type { AuthSuccessMessage, Message } from "@/types/message";
 import { migrateAISettings } from "./lib/migrate-settings-handler";
 
@@ -119,6 +120,14 @@ export default defineBackground({
       return true;
     });
 
+    const openOptionsPage = async (source: "install" | "update") => {
+      try {
+        await browser.runtime.openOptionsPage();
+      } catch (error) {
+        logger.error(`Failed to open options page after ${source}:`, error);
+      }
+    };
+
     browser.runtime.onInstalled.addListener(async (details) => {
       const manifest = browser.runtime.getManifest();
       const currentVersion = manifest.version;
@@ -135,21 +144,53 @@ export default defineBackground({
           ...uiSettings,
           onboardingCompleted: storedMemories.length !== 0,
           extensionVersion: currentVersion,
+          lastUpdatePageOpenedVersion: undefined,
+          pendingUpdateTourVersion: undefined,
+          pendingUpdatePreviousVersion: undefined,
         });
+        await openOptionsPage("install");
       } else if (details.reason === "update") {
-        const previousVersion = uiSettings.extensionVersion || "0.0.0";
+        const previousVersion =
+          details.previousVersion || uiSettings.extensionVersion || "0.0.0";
+
+        if (previousVersion === currentVersion) {
+          logger.debug("Ignoring extension reload without version change", {
+            version: currentVersion,
+          });
+          return;
+        }
+
+        if (uiSettings.lastUpdatePageOpenedVersion === currentVersion) {
+          logger.debug("Update page already opened for this version", {
+            version: currentVersion,
+          });
+          return;
+        }
 
         logger.debug("Extension updated", {
           from: previousVersion,
           to: currentVersion,
         });
 
+        const shouldShowUpdateTour = hasUpdateTour(currentVersion);
+
         await storage.uiSettings.setValue({
           ...uiSettings,
           extensionVersion: currentVersion,
+          lastUpdatePageOpenedVersion: currentVersion,
+          pendingUpdateTourVersion: shouldShowUpdateTour
+            ? currentVersion
+            : undefined,
+          pendingUpdatePreviousVersion: shouldShowUpdateTour
+            ? previousVersion
+            : undefined,
+        });
+        await openOptionsPage("update");
+      } else {
+        logger.debug("Ignoring runtime installation event", {
+          reason: details.reason,
         });
       }
-      browser.runtime.openOptionsPage();
     });
 
     contentAutofillMessaging.onMessage("startSession", async () => {

@@ -1,4 +1,6 @@
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
+import { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "wxt";
 import { APP_NAME } from "./src/constants";
 
@@ -8,18 +10,11 @@ export default defineConfig({
   srcDir: "./src",
   vite: () => {
     return {
-      plugins: [tailwindcss()],
+      plugins: [tailwindcss(), babel({ presets: [reactCompilerPreset()] })],
       build: {
         modulePreload: { polyfill: false },
       },
     };
-  },
-  react: {
-    vite: {
-      babel: {
-        plugins: [["babel-plugin-react-compiler", {}]],
-      },
-    },
   },
   manifest: ({ manifestVersion, mode }) => {
     const isDev = mode === "development";
