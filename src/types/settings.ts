@@ -20,6 +20,9 @@ export interface UISettings {
   theme: Theme;
   onboardingCompleted: boolean;
   extensionVersion?: string;
+  lastUpdatePageOpenedVersion?: string;
+  pendingUpdateTourVersion?: string;
+  pendingUpdatePreviousVersion?: string;
   completedTours?: string[];
   lastTourCompletedAt?: string;
   rightClickGuideSnoozedUntil?: string;

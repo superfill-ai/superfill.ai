@@ -1,6 +1,5 @@
-import { CheckCircle2, Cloud, Info } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CheckCircle2 } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -17,9 +16,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { useAuth } from "@/hooks/use-auth";
-import { useCloudUsageStatus } from "@/hooks/use-cloud-usage";
 import {
   useDeleteApiKey,
   useProviderKeyStatuses,
@@ -36,6 +32,22 @@ import type { AISettings } from "@/types/settings";
 import { ModelSelector } from "./model-selector";
 import { ProviderKeyInput } from "./provider-key-input";
 
+const disableCloudModels = async (
+  settings: AISettings,
+): Promise<AISettings> => {
+  if (!settings.cloudModelsEnabled) {
+    return settings;
+  }
+
+  const updatedSettings: AISettings = {
+    ...settings,
+    cloudModelsEnabled: false,
+  };
+
+  await storage.aiSettings.setValue(updatedSettings);
+  return updatedSettings;
+};
+
 export const AiProviderSettings = () => {
   const [providerKeys, setProviderKeys] = useState<Record<string, string>>({});
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
@@ -45,28 +57,28 @@ export const AiProviderSettings = () => {
   const [selectedProvider, setSelectedProvider] = useState<
     AIProvider | undefined
   >();
-  const [cloudModelsEnabled, setCloudModelsEnabled] = useState(false);
   const providerComboboxId = useId();
   const { data: keyStatuses } = useProviderKeyStatuses();
   const saveKeyWithModelMutation = useSaveApiKeyWithModel();
   const deleteKeyMutation = useDeleteApiKey();
   const allConfigs = getAllProviderConfigs();
-  const { isAuthenticated, pendingApproval } = useAuth();
-  const cloudUsage = useCloudUsageStatus();
 
   useEffect(() => {
     const fetchAndWatch = async () => {
-      const settings = await storage.aiSettings.getValue();
+      const settings = await disableCloudModels(
+        await storage.aiSettings.getValue(),
+      );
       setSelectedProvider(settings.selectedProvider);
-      setCloudModelsEnabled(settings.cloudModelsEnabled);
     };
 
     fetchAndWatch();
 
     const unsubscribe = storage.aiSettings.watch((newSettings) => {
       if (newSettings) {
+        if (newSettings.cloudModelsEnabled) {
+          void disableCloudModels(newSettings);
+        }
         setSelectedProvider(newSettings.selectedProvider);
-        setCloudModelsEnabled(newSettings.cloudModelsEnabled);
       }
     });
 
@@ -113,34 +125,6 @@ export const AiProviderSettings = () => {
     await deleteKeyMutation.mutateAsync(provider as AIProvider);
   };
 
-  const handleCloudModelsToggle = useCallback(
-    async (enabled: boolean) => {
-      if (enabled) {
-        if (
-          cloudUsage &&
-          cloudUsage.remaining !== null &&
-          cloudUsage.remaining === 0
-        ) {
-          return;
-        }
-      }
-
-      const currentSettings = await storage.aiSettings.getValue();
-      const updatedSettings: AISettings = {
-        ...currentSettings,
-        cloudModelsEnabled: enabled,
-      };
-      await storage.aiSettings.setValue(updatedSettings);
-    },
-    [cloudUsage],
-  );
-
-  useEffect(() => {
-    if (!isAuthenticated && cloudModelsEnabled) {
-      handleCloudModelsToggle(false);
-    }
-  }, [isAuthenticated, cloudModelsEnabled, handleCloudModelsToggle]);
-
   return (
     <Card>
       <CardHeader>
@@ -155,43 +139,6 @@ export const AiProviderSettings = () => {
       </CardHeader>
       <CardContent data-tour="ai-provider">
         <FieldGroup>
-          <Field data-invalid={false}>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <FieldLabel className="flex items-center gap-2">
-                  <Cloud className="size-4" />
-                  Cloud Models
-                </FieldLabel>
-                <FieldDescription>
-                  Use Superfill's cloud-hosted AI models. No API keys required.{" "}
-                  {pendingApproval
-                    ? " (Pending approval)"
-                    : !isAuthenticated
-                      ? " (Requires sign-in)"
-                      : ""}
-                </FieldDescription>
-              </div>
-              <Switch
-                checked={cloudModelsEnabled}
-                onCheckedChange={handleCloudModelsToggle}
-                disabled={!isAuthenticated || pendingApproval}
-              />
-            </div>
-          </Field>
-          <Separator />
-
-          {cloudModelsEnabled && cloudUsage && cloudUsage.plan !== "max" && (
-            <Alert variant="secondary">
-              <Info className="size-4" />
-              <AlertTitle>Cloud Models Active</AlertTitle>
-              <AlertDescription>
-                Cloud models will be used until your quota is exhausted. After
-                that, your configured local AI provider will be used
-                automatically if available.
-              </AlertDescription>
-            </Alert>
-          )}
-
           <div className="space-y-4">
             {allConfigs.map((config) => (
               <div key={config.id} className="flex gap-2">
@@ -258,9 +205,7 @@ export const AiProviderSettings = () => {
               <FieldDescription>
                 {providerOptions.filter((p) => p.available).length === 0
                   ? "Please add at least one API key to select a provider"
-                  : cloudModelsEnabled
-                    ? "This provider will be used when cloud quota is exhausted"
-                    : "Choose which AI provider to use for form filling"}
+                  : "Choose which AI provider to use for form filling"}
               </FieldDescription>
             </Field>
           </div>
