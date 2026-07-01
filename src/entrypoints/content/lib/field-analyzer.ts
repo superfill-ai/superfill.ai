@@ -4,6 +4,7 @@ import type {
   FieldMetadata,
   FieldType,
   FormFieldElement,
+  SelectOption,
 } from "@/types/autofill";
 
 export const DOM_CACHE = {
@@ -86,6 +87,10 @@ const INTERACTIVE_TAGS = new Set([
 
 export class FieldAnalyzer {
   private labelCache = new WeakMap<Element, string | null>();
+
+  clearCaches(): void {
+    this.labelCache = new WeakMap();
+  }
 
   isElementVisible(element: FormFieldElement): boolean {
     const style = getCachedComputedStyle(element);
@@ -224,6 +229,7 @@ export class FieldAnalyzer {
       isVisible,
       isTopElement: isTopEl,
       isInteractive,
+      ...this.extractOptions(element, fieldType),
     };
 
     return {
@@ -254,8 +260,13 @@ export class FieldAnalyzer {
   }
 
   private extractLabels(element: FormFieldElement) {
+    const radioGroupLabel =
+      element instanceof HTMLInputElement && element.type === "radio"
+        ? this.findRadioGroupLabel(element)
+        : null;
+
     return {
-      labelTag: this.findExplicitLabel(element),
+      labelTag: radioGroupLabel ?? this.findExplicitLabel(element),
       labelData: element.getAttribute("data-label") || null,
       labelAria: this.findAriaLabel(element),
       labelLeft: this.findPositionalLabel(element, "left"),
@@ -267,7 +278,7 @@ export class FieldAnalyzer {
   private findExplicitLabel(element: FormFieldElement): string | null {
     if (element.id) {
       const label = document.querySelector<HTMLLabelElement>(
-        `label[for="${element.id}"]`,
+        `label[for="${CSS.escape(element.id)}"]`,
       );
       if (label) {
         return this.cleanText(label.textContent || "");
@@ -299,6 +310,60 @@ export class FieldAnalyzer {
       if (labelElement) {
         return this.cleanText(labelElement.textContent || "");
       }
+    }
+
+    return null;
+  }
+
+  private findRadioGroupLabel(element: HTMLInputElement): string | null {
+    const fieldset = element.closest("fieldset");
+    const legend = fieldset?.querySelector("legend");
+    if (legend) {
+      const text = this.cleanText(legend.textContent || "");
+      if (text) return text;
+    }
+
+    const group = element.closest('[role="group"], [role="radiogroup"]');
+    if (group) {
+      const ariaLabel = group.getAttribute("aria-label");
+      if (ariaLabel) {
+        const text = this.cleanText(ariaLabel);
+        if (text) return text;
+      }
+
+      const labelledBy = group.getAttribute("aria-labelledby");
+      if (labelledBy) {
+        const text = labelledBy
+          .split(/\s+/)
+          .map((id) => document.getElementById(id)?.textContent ?? "")
+          .join(" ");
+        const cleaned = this.cleanText(text);
+        if (cleaned) return cleaned;
+      }
+    }
+
+    let container = element.parentElement;
+    let depth = 0;
+    while (container && depth < 5) {
+      const radios = container.querySelectorAll('input[type="radio"]');
+      if (radios.length > 1) {
+        const candidate = container.querySelector(
+          'legend, [class*="question"], [class*="label"], [class*="title"], [class*="heading"]',
+        );
+        if (candidate && !candidate.querySelector('input[type="radio"]')) {
+          const text = this.cleanText(candidate.textContent || "");
+          if (text) return text;
+        }
+
+        const previous = container.previousElementSibling;
+        if (previous) {
+          const text = this.cleanText(previous.textContent || "");
+          if (text) return text;
+        }
+      }
+
+      container = container.parentElement;
+      depth++;
     }
 
     return null;
@@ -470,6 +535,15 @@ export class FieldAnalyzer {
       return element.value || "";
     }
     if (element instanceof HTMLInputElement) {
+      if (element.type === "checkbox") {
+        return String(element.checked);
+      }
+      if (element.type === "radio") {
+        return (
+          this.getRadioGroupElements(element).find((radio) => radio.checked)
+            ?.value || ""
+        );
+      }
       return element.value || "";
     }
     if (element instanceof HTMLTextAreaElement) {
@@ -505,6 +579,75 @@ export class FieldAnalyzer {
     }
 
     return "text";
+  }
+
+  private extractOptions(
+    element: FormFieldElement,
+    fieldType: FieldType,
+  ): { options?: SelectOption[] } {
+    if (element instanceof HTMLSelectElement) {
+      const options = Array.from(element.options).map((option) => ({
+        value: option.value,
+        label: this.cleanText(option.textContent || ""),
+        element: option,
+      }));
+
+      return options.length > 0 ? { options } : {};
+    }
+
+    if (fieldType === "radio" && element instanceof HTMLInputElement) {
+      const options = this.getRadioGroupElements(element).map((radio) => ({
+        value: radio.value || this.getRadioOptionLabel(radio) || "on",
+        label: this.getRadioOptionLabel(radio),
+        element: radio,
+      }));
+
+      return options.length > 0 ? { options } : {};
+    }
+
+    return {};
+  }
+
+  private getRadioGroupElements(element: HTMLInputElement): HTMLInputElement[] {
+    if (element.type !== "radio") {
+      return [element];
+    }
+
+    const root = element.form ?? document;
+    const name = element.name;
+    if (!name) {
+      return [element];
+    }
+
+    return Array.from(
+      root.querySelectorAll<HTMLInputElement>(
+        `input[type="radio"][name="${CSS.escape(name)}"]`,
+      ),
+    );
+  }
+
+  private getRadioOptionLabel(element: HTMLInputElement): string | null {
+    const parentLabel = element.closest("label");
+    if (parentLabel) {
+      const clone = parentLabel.cloneNode(true) as HTMLLabelElement;
+      for (const input of clone.querySelectorAll("input")) {
+        input.remove();
+      }
+      const text = this.cleanText(clone.textContent || "");
+      if (text) return text;
+    }
+
+    if (element.id) {
+      const label = document.querySelector<HTMLLabelElement>(
+        `label[for="${CSS.escape(element.id)}"]`,
+      );
+      if (label) {
+        const text = this.cleanText(label.textContent || "");
+        if (text) return text;
+      }
+    }
+
+    return this.cleanText(element.getAttribute("aria-label") || "");
   }
 
   private inferFieldPurposeFromMetadata(

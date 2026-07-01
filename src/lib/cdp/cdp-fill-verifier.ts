@@ -156,7 +156,7 @@ async function verifyRadioGroup(
   };
 }
 
-function verifyByRole(
+export function verifySnapshotByRole(
   role: CDPFieldRole,
   expectedValue: string,
   snapshot: FieldSnapshot,
@@ -171,7 +171,7 @@ function verifyByRole(
         return {
           verified: false,
           actualValue: String(snapshot.checked),
-          reason: `Non-boolean value "${expectedValue}" for checkbox-like field`,
+          reason: "Non-boolean fill value for checkbox-like field",
         };
       }
       const isChecked = snapshot.checked === true;
@@ -233,5 +233,5 @@ export async function verifyFilledField(
     };
   }
 
-  return verifyByRole(field.role, expectedValue, snapshot);
+  return verifySnapshotByRole(field.role, expectedValue, snapshot);
 }

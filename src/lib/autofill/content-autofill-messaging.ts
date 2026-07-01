@@ -5,6 +5,7 @@ import type {
   CapturedFieldData,
   DetectFormsResult,
   FieldsToFillData,
+  FillFieldsResult,
   PreviewSidebarPayload,
 } from "@/types/autofill";
 import type { FillSession, FormMapping } from "@/types/memory";
@@ -22,11 +23,13 @@ export interface ShowToastData {
 interface ContentAutofillProtocolMap {
   detectForms: () => Promise<DetectFormsResult>;
   collectAllFrameForms: (data: { requestId: string }) => void;
-  fillFields: (data: { fieldsToFill: FieldsToFillData }) => void;
+  fillFields: (data: { fieldsToFill: FieldsToFillData }) => FillFieldsResult;
   showPreview: (data: PreviewSidebarPayload) => boolean;
   closePreview: () => boolean;
   updateProgress: (progress: AutofillProgress) => boolean;
-  broadcastFillToAllFrames: (data: { fieldsToFill: FieldsToFillData }) => void;
+  broadcastFillToAllFrames: (data: {
+    fieldsToFill: FieldsToFillData;
+  }) => FillFieldsResult;
   frameFormsDetected: (data: {
     requestId: string;
     result: DetectFormsResult;

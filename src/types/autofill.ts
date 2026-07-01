@@ -6,7 +6,11 @@ export type TrackableFieldType = (typeof TRACKABLE_FIELD_TYPES)[number];
 export type FormOpId = `__form__${string}` & {
   readonly __brand: unique symbol;
 };
-export type FieldOpId = (`__${number}` | `cdp-${string}`) & {
+export type FieldOpId = (
+  | `__${number}`
+  | `__frame_${string}__field_${number}`
+  | `cdp-${string}`
+) & {
   readonly __brand: unique symbol;
 };
 
@@ -70,7 +74,7 @@ export interface DetectedFieldSnapshot
 export interface SelectOption {
   value: string;
   label: string | null;
-  element: HTMLOptionElement;
+  element: HTMLOptionElement | HTMLInputElement;
 }
 
 export interface SelectOptionSnapshot {
@@ -129,9 +133,16 @@ export type FieldType =
 
 export type FieldPurpose =
   | "name"
+  | "name.first"
+  | "name.middle"
+  | "name.last"
   | "email"
   | "phone"
   | "address"
+  | "address.full"
+  | "address.line1"
+  | "address.line2"
+  | "address.line3"
   | "city"
   | "state"
   | "zip"
@@ -152,6 +163,22 @@ export interface CompressedFieldData {
   purpose: FieldPurpose;
   labels: string[];
   context: string;
+  autocompleteTokens?: string[];
+  options?: SelectOptionSnapshot[];
+}
+
+export interface NormalizedField {
+  opid: string;
+  highlightIndex: number | null;
+  source: "dom" | "cdp";
+  type: FieldType;
+  purpose: FieldPurpose;
+  labels: string[];
+  context: string;
+  autocomplete: string | null;
+  autocompleteTokens: string[];
+  currentValue: string;
+  required: boolean;
   options?: SelectOptionSnapshot[];
 }
 
@@ -180,6 +207,7 @@ export interface AutofillResult {
 export interface PreviewFieldData {
   fieldOpid: FieldOpId;
   formOpid: FormOpId;
+  frameId?: number | string;
   metadata: FieldMetadataSnapshot;
   mapping: FieldMapping;
   primaryLabel: string;
@@ -262,8 +290,26 @@ export type FieldsToFillData = Array<{
   fieldOpid: FieldOpId;
   value: string;
   confidence?: number;
+  frameId?: number | string;
   cdpField?: CDPDetectedField;
 }>;
+
+export type FieldFillOutcomeStatus = "filled" | "failed" | "skipped";
+
+export type FieldFillOutcome = {
+  readonly fieldOpid: FieldOpId;
+  readonly status: FieldFillOutcomeStatus;
+  readonly verified: boolean;
+  readonly reason?: string;
+};
+
+export type FillFieldsResult = {
+  readonly outcomes: readonly FieldFillOutcome[];
+  readonly succeeded: number;
+  readonly failed: number;
+  readonly skipped: number;
+  readonly ok: boolean;
+};
 
 // --- CDP (Chrome DevTools Protocol) types ---
 

@@ -1,5 +1,13 @@
 # superfill.ai
 
+## 1.0.1
+
+### Patch Changes
+
+- [#123](https://github.com/superfill-ai/superfill.ai/pull/123) [`f03fb76`](https://github.com/superfill-ai/superfill.ai/commit/f03fb762ce60f3bbcb13f85dc4ade6bd5c4b68d1) Thanks [@mikr13](https://github.com/mikr13)! - feat: implement update tour logic and options page handling
+
+- [#124](https://github.com/superfill-ai/superfill.ai/pull/124) [`2ba2ded`](https://github.com/superfill-ai/superfill.ai/commit/2ba2ded9cf76968c33a070bbca486d98ecbe0d85) Thanks [@mikr13](https://github.com/mikr13)! - Harden form parsing and fill verification across DOM and CDP paths.
+
 ## 1.0.0
 
 ### Major Changes

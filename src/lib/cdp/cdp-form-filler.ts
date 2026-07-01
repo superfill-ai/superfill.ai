@@ -338,7 +338,10 @@ async function fillContentEditable(
       arguments: [{ value }],
     });
   } catch (error) {
-    logger.error(`Failed to fill contenteditable ${backendNodeId}:`, error);
+    logger.error(
+      `Failed to fill contenteditable ${backendNodeId}:`,
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -350,7 +353,7 @@ async function fillCheckbox(
 ): Promise<void> {
   const expected = parseBooleanLike(value);
   if (expected === null) {
-    logger.warn(`Checkbox ${field.opid} has non-boolean value "${value}"`);
+    logger.warn(`Checkbox ${field.opid} has non-boolean fill value`);
     return;
   }
   const isChecked = await readCheckedState(tabId, backendNodeId);
@@ -383,16 +386,14 @@ async function fillRadioGroup(
   );
 
   if (!target) {
-    logger.warn(
-      `No matching radio option for value "${value}" in group ${field.opid}`,
-    );
+    logger.warn(`No matching radio option in group ${field.opid}`);
     await selectRadioByValue(tabId, backendNodeId, value);
     return;
   }
 
   const currentChecked = await readCheckedState(tabId, target.backendNodeId);
   if (currentChecked === true) {
-    logger.debug(`Radio option "${value}" already selected`);
+    logger.debug(`Radio option already selected in group ${field.opid}`);
     return;
   }
 
@@ -441,7 +442,10 @@ async function selectRadioByValue(
       arguments: [{ value }],
     });
   } catch (error) {
-    logger.debug("Radio fallback selection failed:", error);
+    logger.debug(
+      "Radio fallback selection failed:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -486,8 +490,11 @@ async function waitForStability(
         returnByValue: true,
       },
     );
-  } catch {
-    // Non-critical; proceed even if stability check fails
+  } catch (error) {
+    logger.debug(
+      "Stability check failed before fill:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -519,7 +526,10 @@ async function clickNodeDirect(
       }`,
     });
   } catch (error) {
-    logger.error(`Direct click failed for node ${backendNodeId}:`, error);
+    logger.error(
+      `Direct click failed for node ${backendNodeId}:`,
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -763,7 +773,10 @@ async function fillSlider(
       });
     }
   } catch (error) {
-    logger.error(`Failed to fill slider on node ${backendNodeId}:`, error);
+    logger.error(
+      `Failed to fill slider on node ${backendNodeId}:`,
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 

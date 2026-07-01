@@ -5,9 +5,16 @@ export const FIELD_PURPOSE_KEYWORDS: Record<
   readonly string[]
 > = {
   name: ["name", "fullname", "first", "last", "given", "family"],
+  "name.first": ["first", "given", "forename"],
+  "name.middle": ["middle", "additional"],
+  "name.last": ["last", "family", "surname"],
   email: ["email", "mail", "e-mail", "inbox"],
   phone: ["phone", "tel", "mobile", "cell", "telephone"],
   address: ["address", "street", "addr", "location"],
+  "address.full": ["address", "street", "location", "residence"],
+  "address.line1": ["address", "street", "line1", "line 1"],
+  "address.line2": ["address", "apartment", "suite", "unit", "line2", "line 2"],
+  "address.line3": ["address", "line3", "line 3"],
   city: ["city", "town"],
   state: ["state", "province", "region"],
   zip: ["zip", "postal", "postcode"],

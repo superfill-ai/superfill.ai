@@ -107,7 +107,7 @@ export default defineContentScript({
     } catch (error) {
       logger.error(
         "Failed to load capture settings, disabling capture:",
-        error,
+        error instanceof Error ? error.message : String(error),
       );
       captureSettings = {
         enabled: false,
@@ -134,28 +134,53 @@ export default defineContentScript({
 
       try {
         await captureMemoryManager?.hide();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to hide capture memory manager:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
 
       try {
         unlistenSubmission?.();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to remove submission listener:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       unlistenSubmission = null;
 
       try {
         submissionMonitor?.dispose();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to dispose submission monitor:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       submissionMonitor = null;
 
       if (fieldTracker) {
         try {
           await fieldTracker.clearSession();
-        } catch {}
+        } catch (error) {
+          logger.debug(
+            "Failed to clear field tracking session:",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       }
       fieldTracker = null;
 
       try {
         captureService?.dispose();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to dispose capture service:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       captureService = null;
 
       captureMemoryManager = null;
@@ -228,8 +253,13 @@ export default defineContentScript({
                 return;
               }
 
-              const trackedFields =
-                await currentFieldTracker.getCapturedFields();
+              const trackedFields = (
+                await currentFieldTracker.getCapturedFields()
+              ).filter(
+                (field) =>
+                  submittedFieldOpids.size === 0 ||
+                  submittedFieldOpids.has(field.fieldOpid),
+              );
 
               if (trackedFields.length === 0) {
                 logger.info("No tracked fields to capture");
@@ -256,12 +286,18 @@ export default defineContentScript({
 
               await currentCaptureMemoryManager.show(ctx, capturedFields);
             } catch (error) {
-              logger.error("Error processing form submission:", error);
+              logger.error(
+                "Error processing form submission:",
+                error instanceof Error ? error.message : String(error),
+              );
             }
           },
         );
       } catch (error) {
-        logger.error("Failed to start auto capture:", error);
+        logger.error(
+          "Failed to start auto capture:",
+          error instanceof Error ? error.message : String(error),
+        );
         await stopAutoCapture("initialization failure");
       }
     };
@@ -291,7 +327,7 @@ export default defineContentScript({
         } catch (error) {
           logger.error(
             "Failed to reload capture settings after change, disabling capture:",
-            error,
+            error instanceof Error ? error.message : String(error),
           );
           captureSettings = {
             enabled: false,
@@ -329,7 +365,10 @@ export default defineContentScript({
           logger,
         });
       } catch (error) {
-        logger.error("Error checking right-click guide eligibility:", error);
+        logger.error(
+          "Error checking right-click guide eligibility:",
+          error instanceof Error ? error.message : String(error),
+        );
         return;
       }
 
@@ -338,7 +377,10 @@ export default defineContentScript({
       try {
         await rightClickGuideManager.show(ctx);
       } catch (error) {
-        logger.error("Error showing right-click guide:", error);
+        logger.error(
+          "Error showing right-click guide:",
+          error instanceof Error ? error.message : String(error),
+        );
       }
     };
 
@@ -392,7 +434,7 @@ export default defineContentScript({
         `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
       );
 
-      await handleFill(fieldsToFill, frameInfo, formDetectionService);
+      return await handleFill(fieldsToFill, frameInfo, formDetectionService);
     });
 
     contentAutofillMessaging.onMessage("closePreview", async () => {
@@ -429,16 +471,31 @@ export default defineContentScript({
     ctx.onInvalidated(() => {
       try {
         formDetectionService.dispose();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to dispose form detection service:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
 
       try {
         unwatchCaptureSettings?.();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to unwatch capture settings:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       unwatchCaptureSettings = null;
 
       try {
         unlistenSubmission?.();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to remove submission listener during invalidation:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       unlistenSubmission = null;
 
       if (fieldTracker) {
@@ -456,7 +513,12 @@ export default defineContentScript({
 
       try {
         cleanupGuideListener();
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Failed to clean up right-click guide listener:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
     });
   },
 });

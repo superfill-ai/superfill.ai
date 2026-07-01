@@ -10,6 +10,13 @@ import {
 } from "@/lib/autofill/capture-memory-service";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
 import {
+  buildFillFieldsResult,
+  buildSkippedFieldOutcome,
+  collapseFrameFillResults,
+  mapCDPFillOutcome,
+  partitionFieldsByFrame,
+} from "@/lib/autofill/fill-routing";
+import {
   getSessionService,
   registerSessionService,
 } from "@/lib/autofill/session-service";
@@ -23,6 +30,7 @@ import {
 import { storage } from "@/lib/storage";
 import { getSyncService, registerSyncService } from "@/lib/sync/sync-service";
 import { hasUpdateTour } from "@/lib/tours/version-updates";
+import type { FieldFillOutcome } from "@/types/autofill";
 import type { AuthSuccessMessage, Message } from "@/types/message";
 import { migrateAISettings } from "./lib/migrate-settings-handler";
 
@@ -64,7 +72,10 @@ export default defineBackground({
           logger.info("Context menu removed");
         }
       } catch (error) {
-        logger.error("Failed to update context menu:", error);
+        logger.error(
+          "Failed to update context menu:",
+          error instanceof Error ? error.message : String(error),
+        );
       }
     };
 
@@ -85,7 +96,10 @@ export default defineBackground({
         try {
           await autofillService.startAutofillOnActiveTab();
         } catch (error) {
-          logger.error("Context menu autofill failed:", error);
+          logger.error(
+            "Context menu autofill failed:",
+            error instanceof Error ? error.message : String(error),
+          );
         }
       }
     });
@@ -124,7 +138,10 @@ export default defineBackground({
       try {
         await browser.runtime.openOptionsPage();
       } catch (error) {
-        logger.error(`Failed to open options page after ${source}:`, error);
+        logger.error(
+          `Failed to open options page after ${source}:`,
+          error instanceof Error ? error.message : String(error),
+        );
       }
     };
 
@@ -218,7 +235,7 @@ export default defineBackground({
         const tabId = sender.tab?.id;
         if (!tabId) {
           logger.error("No tab ID in sender for broadcastFillToAllFrames");
-          return;
+          return buildFillFieldsResult([]);
         }
 
         const cdpFields = data.fieldsToFill.filter((f) =>
@@ -227,12 +244,13 @@ export default defineBackground({
         const domFields = data.fieldsToFill.filter(
           (f) => !f.fieldOpid.startsWith("cdp-"),
         );
+        const cdpOutcomes: FieldFillOutcome[] = [];
 
         if (cdpFields.length > 0) {
           logger.info(`Routing ${cdpFields.length} CDP fields to CDP filler`);
           try {
             const autofillService = getAutofillService();
-            await autofillService.executeCDPFill(
+            const cdpSummary = await autofillService.executeCDPFill(
               tabId,
               cdpFields.map((f) => ({
                 fieldOpid: f.fieldOpid,
@@ -240,8 +258,13 @@ export default defineBackground({
                 cdpField: f.cdpField,
               })),
             );
+            const cdpResult = buildFillFieldsResult(
+              cdpSummary.outcomes.map(mapCDPFillOutcome),
+            );
+            cdpOutcomes.push(...cdpResult.outcomes);
           } catch (error) {
             logger.error("CDP fill failed:", error);
+            throw error;
           }
         }
 
@@ -250,12 +273,41 @@ export default defineBackground({
             `Broadcasting fill command to all frames in tab ${tabId} for ${domFields.length} fields`,
           );
 
-          contentAutofillMessaging
-            .sendMessage("fillFields", { fieldsToFill: domFields }, tabId)
-            .catch((error) => {
-              logger.error("Failed to broadcast fill command:", error);
-            });
+          const frameTargets = partitionFieldsByFrame(domFields);
+          const frameResults = await Promise.all(
+            frameTargets.map(async ({ fields, frameId }) => {
+              try {
+                return await contentAutofillMessaging.sendMessage(
+                  "fillFields",
+                  { fieldsToFill: fields },
+                  { tabId, frameId },
+                );
+              } catch (error) {
+                logger.warn(
+                  `Failed to fill fields in frame ${frameId}:`,
+                  error instanceof Error ? error.message : String(error),
+                );
+                return buildFillFieldsResult(
+                  fields.map((field) =>
+                    buildSkippedFieldOutcome(
+                      field.fieldOpid,
+                      `Frame ${frameId} did not respond to fill request`,
+                    ),
+                  ),
+                );
+              }
+            }),
+          );
+
+          const domResult = collapseFrameFillResults(domFields, frameResults);
+          if (cdpFields.length === 0) {
+            return domResult;
+          }
+
+          return buildFillFieldsResult([...cdpOutcomes, ...domResult.outcomes]);
         }
+
+        return buildFillFieldsResult(cdpOutcomes);
       },
     );
 
@@ -290,7 +342,10 @@ export default defineBackground({
           logger.info("Captured memories saved:", result);
           return result;
         } catch (error) {
-          logger.error("Failed to save captured memories:", error);
+          logger.error(
+            "Failed to save captured memories:",
+            error instanceof Error ? error.message : String(error),
+          );
           return { success: false, savedCount: 0 };
         }
       },

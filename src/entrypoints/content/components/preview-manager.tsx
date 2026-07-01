@@ -18,6 +18,7 @@ import type {
   DetectedFormSnapshot,
   FieldMapping,
   FieldOpId,
+  FillFieldsResult,
   FormOpId,
   PreviewFieldData,
   PreviewSidebarPayload,
@@ -32,6 +33,14 @@ const HOST_ID = "superfill-autofill-preview";
 const HIGHLIGHT_CLASS = "superfill-autofill-highlight";
 const HIGHLIGHT_DARK_CLASS = "superfill-autofill-highlight-dark";
 const HIGHLIGHT_STYLE_ID = "superfill-autofill-highlight-style";
+
+const getFillFailureMessage = (result: FillFieldsResult): string => {
+  const failedOutcome = result.outcomes.find(
+    (outcome) => outcome.status !== "filled",
+  );
+
+  return failedOutcome?.reason ?? "One or more fields could not be filled.";
+};
 
 const ensureHighlightStyle = () => {
   if (document.getElementById(HIGHLIGHT_STYLE_ID)) {
@@ -95,6 +104,7 @@ const buildPreviewFields = (
       return {
         fieldOpid: field.opid,
         formOpid: field.formOpid,
+        frameId: field.frameId,
         metadata: field.metadata,
         mapping,
         primaryLabel: getPrimaryLabel(field.metadata),
@@ -278,22 +288,36 @@ export class PreviewSidebarManager {
       fieldOpid: FieldOpId;
       value: string;
       confidence?: number;
+      frameId?: number | string;
     }[],
   ) {
     try {
       const frameInfo = getFrameInfo();
+      let fillResult: FillFieldsResult;
 
       if (frameInfo.isMainFrame) {
-        await contentAutofillMessaging.sendMessage("broadcastFillToAllFrames", {
-          fieldsToFill: fieldsToFill.map((f) => ({
-            ...f,
-            cdpField: this.cdpFieldLookup.get(f.fieldOpid) ?? undefined,
-          })),
-        });
+        fillResult = await contentAutofillMessaging.sendMessage(
+          "broadcastFillToAllFrames",
+          {
+            fieldsToFill: fieldsToFill.map((f) => ({
+              ...f,
+              cdpField: this.cdpFieldLookup.get(f.fieldOpid) ?? undefined,
+            })),
+          },
+        );
       } else {
-        await fillFields(fieldsToFill, frameInfo, {
+        fillResult = await fillFields(fieldsToFill, frameInfo, {
           getCachedField: this.options.getFieldMetadata,
         });
+      }
+
+      if (!fillResult.ok) {
+        await this.showProgress({
+          state: "failed",
+          message: "Some fields could not be auto-filled.",
+          error: getFillFailureMessage(fillResult),
+        });
+        return;
       }
     } catch (error) {
       logger.error("Failed to fill fields:", error);
@@ -340,7 +364,10 @@ export class PreviewSidebarManager {
 
         logger.info("Session completed:", this.sessionId);
       } catch (error) {
-        logger.error("Failed to complete session:", error);
+        logger.error(
+          "Failed to complete session:",
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
 
@@ -398,7 +425,10 @@ export class PreviewSidebarManager {
 
       return formMappings;
     } catch (error) {
-      logger.error("Failed to build form mappings:", error);
+      logger.error(
+        "Failed to build form mappings:",
+        error instanceof Error ? error.message : String(error),
+      );
       return [];
     }
   }
@@ -476,8 +506,11 @@ export class PreviewSidebarManager {
         );
 
         if (nestedMatch) return nestedMatch;
-      } catch {
-        // Cross-origin frame; ignore.
+      } catch (error) {
+        logger.debug(
+          "Skipping inaccessible child frame:",
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
     return null;

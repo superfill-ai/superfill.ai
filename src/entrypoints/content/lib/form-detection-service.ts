@@ -30,11 +30,19 @@ const ignoredTypes = new Set([
   "button",
   "image",
   "file",
-  "radio",
-  "checkbox",
   "color",
   "range",
 ]);
+
+const createFrameScope = (): string => {
+  const prefix = window.self === window.top ? "main" : "child";
+  const random =
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+      : Math.random().toString(36).slice(2, 14);
+
+  return `${prefix}_${random}`;
+};
 
 export class FormDetectionService {
   private fieldOpidCounter = 0;
@@ -44,6 +52,7 @@ export class FormDetectionService {
   private formCache = new Map<FormOpId, DetectedForm>();
   private detectedElements = new Set<FormFieldElement>();
   private shadowRootFields: DetectedField[] = [];
+  private readonly frameScope = createFrameScope();
 
   constructor(
     private analyzer: FieldAnalyzer,
@@ -80,9 +89,12 @@ export class FormDetectionService {
 
     try {
       DOM_CACHE.clear();
+      this.analyzer.clearCaches();
       this.detectedElements.clear();
       this.shadowRootFields = [];
       this.globalHighlightIndex = 0;
+      this.fieldCache.clear();
+      this.formCache.clear();
 
       const forms = this.detectAll();
       const processedForms = this.filterAndProcessForms(forms);
@@ -125,7 +137,8 @@ export class FormDetectionService {
     const formElements = this.findFormElements();
 
     for (const formElement of formElements) {
-      const formOpid = `__form__${this.formOpidCounter++}` as FormOpId;
+      const formOpid =
+        `__form__${this.frameScope}_${this.formOpidCounter++}` as FormOpId;
       const fields = this.findFieldsInForm(formElement);
       const formName =
         formElement.getAttribute("name") ||
@@ -146,15 +159,17 @@ export class FormDetectionService {
     const allStandaloneFields = [...standaloneFields, ...this.shadowRootFields];
 
     if (allStandaloneFields.length > 0) {
+      const standaloneFormOpid =
+        `__form__${this.frameScope}_standalone_${this.formOpidCounter++}` as FormOpId;
       forms.push({
-        opid: "__form__standalone" as FormOpId,
+        opid: standaloneFormOpid,
         element: null,
         action: "",
         method: "",
         name: "Standalone Fields",
         fields: allStandaloneFields.map((f) => ({
           ...f,
-          formOpid: "__form__standalone" as FormOpId,
+          formOpid: standaloneFormOpid,
         })),
       });
     }
@@ -166,10 +181,10 @@ export class FormDetectionService {
 
   private filterAndProcessForms(forms: DetectedForm[]): DetectedForm[] {
     const stats = createFilterStats();
-    const seenLabels = new Set<string>();
 
     return forms
       .map((form) => {
+        const seenLabels = new Set<string>();
         const filteredFields = form.fields.filter((field) => {
           stats.total++;
 
@@ -280,7 +295,11 @@ export class FormDetectionService {
     const fields: DetectedField[] = [];
 
     for (const element of Array.from(form.elements)) {
-      const fieldElement = element as FormFieldElement;
+      if (!this.isFieldElement(element)) {
+        continue;
+      }
+
+      const fieldElement = element;
 
       if (
         !this.isValidField(fieldElement) ||
@@ -289,7 +308,9 @@ export class FormDetectionService {
         continue;
       }
 
-      fields.push(this.createDetectedField(fieldElement));
+      const detectedField = this.createDetectedField(fieldElement);
+      fields.push(detectedField);
+      this.markRelatedFields(fieldElement, detectedField.opid);
     }
 
     return fields;
@@ -309,7 +330,9 @@ export class FormDetectionService {
 
       if (!element.form && !this.isInsideForm(element, existingForms)) {
         if (this.isValidField(element) && !this.detectedElements.has(element)) {
-          fields.push(this.createDetectedField(element));
+          const detectedField = this.createDetectedField(element);
+          fields.push(detectedField);
+          this.markRelatedFields(element, detectedField.opid);
         }
       }
 
@@ -320,7 +343,8 @@ export class FormDetectionService {
   }
 
   private createDetectedField(element: FormFieldElement): DetectedField {
-    const opid = `__${this.fieldOpidCounter++}` as FieldOpId;
+    const opid =
+      `__frame_${this.frameScope}__field_${this.fieldOpidCounter++}` as FieldOpId;
 
     const field: DetectedField = {
       opid,
@@ -332,6 +356,7 @@ export class FormDetectionService {
 
     field.metadata = this.analyzer.analyzeField(field);
     this.detectedElements.add(element);
+    element.setAttribute("data-superfill-opid", opid);
 
     return field;
   }
@@ -375,7 +400,9 @@ export class FormDetectionService {
       const element = node as FormFieldElement;
 
       if (this.isValidField(element) && !this.detectedElements.has(element)) {
-        this.shadowRootFields.push(this.createDetectedField(element));
+        const detectedField = this.createDetectedField(element);
+        this.shadowRootFields.push(detectedField);
+        this.markRelatedFields(element, detectedField.opid);
       }
 
       node = walker.nextNode();
@@ -399,11 +426,35 @@ export class FormDetectionService {
     return true;
   }
 
-  private isFieldElement(node: Node): boolean {
+  private isFieldElement(node: Node): node is FormFieldElement {
     if (!(node instanceof HTMLElement)) return false;
     const tagName = node.tagName.toLowerCase();
     return (
       tagName === "input" || tagName === "textarea" || tagName === "select"
+    );
+  }
+
+  private markRelatedFields(element: FormFieldElement, opid: FieldOpId): void {
+    if (!(element instanceof HTMLInputElement) || element.type !== "radio") {
+      return;
+    }
+
+    for (const radio of this.getRadioGroupElements(element)) {
+      this.detectedElements.add(radio);
+      radio.setAttribute("data-superfill-opid", opid);
+    }
+  }
+
+  private getRadioGroupElements(element: HTMLInputElement): HTMLInputElement[] {
+    if (element.type !== "radio" || !element.name) {
+      return [element];
+    }
+
+    const root = element.form ?? document;
+    return Array.from(
+      root.querySelectorAll<HTMLInputElement>(
+        `input[type="radio"][name="${CSS.escape(element.name)}"]`,
+      ),
     );
   }
 
@@ -424,7 +475,12 @@ export class FormDetectionService {
           depth++;
           win = win.parent;
         }
-      } catch {}
+      } catch (error) {
+        logger.debug(
+          "Unable to read full frame depth:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       return depth;
     };
 
@@ -457,7 +513,12 @@ export class FormDetectionService {
 
         currentWindow = currentWindow.parent;
       }
-    } catch {}
+    } catch (error) {
+      logger.debug(
+        "Unable to compute iframe offset:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
 
     return { x, y };
   }

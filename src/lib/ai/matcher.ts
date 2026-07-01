@@ -128,7 +128,10 @@ export class AIMatcher {
 
       return mappings;
     } catch (error) {
-      logger.error("AI matching failed, falling back to rule-based:", error);
+      logger.error(
+        "AI matching failed, falling back to rule-based:",
+        error instanceof Error ? error.message : String(error),
+      );
       return await this.fallbackMatcher.matchFields(fields, memories);
     }
   }
@@ -264,7 +267,7 @@ export class AIMatcher {
     For checkbox and switch fields:
     - Return "true" if the checkbox should be checked, "false" if unchecked.
     - Infer the correct state from the user's memories and the field's label/context.
-    - Common patterns: "I agree to terms" → "true" if user has accepted terms, newsletter opt-in based on user preferences.
+    - Do not check legal consent, terms, privacy, certification, authorization, marketing, or newsletter boxes unless a stored memory explicitly says the user wants that exact choice.
     - When uncertain, set value to null rather than guessing.
     
     ## SLIDERS & SPIN BUTTONS
@@ -364,6 +367,10 @@ export class AIMatcher {
           `- labels: ${f.labels.length > 0 ? f.labels.join(", ") : "none"}`,
           `- context: ${f.context || "none"}`,
         ];
+
+        if (f.autocompleteTokens && f.autocompleteTokens.length > 0) {
+          parts.push(`- autocomplete: ${f.autocompleteTokens.join(", ")}`);
+        }
 
         if (f.options && f.options.length > 0) {
           const optionsList = f.options
