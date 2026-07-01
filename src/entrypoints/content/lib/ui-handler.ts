@@ -82,7 +82,10 @@ export const handleUpdateProgress = async (
       return true;
     }
   } catch (error) {
-    logger.error("Error updating progress:", error);
+    logger.error(
+      "Error updating progress:",
+      error instanceof Error ? error.message : String(error),
+    );
     return false;
   }
 };
@@ -98,10 +101,6 @@ export const handleShowPreview = async (
     forms: data.forms.length,
   });
 
-  logger.info("Full payload structure:", {
-    payload: data,
-  });
-
   const settingStore = await storage.aiSettings.getValue();
   let manager: PreviewSidebarManager | AutopilotManager;
 
@@ -115,11 +114,13 @@ export const handleShowPreview = async (
     if (settingStore.autopilotMode && manager instanceof AutopilotManager) {
       logger.info("Autopilot manager created, attempting to show...");
 
-      await manager.processAutofillData(
-        data.mappings,
-        settingStore.confidenceThreshold,
-        data.sessionId,
-      );
+      await manager.processAutofillData({
+        mappings: data.mappings,
+        confidenceThreshold: settingStore.confidenceThreshold,
+        sessionId: data.sessionId,
+        forms: data.forms,
+        cdpFields: data.cdpFields,
+      });
 
       logger.info("Autopilot manager processed data successfully");
     } else if (manager instanceof PreviewSidebarManager) {

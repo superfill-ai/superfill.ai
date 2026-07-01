@@ -254,6 +254,7 @@ export const AutofillContainer = ({
       fieldOpid: FieldOpId;
       value: string;
       confidence?: number;
+      frameId?: number | string;
     }[] = [];
 
     for (const form of data.forms) {
@@ -266,6 +267,7 @@ export const AutofillContainer = ({
               fieldOpid: field.fieldOpid,
               value: valueToFill,
               confidence: field.mapping.confidence,
+              frameId: field.frameId,
             });
           }
         }

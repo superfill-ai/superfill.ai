@@ -7,14 +7,21 @@ import {
 import { handleFill as fillFields } from "@/entrypoints/content/lib/fill-handler";
 import { getFrameInfo } from "@/entrypoints/content/lib/iframe-handler";
 import { contentAutofillMessaging } from "@/lib/autofill/content-autofill-messaging";
+import {
+  type NormalizedFillField,
+  normalizeFieldsToFill,
+} from "@/lib/autofill/field-normalization";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
 import type {
   AutofillProgress,
+  CDPDetectedField,
   DetectedField,
   DetectedFieldSnapshot,
+  DetectedFormSnapshot,
   FieldMapping,
   FieldOpId,
+  FillFieldsResult,
   FormOpId,
 } from "@/types/autofill";
 import type { FilledField, FormMapping } from "@/types/memory";
@@ -25,11 +32,15 @@ const logger = createLogger("autopilot-manager");
 
 const HOST_ID = "superfill-autopilot-ui";
 
-export interface AutopilotFillData {
-  fieldOpid: FieldOpId;
-  value: string;
-  confidence: number;
-}
+const getFillFailureMessage = (result: FillFieldsResult): string => {
+  const failedOutcome = result.outcomes.find(
+    (outcome) => outcome.status !== "filled",
+  );
+
+  return failedOutcome?.reason ?? "One or more fields could not be filled.";
+};
+
+export type AutopilotFillData = NormalizedFillField;
 
 const getPrimaryLabel = (
   metadata: DetectedFieldSnapshot["metadata"],
@@ -58,6 +69,14 @@ type AutopilotManagerOptions = {
   ctx: ContentScriptContext;
   getFieldMetadata: (fieldOpid: FieldOpId) => DetectedField | null;
   getFormMetadata: (formOpid: FormOpId) => { name: string } | null;
+};
+
+type ProcessAutofillDataParams = {
+  readonly mappings: readonly FieldMapping[];
+  readonly confidenceThreshold: number;
+  readonly sessionId: string;
+  readonly forms: readonly DetectedFormSnapshot[];
+  readonly cdpFields?: readonly CDPDetectedField[];
 };
 
 export class AutopilotManager {
@@ -123,7 +142,10 @@ export class AutopilotManager {
         host.classList.add(isDarkMode ? "dark" : "light");
       }
     } catch (error) {
-      logger.warn("Failed to apply theme to autopilot UI:", error);
+      logger.warn(
+        "Failed to apply theme to autopilot UI:",
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -154,15 +176,20 @@ export class AutopilotManager {
 
       logger.info("Showing autopilot progress:", progress.state);
     } catch (error) {
-      logger.error("Failed to show autopilot progress:", error);
+      logger.error(
+        "Failed to show autopilot progress:",
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
-  async processAutofillData(
-    mappings: Array<FieldMapping>,
-    confidenceThreshold: number,
-    sessionId: string,
-  ) {
+  async processAutofillData({
+    mappings,
+    confidenceThreshold,
+    sessionId,
+    forms,
+    cdpFields,
+  }: ProcessAutofillDataParams) {
     try {
       if (mappings.length === 0) {
         logger.warn("No field mappings provided for autopilot processing");
@@ -178,30 +205,19 @@ export class AutopilotManager {
       });
       this.sessionId = sessionId;
 
-      const fieldsToFill: AutopilotFillData[] = [];
-      for (const mapping of mappings) {
-        const valueToFill = mapping.value;
-
-        if (
-          valueToFill !== null &&
-          mapping.confidence >= confidenceThreshold &&
-          mapping.autoFill !== false
-        ) {
-          fieldsToFill.push({
-            fieldOpid: mapping.fieldOpid as FieldOpId,
-            value: valueToFill,
-            confidence: mapping.confidence,
-          });
-        }
-      }
-      this.fieldsToFill = fieldsToFill;
+      this.fieldsToFill = normalizeFieldsToFill({
+        mappings,
+        confidenceThreshold,
+        detectedFields: forms.flatMap((form) => form.fields),
+        cdpFields,
+      });
 
       logger.info(
         `Prepared ${this.fieldsToFill.length} fields for autopilot fill`,
       );
 
       const formMappings = await this.buildFormMappings(
-        this.fieldsToFill.map((f) => f.fieldOpid) as FieldOpId[],
+        this.fieldsToFill.map((f) => f.fieldOpid),
       );
 
       if (formMappings.length > 0) {
@@ -213,7 +229,10 @@ export class AutopilotManager {
 
       await this.executeAutofill();
     } catch (error) {
-      logger.error("Failed to process autopilot data:", error);
+      logger.error(
+        "Failed to process autopilot data:",
+        error instanceof Error ? error.message : String(error),
+      );
       return [];
     }
   }
@@ -237,18 +256,28 @@ export class AutopilotManager {
 
       try {
         const frameInfo = getFrameInfo();
+        let fillResult: FillFieldsResult;
 
         if (frameInfo.isMainFrame) {
-          await contentAutofillMessaging.sendMessage(
+          fillResult = await contentAutofillMessaging.sendMessage(
             "broadcastFillToAllFrames",
             {
               fieldsToFill: this.fieldsToFill,
             },
           );
         } else {
-          await fillFields(this.fieldsToFill, frameInfo, {
+          fillResult = await fillFields(this.fieldsToFill, frameInfo, {
             getCachedField: this.options.getFieldMetadata,
           });
+        }
+
+        if (!fillResult.ok) {
+          await this.showProgress({
+            state: "failed",
+            message: "Auto-fill failed",
+            error: getFillFailureMessage(fillResult),
+          });
+          return false;
         }
       } catch (error) {
         logger.error("Failed to fill fields:", error);
@@ -306,7 +335,10 @@ export class AutopilotManager {
 
       logger.info(`Session ${this.sessionId} completed successfully`);
     } catch (error) {
-      logger.error("Failed to complete autopilot session:", error);
+      logger.error(
+        "Failed to complete autopilot session:",
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -384,7 +416,10 @@ export class AutopilotManager {
 
       return formMappings;
     } catch (error) {
-      logger.error("Failed to build form mappings:", error);
+      logger.error(
+        "Failed to build form mappings:",
+        error instanceof Error ? error.message : String(error),
+      );
       return [];
     }
   }

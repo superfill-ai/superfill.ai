@@ -1,256 +1,66 @@
-import { delay } from "@/lib/delay";
+import type { DomFillResult } from "@/entrypoints/content/lib/dom-fill-result";
+import { fillDomElement } from "@/entrypoints/content/lib/dom-fill-verification";
+import {
+  buildFillFieldsResult,
+  buildSkippedFieldOutcome,
+  FIELD_NOT_IN_CACHE_REASON,
+} from "@/lib/autofill/fill-routing";
 import { createLogger } from "@/lib/logger";
 import type {
   DetectedField,
+  FieldFillOutcome,
   FieldOpId,
   FieldsToFillData,
+  FillFieldsResult,
 } from "@/types/autofill";
 
 const logger = createLogger("fill-handler");
+const FIELD_DETACHED_REASON = "Field is no longer connected to the DOM";
 
-const fillWithHumanTyping = async (
-  element: HTMLInputElement | HTMLTextAreaElement,
-  value: string,
-): Promise<boolean> => {
-  try {
-    element.focus();
-    element.value = "";
-    element.dispatchEvent(new Event("focus", { bubbles: true }));
-    element.dispatchEvent(new Event("input", { bubbles: true }));
+const isFieldConnected = (field: DetectedField): boolean =>
+  field.element.isConnected;
 
-    await delay(50);
-
-    for (let i = 0; i < value.length; i++) {
-      const char = value[i];
-
-      element.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: char,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-
-      element.value = value.substring(0, i + 1);
-
-      element.dispatchEvent(
-        new InputEvent("input", {
-          bubbles: true,
-          data: char,
-          inputType: "insertText",
-        }),
-      );
-
-      element.dispatchEvent(
-        new KeyboardEvent("keyup", {
-          key: char,
-          bubbles: true,
-        }),
-      );
-
-      await delay(30 + Math.random() * 20);
-    }
-
-    await delay(50);
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-    element.dispatchEvent(new Event("blur", { bubbles: true }));
-
-    return true;
-  } catch (error) {
-    logger.info("Human typing failed:", error);
-    return false;
-  }
-};
-
-const fillWithNativeSetter = (
-  element: HTMLInputElement | HTMLTextAreaElement,
-  value: string,
-): void => {
-  const proto =
-    element instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
-  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-
-  if (nativeSetter) {
-    nativeSetter.call(element, value);
-  } else {
-    element.value = value;
+const getFillOutcomeStatus = (result: DomFillResult): "failed" | "skipped" => {
+  if (result.attempted) {
+    return "failed";
   }
 
-  element.dispatchEvent(new Event("input", { bubbles: true }));
-  element.dispatchEvent(new Event("change", { bubbles: true }));
+  return "skipped";
 };
 
-const fillReactSelect = async (
-  element: HTMLInputElement,
-  value: string,
-): Promise<boolean> => {
-  try {
-    logger.info(`React Select: attempting to fill with value "${value}"`);
+const buildFillOutcome = (
+  fieldOpid: FieldOpId,
+  result: DomFillResult,
+): FieldFillOutcome => {
+  if (result.verified) {
+    return {
+      fieldOpid,
+      status: "filled",
+      verified: true,
+    };
+  }
 
-    const selectContainer = element.closest(
-      '.select, .select__container, [class*="select"]',
-    );
-    if (selectContainer) {
-      const hiddenInput = selectContainer.querySelector<HTMLInputElement>(
-        'input[type="hidden"], input[aria-hidden="true"], input[tabindex="-1"]:not([role])',
+  return {
+    fieldOpid,
+    reason: result.reason ?? "DOM fill could not be verified",
+    status: getFillOutcomeStatus(result),
+    verified: false,
+  };
+};
+
+const logFillOutcome = (outcome: FieldFillOutcome): void => {
+  switch (outcome.status) {
+    case "filled":
+      logger.info(`Verified fill for field ${outcome.fieldOpid}`);
+      return;
+    case "failed":
+      logger.warn(
+        `Failed to verify fill for field ${outcome.fieldOpid}: ${outcome.reason}`,
       );
-      if (hiddenInput && hiddenInput !== element) {
-        logger.info(`React Select: found hidden input, setting value directly`);
-
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-          HTMLInputElement.prototype,
-          "value",
-        )?.set;
-        if (nativeInputValueSetter) {
-          nativeInputValueSetter.call(hiddenInput, value);
-        } else {
-          hiddenInput.value = value;
-        }
-
-        hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
-        hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    }
-
-    element.focus();
-
-    element.dispatchEvent(
-      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-    );
-    await delay(50);
-
-    const controlContainer = element.closest('[class*="control"]');
-    if (controlContainer) {
-      controlContainer.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
-    }
-
-    await delay(200);
-
-    let menuEl: Element | null = null;
-
-    const listboxId = element.getAttribute("aria-controls");
-    if (listboxId) {
-      menuEl = document.getElementById(listboxId);
-    }
-
-    if (!menuEl) {
-      menuEl = document.querySelector(
-        '[class*="menu"]:not([class*="menu-"]), [class*="-menu"], .select__menu',
-      );
-    }
-
-    logger.info(`React Select: menu found: ${!!menuEl}`);
-
-    let options: NodeListOf<HTMLElement> | HTMLElement[] = [];
-
-    if (menuEl) {
-      options = menuEl.querySelectorAll<HTMLElement>(
-        '[class*="option"], [role="option"]',
-      );
-    } else {
-      options = document.querySelectorAll<HTMLElement>(
-        '[class*="select__option"], [id*="react-select"][id*="option"]',
-      );
-    }
-
-    logger.info(`React Select: found ${options.length} options`);
-
-    const normalizedValue = value.toLowerCase().trim();
-    let matchedOption: HTMLElement | null = null;
-
-    for (const option of options) {
-      const optionText = option.textContent?.toLowerCase().trim() || "";
-      logger.info(`React Select: checking option "${optionText}"`);
-
-      if (optionText === normalizedValue) {
-        matchedOption = option;
-        break;
-      }
-      if (!matchedOption && optionText.includes(normalizedValue)) {
-        matchedOption = option;
-      }
-    }
-
-    if (matchedOption) {
-      logger.info(
-        `React Select: clicking matched option "${matchedOption.textContent}"`,
-      );
-      matchedOption.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
-      await delay(50);
-      matchedOption.click();
-      return true;
-    }
-
-    logger.info("React Select: no direct match, trying to type and filter");
-
-    element.value = "";
-    element.dispatchEvent(
-      new InputEvent("input", {
-        bubbles: true,
-        data: "",
-        inputType: "deleteContentBackward",
-      }),
-    );
-
-    for (const char of value) {
-      element.dispatchEvent(
-        new KeyboardEvent("keydown", { key: char, bubbles: true }),
-      );
-      element.value += char;
-      element.dispatchEvent(
-        new InputEvent("input", {
-          bubbles: true,
-          data: char,
-          inputType: "insertText",
-        }),
-      );
-      await delay(30);
-    }
-
-    await delay(200);
-
-    const filteredOptions = document.querySelectorAll<HTMLElement>(
-      '[class*="select__option"], [id*="react-select"][id*="option"], [role="option"]',
-    );
-
-    logger.info(
-      `React Select: found ${filteredOptions.length} filtered options`,
-    );
-
-    if (filteredOptions.length > 0) {
-      const firstOption = filteredOptions[0];
-      logger.info(
-        `React Select: clicking first filtered option "${firstOption.textContent}"`,
-      );
-      firstOption.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
-      await delay(50);
-      firstOption.click();
-      return true;
-    }
-
-    element.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-      }),
-    );
-
-    logger.info(`React Select: pressed Enter as fallback`);
-    return true;
-  } catch (error) {
-    logger.error("Error filling React Select:", error);
-    return false;
+      return;
+    case "skipped":
+      logger.warn(`Skipped field ${outcome.fieldOpid}: ${outcome.reason}`);
+      return;
   }
 };
 
@@ -260,64 +70,46 @@ export const handleFill = async (
   formDetectionService: {
     getCachedField: (opid: FieldOpId) => DetectedField | null;
   },
-) => {
+): Promise<FillFieldsResult> => {
   logger.info(
     `Filling ${fieldsToFill.length} fields in ${frameInfo.isMainFrame ? "main frame" : "iframe"}`,
   );
 
+  const outcomes: FieldFillOutcome[] = [];
+
   for (const { fieldOpid, value } of fieldsToFill) {
-    const field = formDetectionService.getCachedField(fieldOpid as FieldOpId);
+    const field = formDetectionService.getCachedField(fieldOpid);
 
     if (!field) {
-      logger.warn(`Field ${fieldOpid} not in cache, skipping`);
+      const outcome = buildSkippedFieldOutcome(
+        fieldOpid,
+        FIELD_NOT_IN_CACHE_REASON,
+      );
+      outcomes.push(outcome);
+      logFillOutcome(outcome);
       continue;
     }
 
-    const element = field.element;
-
-    if (element instanceof HTMLInputElement) {
-      element.focus({ preventScroll: true });
-
-      if (element.getAttribute("role") === "combobox") {
-        await fillReactSelect(element, value);
-      } else {
-        const success = await fillWithHumanTyping(element, value);
-        if (!success) {
-          fillWithNativeSetter(element, value);
-        }
-      }
-    } else if (element instanceof HTMLTextAreaElement) {
-      element.focus({ preventScroll: true });
-      const success = await fillWithHumanTyping(element, value);
-      if (!success) {
-        fillWithNativeSetter(element, value);
-      }
-    } else if (element instanceof HTMLSelectElement) {
-      const normalizedValue = value.toLowerCase();
-      let matched = false;
-
-      for (const option of Array.from(element.options)) {
-        if (
-          option.value.toLowerCase() === normalizedValue ||
-          option.text.toLowerCase() === normalizedValue
-        ) {
-          option.selected = true;
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        logger.warn(
-          `Select element ${element.name || element.id || "(unnamed)"} has no option matching value "${value}". Setting value directly.`,
-        );
-        element.value = value;
-      }
-
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
+    if (!isFieldConnected(field)) {
+      const outcome = buildSkippedFieldOutcome(
+        fieldOpid,
+        FIELD_DETACHED_REASON,
+      );
+      outcomes.push(outcome);
+      logFillOutcome(outcome);
+      continue;
     }
 
-    logger.info(`Filled field ${fieldOpid} with value`);
+    const result = await fillDomElement(field.element, value);
+    const outcome = buildFillOutcome(fieldOpid, result);
+
+    outcomes.push(outcome);
+    logFillOutcome(outcome);
   }
+
+  const summary = buildFillFieldsResult(outcomes);
+  logger.info(
+    `Fill completed: ${summary.succeeded} verified, ${summary.failed} failed, ${summary.skipped} skipped`,
+  );
+  return summary;
 };
