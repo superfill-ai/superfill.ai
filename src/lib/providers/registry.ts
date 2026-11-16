@@ -56,12 +56,12 @@ export const PROVIDER_REGISTRY = {
   gemini: {
     id: "gemini",
     name: "Google Gemini",
-    keyPrefix: "AIza",
-    keyPlaceholder: "AIza...",
+    keyPrefix: "AQ",
+    keyPlaceholder: "AQ...",
     description: "Google Gemini models with large context windows",
     requiresApiKey: true,
     apiKeyUrl: "https://aistudio.google.com/app/api-keys",
-    validateKey: (key: string) => key.startsWith("AIza") && key.length > 20,
+    validateKey: (key: string) => key.startsWith("AQ") && key.length > 20,
   },
   ollama: {
     id: "ollama",
