@@ -37,7 +37,7 @@ export const getAIModel = (
 
   if (provider === "gemini") {
     const google = createGoogleGenerativeAI({ apiKey });
-    return google(model || "gemini-2.5-flash");
+    return google(model || "gemini-3.1-flash-lite");
   }
 
   if (provider === "ollama") {
@@ -64,7 +64,7 @@ const defaults: Record<AIProvider, string> = {
   anthropic: "claude-haiku-4-5-20251001",
   groq: "openai/gpt-oss-20b",
   deepseek: "deepseek-chat",
-  gemini: "models/gemini-2.5-flash",
+  gemini: "models/gemini-3.1-flash-lite",
   ollama: "llama3.2",
 };
 

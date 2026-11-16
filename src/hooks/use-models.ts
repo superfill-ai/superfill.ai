@@ -24,7 +24,7 @@ export const useDefaultModel = (provider: AIProvider): string => {
     anthropic: "claude-haiku-4-5-latest",
     groq: "llama-4-maverick",
     deepseek: "deepseek-v3",
-    gemini: "gemini-2.5-flash",
+    gemini: "gemini-3.1-flash-lite",
     ollama: "llama3.2",
   };
   return defaults[provider];

@@ -66,8 +66,8 @@ const DEFAULT_MODELS: Record<AIProvider, ModelInfo[]> = {
   deepseek: [{ id: "deepseek-chat", name: "DeepSeek Chat" }],
   gemini: [
     {
-      id: "models/gemini-2.5-flash",
-      name: "Gemini 2.5 Flash",
+      id: "models/gemini-3.1-flash-lite",
+      name: "Gemini 3.1 Flash Lite",
     },
   ],
   ollama: [
